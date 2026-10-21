@@ -142,7 +142,7 @@ footer{font-size:.72rem;color:var(--grijs);margin:18px 0 40px;border-top:2px sol
 
 
   <details class="instel" id="instel"><summary>⚙️ OneDrive-instellingen</summary>
-    <p>Eenmalig invullen. Client-ID haal je uit je eigen app-registratie in Microsoft Entra (zie uitleg in de chat).</p>
+    <p>Client-ID en tenant zijn al ingevuld (app “EE Beslisschema’s” in Entra). Stel hier eventueel de map met projecten en een submap in.</p>
     <div class="rij">
       <div><label for="cfg-client">Client-ID (Application ID)</label><input class="mini" type="text" id="cfg-client" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></div>
       <div><label for="cfg-tenant">Tenant</label><input class="mini" type="text" id="cfg-tenant" placeholder="common"></div>
@@ -609,13 +609,14 @@ function downloadPdf(){
 /* ============ ONEDRIVE (eigen app-registratie) ============ */
 const GRAPH = 'https://graph.microsoft.com/v1.0';
 const SCOPES = ['Files.ReadWrite','User.Read'];
-let cfg = {client:'', tenant:'common', root:'', sub:''};
+const CFG_STANDAARD = {client:'ec1a4865-d58e-4e28-938a-56e0b93ab215', tenant:'DeLaatBouwbegeleiding329.onmicrosoft.com', root:'', sub:''};
+let cfg = {...CFG_STANDAARD};
 let msal = null, account = null, odProject = null;   // odProject: {id, naam, pad}
 
-function leesCfg(){ try{ Object.assign(cfg, JSON.parse(localStorage.getItem('ee_od_cfg')||'{}')); odProject = JSON.parse(localStorage.getItem('ee_od_project')||'null'); }catch(e){} }
-function toonCfg(){ $('cfg-client').value=cfg.client; $('cfg-tenant').value=cfg.tenant==='common'?'':cfg.tenant; $('cfg-root').value=cfg.root; $('cfg-sub').value=cfg.sub; }
+function leesCfg(){ try{ const o=JSON.parse(localStorage.getItem('ee_od_cfg')||'{}'); for(const k in o){ if(o[k] || k==='root' || k==='sub') cfg[k]=o[k]; } odProject = JSON.parse(localStorage.getItem('ee_od_project')||'null'); }catch(e){} }
+function toonCfg(){ $('cfg-client').value=cfg.client; $('cfg-tenant').value=cfg.tenant; $('cfg-root').value=cfg.root; $('cfg-sub').value=cfg.sub; }
 $('cfg-ok').onclick = async () => {
-  cfg = {client:$('cfg-client').value.trim(), tenant:$('cfg-tenant').value.trim()||'common',
+  cfg = {client:$('cfg-client').value.trim()||CFG_STANDAARD.client, tenant:$('cfg-tenant').value.trim()||CFG_STANDAARD.tenant,
          root:$('cfg-root').value.trim().replace(/^\/+|\/+$/g,''), sub:$('cfg-sub').value.trim().replace(/^\/+|\/+$/g,'')};
   try{ localStorage.setItem('ee_od_cfg', JSON.stringify(cfg)); }catch(e){}
   $('instel').open = false; msal = null; account = null;
