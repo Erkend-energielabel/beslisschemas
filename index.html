@@ -335,6 +335,7 @@ const ROLES=['Gevel','Voorgevel','Achtergevel','Zijgevel','Belendend'];
 const dirOf=a=>DIRS[Math.round(((a%360)+360)%360/45)%8];
 const fmt=(n,d=1)=>n==null||isNaN(n)?'–':Number(n).toLocaleString('nl-NL',{minimumFractionDigits:d,maximumFractionDigits:d});
 const $=id=>document.getElementById(id);
+const fm=(v,d=1)=>v==null||isNaN(v)?'–':fmt(v,d)+' m';
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const changed=()=>{try{window.bagGewijzigd&&window.bagGewijzigd()}catch(e){}};
 function status(m,t=''){const s=$('bag-status');if(!m){s.style.display='none';return}s.className=t;s.textContent=m;s.style.display='block'}
@@ -587,7 +588,7 @@ function metaRows(b){const v=vboOf(b)||{};const rows=[['Adres',addrOf(b)],['Pand
 function renderPand(){
   const b=selB();if(!b){$('bag-kpis').innerHTML='';return}
   const h=heights(b);
-  $('bag-kpis').innerHTML=`<div>Hoogte (70%)<b>${fmt(h.h70)} m</b></div><div>Nokhoogte<b>${fmt(h.hmax)} m</b></div>
+  $('bag-kpis').innerHTML=`<div>Hoogte (70%)<b>${fm(h.h70)}</b></div><div>Nokhoogte<b>${fm(h.hmax)}</b></div>
     <div>Bouwlagen${h.lagenEst?' (schatting)':''}<b>${h.lagen??'–'}</b></div><div>Footprint<b>${fmt(S.area,0)} m²</b></div>`;
   $('bag-meta').innerHTML=metaRows(b).map(r=>`<b>${esc(r[0])}</b><span>${esc(r[1])}</span>`).join('');
 }
@@ -751,7 +752,6 @@ function snapshot3d(){
     return url;
   }catch(e){console.error(e);return null}
 }
-const fm=(v,d=1)=>v==null||isNaN(v)?'–':fmt(v,d)+' m';
 async function pdfGegevens(){
   const b=selB();if(!b)return null;
   const h=heights(b),t=totals();
