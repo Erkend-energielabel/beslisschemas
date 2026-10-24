@@ -277,14 +277,16 @@ body.tab-bag .wrap{max-width:1180px}
         <div class="bag-grid">
           <div class="kaart">
             <h2>Hoogteprofiel</h2>
+            <div class="bag-rij"><label for="bag-bron">Bron hoogtes</label>
+              <select id="bag-bron"><option value="auto" selected>Automatisch: 3D BAG, anders AHN</option><option value="3dbag">Alleen 3D BAG</option><option value="ahn">Alleen AHN</option></select></div>
             <div id="bag-hInfo" class="klein">—</div>
             <h2 style="margin-top:14px">Kleurschaal hoogte</h2>
             <div class="bag-legend" id="bag-leg"></div><div><span>0 m</span><span id="bag-legMax">60 m</span></div>
-            <p class="klein">Hoogtes t.o.v. maaiveld, afgeleid uit het AHN (hoogtekaart 0,5 m, Rijkswaterstaat via PDOK). 70% = representatieve dakhoogte; nok = hoogste punt dak. Bomen boven daken of nieuwbouw na de laatste AHN-vlucht kunnen afwijken.</p>
+            <p class="klein">Hoogtes t.o.v. maaiveld. <b>3D BAG</b> (TU Delft/3DGI): per pand gereconstrueerde dakhoogtes en bouwlagen uit de AHN-puntenwolk. <b>AHN</b>: zelf berekend uit de hoogtekaart 0,5 m (Rijkswaterstaat via PDOK). 70% = representatieve dakhoogte; nok = hoogste punt dak. Nieuwbouw na de laatste inwinning kan ontbreken of afwijken.</p>
           </div>
           <div class="kaart">
             <h2>Panden in de buurt</h2>
-            <table><thead><tr><th>Adres / pand</th><th>Bj</th><th>H 70%</th><th>Nok</th></tr></thead><tbody id="bag-ltb"><tr><td colspan="4" class="klein">—</td></tr></tbody></table>
+            <table><thead><tr><th>Adres / pand</th><th>Bj</th><th>H 70%</th><th>Nok</th><th>Bron</th></tr></thead><tbody id="bag-ltb"><tr><td colspan="5" class="klein">—</td></tr></tbody></table>
           </div>
         </div>
       </div>
@@ -433,7 +435,61 @@ function bldHeights(b,dsm,dtm){
   if(mv==null){const all=[];for(let k=0;k<dtm.d.length;k++){const v=dtm.d[k];if(v<1e30&&v>-50)all.push(v)}mv=pct(all,50)}
   if(!rs.length||mv==null)return null;
   const p10=pct(rs,10),p50=pct(rs,50),p70=pct(rs,70),p90=pct(rs,90),mx=pct(rs,99),mn=pct(rs,5);
-  return{b3_h_maaiveld:mv,b3_h_dak_50p:p50,b3_h_dak_70p:p70,b3_h_dak_max:mx,b3_h_dak_min:mn,b3_dak_type:(p90-p10)<0.8?'horizontal':'slanted'};
+  return{b3_h_maaiveld:mv,b3_h_dak_50p:p50,b3_h_dak_70p:p70,b3_h_dak_max:mx,b3_h_dak_min:mn,b3_dak_type:(p90-p10)<0.8?'horizontal':'slanted',bron:'AHN'};
+}
+/* --- 3D BAG (TU Delft / 3DGI) --- */
+const API3D='https://api.3dbag.nl/collections/pand/items';
+const num=v=>v==null||v===''||isNaN(+v)?null:+v;
+function norm3d(a){
+  const g=(...k)=>{for(const n of k)if(a[n]!=null)return num(a[n]);return null};
+  const o={b3_h_maaiveld:g('b3_h_maaiveld'),b3_h_dak_50p:g('b3_h_dak_50p','b3_h_50p'),b3_h_dak_70p:g('b3_h_dak_70p','b3_h_70p'),
+    b3_h_dak_max:g('b3_h_dak_max','b3_h_max','b3_h_nok'),b3_h_dak_min:g('b3_h_dak_min','b3_h_min'),
+    b3_dak_type:String(a.b3_dak_type||'').replace(/ /g,'_')||null,b3_bouwlagen:g('b3_bouwlagen'),bron:'3D BAG'};
+  if(o.b3_bouwlagen==null)delete o.b3_bouwlagen;
+  return o.b3_h_maaiveld!=null&&(o.b3_h_dak_70p!=null||o.b3_h_dak_max!=null)?o:null;
+}
+async function fetch3dbag(x,y,r){
+  const uit={};let url=`${API3D}?bbox=${x-r},${y-r},${x+r},${y+r}&limit=200`;
+  for(let p=0;p<6&&url;p++){
+    const c=new AbortController(),tm=setTimeout(()=>c.abort(),12000);
+    let j;try{const res=await fetch(url,{signal:c.signal,headers:{Accept:'application/city+json, application/json'}});if(!res.ok)throw new Error('3D BAG '+res.status);j=await res.json()}finally{clearTimeout(tm)}
+    (j.features||[]).forEach(f=>{const objs=f.CityObjects||{};
+      Object.entries(objs).forEach(([k,o])=>{if(o&&o.attributes&&(o.type==='Building'||!/-\d+$/.test(k))){const id=String(f.id||k).replace('NL.IMBAG.Pand.','').replace(/-\d+$/,'');const h=norm3d(o.attributes);if(h&&!uit[id])uit[id]=h}})});
+    const nx=(j.links||[]).find(l=>l.rel==='next');url=nx&&nx.href;
+  }
+  return uit;
+}
+const bronKeuze=()=>($('bag-bron')&&$('bag-bron').value)||'auto';
+function kiesHoogtes(){
+  const m=bronKeuze();
+  S.blds.forEach(b=>{const a=b.hAhn,d=b.h3d;
+    b.h=m==='3dbag'?(d||null):m==='ahn'?(a||null):(d||a||null);
+    if(b.h===null&&((m!=='ahn'&&b.h3d===undefined)||(m!=='3dbag'&&b.hAhn===undefined)))b.h=undefined});
+}
+function bronMelding(fout3d,foutAhn){
+  const m=bronKeuze(),n3=S.blds.filter(b=>b.h&&b.h.bron==='3D BAG').length,na=S.blds.filter(b=>b.h&&b.h.bron==='AHN').length,mis=S.blds.filter(b=>!b.h).length;
+  const deel=[];if(n3)deel.push(`3D BAG ${n3}`);if(na)deel.push(`AHN ${na}`);if(mis)deel.push(`zonder hoogte ${mis}`);
+  let t='Hoogtes: '+(deel.join(' · ')||'geen')+' panden.';
+  if(fout3d&&m!=='ahn')t+=' 3D BAG niet bereikbaar'+(m==='auto'?' — AHN gebruikt.':'.');
+  if(foutAhn&&m!=='3dbag')t+=' AHN niet bereikbaar.';
+  status(t,(fout3d&&m==='3dbag')||(!n3&&!na)?'err':'ok');
+}
+let fout3d=false,foutAhn=false;
+async function laadHoogtes(t,x,y,r){
+  const m=bronKeuze();
+  const wil3d=m!=='ahn'&&S.blds.some(b=>b.h3d===undefined), wilAhn=m!=='3dbag'&&S.blds.some(b=>b.hAhn===undefined);
+  if(!wil3d&&!wilAhn){kiesHoogtes();renderAll(false);bronMelding(fout3d,foutAhn);return}
+  status(`Hoogtes ophalen (${[wil3d&&'3D BAG',wilAhn&&'AHN'].filter(Boolean).join(' + ')})…`);
+  const taken=[];
+  if(wil3d)taken.push(fetch3dbag(x,y,r).then(d=>{if(t!==tok)return;fout3d=false;S.blds.forEach(b=>{b.h3d=d[b.id]||null})},e=>{console.warn('3D BAG',e);if(t!==tok)return;fout3d=true;S.blds.forEach(b=>{b.h3d=null})}));
+  if(wilAhn)taken.push((async()=>{const g=v=>Math.round(v*2)/2,x0=g(x-r-6),x1=g(x+r+6),y0=g(y-r-6),y1=g(y+r+6);
+      const[dsm,dtm]=await Promise.all([ahnRaster('dsm_05m',x0,y0,x1,y1),ahnRaster('dtm_05m',x0,y0,x1,y1)]);
+      if(t!==tok)return;foutAhn=false;S.blds.forEach(b=>{b.hAhn=bldHeights(b,dsm,dtm)})})().catch(e=>{console.warn('AHN',e);if(t!==tok)return;foutAhn=true;S.blds.forEach(b=>{b.hAhn=null})}));
+  // auto: toon AHN zodra het binnen is als 3D BAG nog loopt (en vice versa)
+  taken.forEach(p=>p.then(()=>{if(t!==tok)return;kiesHoogtes();renderAll(false);changed()}));
+  await Promise.all(taken);
+  if(t!==tok)return;
+  kiesHoogtes();renderAll(false);build3d(false);bronMelding(fout3d,foutAhn);changed();
 }
 const adrTxt=p=>`${p.openbare_ruimte||''} ${p.huisnummer||''}${p.huisletter||''}${p.toevoeging?'-'+p.toevoeging:''}`.trim();
 
@@ -448,21 +504,12 @@ async function loadArea(x,y,addr,keepSel){
     if(!pf.length){status('Geen BAG-panden gevonden op deze plek.','err');return}
     const vBy={};vf.forEach(v=>{const p=v.properties;String(p.pandidentificatie||'').split(',').forEach(k=>{k=k.trim().replace('NL.IMBAG.Pand.','');if(k)(vBy[k]=vBy[k]||[]).push({p,xy:v.geometry&&v.geometry.coordinates})})});
     S.blds=pf.map(f=>{const ring=outer(f.geometry);if(!ring)return null;const p=f.properties;const id=String(p.identificatie).replace('NL.IMBAG.Pand.','');
-      const vbos=vBy[id]||[];return{id,ring:ring.map(c=>[c[0],c[1]]),bouwjaar:p.bouwjaar,status:p.status,vbos,adressen:vbos.map(v=>adrTxt(v.p)),h:undefined}}).filter(Boolean);
+      const vbos=vBy[id]||[];return{id,ring:ring.map(c=>[c[0],c[1]]),bouwjaar:p.bouwjaar,status:p.status,vbos,adressen:vbos.map(v=>adrTxt(v.p)),h:undefined,h3d:undefined,hAhn:undefined}}).filter(Boolean);
     let hit=keepSel&&S.blds.find(b=>b.id===keepSel);
     if(!hit)hit=S.blds.find(b=>inside([x,y],b.ring));
     if(!hit)hit=S.blds.map(b=>({b,d:distRing([x,y],b.ring)})).sort((a,b)=>a.d-b.d)[0].b;
     selectBld(hit.id,true,true);
-    status('Hoogtes uit AHN ophalen…');
-    try{
-      const g=v=>Math.round(v*2)/2,x0=g(x-r-6),x1=g(x+r+6),y0=g(y-r-6),y1=g(y+r+6);
-      const[dsm,dtm]=await Promise.all([ahnRaster('dsm_05m',x0,y0,x1,y1),ahnRaster('dtm_05m',x0,y0,x1,y1)]);
-      if(t!==tok)return;
-      S.blds.forEach(bd=>{bd.h=bldHeights(bd,dsm,dtm)});
-      renderAll(false);build3d(false);
-      const mis=S.blds.filter(bd=>!bd.h).length;
-      status(mis?`${mis} panden zonder hoogte (geen AHN-dekking).`:'');
-    }catch(e){console.error(e);if(t!==tok)return;S.blds.forEach(bd=>{if(bd.h===undefined)bd.h=null});renderAll(false);status('Hoogtekaart (AHN) niet bereikbaar — oriëntatie werkt, hoogtes onbekend.','err')}
+    await laadHoogtes(t,x,y,r);
   }catch(e){console.error(e);status('Ophalen mislukt (geen verbinding met PDOK).','err')}
 }
 
@@ -514,7 +561,7 @@ function selEdge(i){S.eSel=i;renderMap(false);renderTable();renderRose()}
 function heights(b){const a=(b&&b.h)||{},mv=a.b3_h_maaiveld;const r=k=>a[k]!=null&&mv!=null?a[k]-mv:null;
   return{a,mv,h70:r('b3_h_dak_70p'),h50:r('b3_h_dak_50p'),hmax:r('b3_h_dak_max'),hmin:r('b3_h_dak_min'),
     lagen:a.b3_bouwlagen??(r('b3_h_dak_70p')!=null?Math.max(1,Math.round(r('b3_h_dak_70p')/3)):null),lagenEst:a.b3_bouwlagen==null,
-    dak:{slanted:'Hellend dak',horizontal:'Plat dak',multiple_horizontal:'Meerdere platte daken'}[a.b3_dak_type]||a.b3_dak_type||'–'}}
+    dak:{slanted:'Hellend dak',horizontal:'Plat dak',multiple_horizontal:'Meerdere platte daken',no_points:'Onbekend',could_not_detect:'Onbekend'}[a.b3_dak_type]||a.b3_dak_type||'–',bron:a.bron||null}}
 function addrOf(b){
   if(S.addr&&S.addrPt&&inside(S.addrPt,b.ring))return S.addr;
   if(!b.adressen.length)return'(geen adres in BAG)';
@@ -526,7 +573,7 @@ function metaRows(b){const v=vboOf(b)||{};const rows=[['Adres',addrOf(b)],['Pand
   if(v.gebruiksdoel)rows.push(['Gebruiksdoel',v.gebruiksdoel]);
   rows.push(['Footprint pand',fmt(S.area,0)+' m²']);
   if(b.vbos.length>1)rows.push(['Verblijfsobjecten in pand',b.vbos.length]);
-  rows.push(['Daktype',heights(b).dak]);return rows}
+  rows.push(['Daktype',heights(b).dak]);if(heights(b).bron)rows.push(['Bron hoogte',heights(b).bron]);return rows}
 function renderPand(){
   const b=selB();if(!b){$('bag-kpis').innerHTML='';return}
   const h=heights(b);
@@ -566,20 +613,20 @@ function renderSum(){const t=totals();$('bag-sum').innerHTML=DIRS.map(d=>`<div s
 function renderHInfo(){
   const b=selB(),el=$('bag-hInfo');if(!b){el.innerHTML='—';return}
   const h=heights(b);
-  if(h.hmax==null){el.innerHTML=b.h===null?'Geen hoogte beschikbaar voor dit pand (bv. nieuwbouw na de laatste AHN-vlucht).':'Hoogte laden…';return}
+  if(h.hmax==null){el.innerHTML=b.h===null?'Geen hoogte beschikbaar voor dit pand met de gekozen bron.':'Hoogte laden…';return}
   const top=Math.max(h.hmax,1)*1.1,pc=v=>`${(v/top)*100}%`;
   el.innerHTML=`<div class="bag-hbar">${[[h.hmax,'nok'],[h.h70,'70%'],[h.hmin,'laagste dakdeel']].filter(z=>z[0]!=null).map(([v,n])=>`<div class="lv" style="bottom:${pc(v)}"><span>${fmt(v)}</span><i>${n}</i></div>`).join('')}
     <div class="bld" style="height:${pc(h.h70??h.hmax)}"></div><div class="lv" style="bottom:0"><span>0</span><i>maaiveld</i></div></div>
-    <div class="bag-meta"><b>Hoogte 50%</b><span>${fmt(h.h50)} m</span><b>Maaiveld</b><span>${fmt(h.mv,2)} m NAP</span><b>Daktype</b><span>${h.dak}</span></div>
+    <div class="bag-meta"><b>Hoogte 50%</b><span>${fmt(h.h50)} m</span><b>Maaiveld</b><span>${fmt(h.mv,2)} m NAP</span><b>Daktype</b><span>${h.dak}</span><b>Bron</b><span>${h.bron||'–'}${h.bron==='3D BAG'&&!h.lagenEst?' (incl. bouwlagen)':''}</span></div>
     <p><a href="https://3dbag.nl/nl/viewer?rdx=${Math.round(centroid(b.ring)[0])}&rdy=${Math.round(centroid(b.ring)[1])}&ox=-200&oy=200&oz=200" target="_blank" rel="noopener">Open in 3DBAG viewer ↗</a></p>`;
 }
 function buren(n){const b=selB();const c=centroid(b.ring);
   return S.blds.map(o=>({o,d:Math.hypot(...centroid(o.ring).map((v,k)=>v-c[k]))})).sort((a,x)=>a.d-x.d).slice(0,n).map(x=>x.o)}
 function renderList(){
-  const tb=$('bag-ltb');if(!S.blds.length||!selB()){tb.innerHTML='<tr><td colspan="4" class="klein">—</td></tr>';return}
+  const tb=$('bag-ltb');if(!S.blds.length||!selB()){tb.innerHTML='<tr><td colspan="5" class="klein">—</td></tr>';return}
   tb.innerHTML=buren(40).map(b=>{const h=heights(b);
     return`<tr data-id="${esc(b.id)}" class="${b.id===S.sel?'sel':''}"><td>${b.adressen[0]?esc(b.adressen[0]):'<span class="klein">pand …'+esc(b.id.slice(-6))+'</span>'}${b.adressen.length>1?` <span class="klein">+${b.adressen.length-1}</span>`:''}</td><td>${b.bouwjaar||''}</td>
-      <td><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${css(col(h.h70))};margin-right:4px"></span>${fmt(h.h70)}</td><td>${fmt(h.hmax)}</td></tr>`}).join('');
+      <td><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${css(col(h.h70))};margin-right:4px"></span>${fmt(h.h70)}</td><td>${fmt(h.hmax)}</td><td class="klein">${h.bron==='3D BAG'?'3D BAG':h.bron||''}</td></tr>`}).join('');
   tb.querySelectorAll('tr').forEach(tr=>tr.onclick=()=>selectBld(tr.dataset.id,false));
   const mx=Math.max(0,...S.blds.map(b=>relH(b)||0));$('bag-legMax').textContent=mx?fmt(mx)+' m (max hier)':'60 m';
 }
@@ -709,8 +756,8 @@ async function pdfGegevens(){
     totalen:DIRS.filter(d=>t[d]).map(d=>({dir:d,len:fmt(t[d])+' m',kleur:DCOL[d]})),
     hoogte:{hmax:h.hmax,h70:h.h70,hmin:h.hmin},
     pandgegevens:[...metaRows(b).filter(r=>r[0]!=='Adres'&&r[0]!=='Pand-ID'),['Hoogte 50%',fmt(h.h50)+' m'],['Laagste dakdeel',fmt(h.hmin)+' m'],['Maaiveld',fmt(h.mv,2)+' m NAP']],
-    buren:buren(8).map(o=>{const q=heights(o);return{adres:(o.adressen[0]||'pand …'+o.id.slice(-6))+(o.adressen.length>1?` (+${o.adressen.length-1})`:''),bj:String(o.bouwjaar||''),h70:fmt(q.h70)+' m',nok:fmt(q.hmax)+' m',zelf:o.id===b.id}}),
-    lagenGeschat:h.lagenEst
+    buren:buren(8).map(o=>{const q=heights(o);return{bron:q.bron||'',adres:(o.adressen[0]||'pand …'+o.id.slice(-6))+(o.adressen.length>1?` (+${o.adressen.length-1})`:''),bj:String(o.bouwjaar||''),h70:fmt(q.h70)+' m',nok:fmt(q.hmax)+' m',zelf:o.id===b.id}}),
+    lagenGeschat:h.lagenEst, bron:h.bron, bronnen:[...new Set(buren(8).map(o=>heights(o).bron).concat([h.bron]).filter(Boolean))]
   };
 }
 
@@ -724,6 +771,7 @@ function bind(){
     document.querySelectorAll('#bag .bag-paneel').forEach(t=>t.classList.toggle('on',t.id==='bag-p-'+S.tab));renderMap(false)});
   $('bag-reset').onclick=resetView;
   $('bag-exag').onclick=e=>{S.exag=S.exag===1?2:S.exag===2?3:1;e.target.textContent='×'+S.exag;build3d(false)};
+  $('bag-bron').onchange=()=>{if(S.center&&S.blds.length)laadHoogtes(tok,S.center[0],S.center[1],+$('bag-rad').value)};
   $('bag-hsel').onchange=()=>{renderMap(false);build3d(false);renderList()};
   $('bag-t3d').onclick=e=>{const v=$('bag-views');v.classList.toggle('no3d');e.target.classList.toggle('on',!v.classList.contains('no3d'));setTimeout(()=>{map&&map.invalidateSize();resize()},50)};
   $('bag-manAz').oninput=()=>man($('bag-manAz').value);$('bag-manR').oninput=()=>man($('bag-manR').value);
@@ -1297,13 +1345,14 @@ function pandPaginas(doc, pd){
   if(y + 30 > PONDER){ doc.addPage(); y = 18; }
   y = pdfSectie(doc, 'Panden in de omgeving', PM, y, PBR);
   doc.autoTable({...tabStijl, startY: y, margin:{left:PM, right:PM, bottom:24},
-    head:[['Adres / pand','Bouwjaar','Hoogte 70%','Nok']],
-    body: pd.buren.map(b => [pdfTekst(b.adres), b.bj, pdfTekst(b.h70), pdfTekst(b.nok)]),
-    columnStyles:{1:{cellWidth:24}, 2:{cellWidth:26, halign:'right'}, 3:{cellWidth:22, halign:'right'}},
+    head:[['Adres / pand','Bouwjaar','Hoogte 70%','Nok','Bron']],
+    body: pd.buren.map(b => [pdfTekst(b.adres), b.bj, pdfTekst(b.h70), pdfTekst(b.nok), b.bron]),
+    columnStyles:{1:{cellWidth:20}, 2:{cellWidth:24, halign:'right'}, 3:{cellWidth:20, halign:'right'}, 4:{cellWidth:20}},
     didParseCell: c => { if(c.section==='body' && pd.buren[c.row.index].zelf){ c.cell.styles.fontStyle='bold'; c.cell.styles.fillColor = HEX('#eef7ef'); } }
   });
   y = doc.lastAutoTable.finalY + 6;
-  pdfDisclaimer(doc, y, 'Hoogtes t.o.v. maaiveld, afgeleid uit het AHN (hoogtekaart 0,5 m, Rijkswaterstaat via PDOK) en indicatief; bomen boven daken of recente verbouw kunnen afwijken.' + (pd.lagenGeschat ? ' Bouwlagen zijn geschat (ca. 3 m per laag).' : '') + ' BAG-gegevens: Kadaster via PDOK.');
+  const bronTekst = { '3D BAG':'3D BAG (TU Delft / 3DGI, gereconstrueerd uit de AHN-puntenwolk)', 'AHN':'AHN-hoogtekaart 0,5 m (Rijkswaterstaat via PDOK), zelf berekend' };
+  pdfDisclaimer(doc, y, 'Hoogtes t.o.v. maaiveld en indicatief. Bron: ' + ((pd.bronnen||[]).map(b=>bronTekst[b]||b).join('; ') || 'onbekend') + '. Recente nieuwbouw of verbouw kan afwijken.' + (pd.lagenGeschat ? ' Bouwlagen zijn geschat (ca. 3 m per laag).' : '') + ' BAG-gegevens: Kadaster via PDOK.');
 }
 
 function pdfNaam(pd){
