@@ -309,6 +309,19 @@ body.tab-bag .wrap{max-width:1180px}
 .verw-sub{display:block;color:#c0392b;font-weight:700;margin-top:2px}
 #bag .bag-label .bag-lklasse{flex:0 0 auto;min-width:48px}
 #bag .bag-label .bag-buurtknop{order:9;padding:4px 10px;font-size:.78rem;flex:0 0 auto}
+
+#bag .ram-inst{display:flex;flex-wrap:wrap;gap:8px 16px;margin:0 0 10px;font-size:.82rem;color:var(--grijs)}
+#bag .ram-inst input{width:64px;padding:4px 6px}
+#bag .ram-tab{width:100%;border-collapse:collapse;font-size:.85rem;margin:0 0 8px}
+#bag .ram-tab th{text-align:left;font-size:.72rem;text-transform:uppercase;color:var(--grijs);padding:6px;border-bottom:2px solid #cfdcd2}
+#bag .ram-tab td{padding:6px;border-bottom:1px solid #e3ebe5;vertical-align:middle}
+#bag .ram-tab td small{display:block;color:var(--grijs);font-size:.72rem}
+#bag .ram-tab tr:not(.aan) td b{color:var(--grijs);font-weight:600}
+#bag .ram-tab tr.aan{background:#f4fbf5}
+#bag .ram-tab input[type=number]{width:78px;padding:4px 6px}
+#bag .ram-tab .m2{text-align:right;white-space:nowrap;font-weight:700}
+#bag .ram-tab tr.tot td{font-weight:800;background:#eef7ef;border-top:2px solid #0B3D2E}
+#bag .ram-h3{font-size:.95rem;margin:14px 0 6px}
 #vbs{
   --bg:#F2F4F3; --surface:#FFFFFF; --ink:#18232A; --muted:#5A6870; --line:#D5DCDE; --soft:#E9EEEE;
   --accent:#5B2D86; --accent-ink:#FFFFFF; --accent-soft:#EFE8F6;
@@ -664,7 +677,7 @@ body.tab-bag .wrap{max-width:1180px}
         <div class="bag-meta" id="bag-meta"><b>Adres</b><span class="klein">Zoek een adres of klik op de kaart</span></div>
       </div>
 
-      <div class="bag-sub"><button type="button" data-t="orient" class="on">Oriëntatie</button><button type="button" data-t="hoogte">Hoogtes</button><button type="button" data-t="opp">m² overzicht</button></div>
+      <div class="bag-sub"><button type="button" data-t="orient" class="on">Oriëntatie</button><button type="button" data-t="hoogte">Hoogtes</button><button type="button" data-t="opp">m² overzicht</button><button type="button" data-t="raming">💶 Raming</button></div>
 
       <div class="bag-paneel on" id="bag-p-orient">
         <div class="bag-grid">
@@ -718,6 +731,13 @@ body.tab-bag .wrap{max-width:1180px}
         <div class="kaart bag-oppkaart">
           <h2>m² overzicht</h2>
           <div id="bag-opp"><p class="klein">—</p></div>
+        </div>
+      </div>
+
+      <div class="bag-paneel" id="bag-p-raming">
+        <div class="kaart">
+          <h2>Kostenraming &amp; materiaalstaat (indicatief)</h2>
+          <div id="bag-raming"><p class="klein">—</p></div>
         </div>
       </div>
 
@@ -1167,6 +1187,75 @@ function oppTsv(o){const L=['Onderdeel\tOriëntatie\tHelling (°)\tOppervlak (m�
   o.groepen.forEach(g=>{g.rijen.forEach(r=>L.push(`${r.naam}\t${r.dir||''}\t${fmt(r.helling,0)}\t${n(r.opp)}`));L.push(`${g.sub}\t\t\t${n(g.tot)}`)});
   L.push(`Totaal verliesoppervlak\t\t\t${n(o.als)}`);if(o.gedeeld)L.push(`Gedeelde muur (niet meegeteld)\t\t\t${n(o.gedeeld)}`);
   L.push(`Bruto inhoud (m³)\t\t\t${fmt(o.inhoud,0)}`);if(o.ag)L.push(`Gebruiksoppervlak BAG\t\t\t${fmt(o.ag,0)}`);return L.join('\n')}
+/* ===== Kostenraming & materiaalstaat (indicatief), op basis van de m² uit het 3D-model ===== */
+const RAM_STD={glas:20,verlies:5,wp:430,prijs:{spouw:25,buitengevel:180,dakbinnen:80,dakbuiten:150,platdak:130,vloer:45,bodem:30,hrpp:200,triple:300,pv:1150,steiger:18}};
+const RAM_MAATR=[
+  {k:'spouw',naam:'Spouwmuurisolatie',bron:'gevelnetto',eenh:'m²',uitleg:'Gevel zonder ramen/deuren (alleen bij een niet-geïsoleerde spouw).'},
+  {k:'buitengevel',naam:'Buitengevelisolatie (ETICS)',bron:'gevelnetto',eenh:'m²',uitleg:'Isolatie + stuc/steenstrips aan de buitenzijde.'},
+  {k:'dakbinnen',naam:'Hellend dak – isolatie binnenzijde',bron:'dakhellend',eenh:'m²',uitleg:'Werkelijke (schuine) dakoppervlakte.'},
+  {k:'dakbuiten',naam:'Hellend dak – isolatie buitenzijde',bron:'dakhellend',eenh:'m²',uitleg:'Bij vervangen dakpannen.'},
+  {k:'platdak',naam:'Plat dak – isolatie + dakbedekking',bron:'dakplat',eenh:'m²',uitleg:'Bij vervanging van de dakbedekking.'},
+  {k:'vloer',naam:'Vloerisolatie (kruipruimte)',bron:'vloer',eenh:'m²',uitleg:'Begane grondvloer (BAG-footprint).'},
+  {k:'bodem',naam:'Bodemisolatie (kruipruimte)',bron:'vloer',eenh:'m²',uitleg:'Alternatief voor vloerisolatie bij lage kruipruimte.'},
+  {k:'hrpp',naam:'HR++ glas',bron:'glas',eenh:'m² glas',uitleg:'Glasoppervlak = gevel × % ramen.'},
+  {k:'triple',naam:'Triple glas (incl. kozijnen)',bron:'glas',eenh:'m² glas',uitleg:'Glasoppervlak = gevel × % ramen.'},
+  {k:'pv',naam:'Zonnepanelen',bron:'pv',eenh:'kWp',uitleg:'Op de gunstige dakvlakken (zie hieronder).'},
+  {k:'steiger',naam:'Steiger / hoogwerker',bron:'gevelbruto',eenh:'m² gevel',uitleg:'Optioneel, bij gevel- of dakwerk.'}];
+const PV_OPBR={Z:950,ZO:910,ZW:910,O:820,W:820,plat:860};   /* kWh per kWp per jaar (indicatief, NL) */
+const ramS=(()=>{let o={};try{o=JSON.parse(localStorage.getItem('ee_raming')||'{}')}catch(e){}return{glas:o.glas??RAM_STD.glas,verlies:o.verlies??RAM_STD.verlies,wp:o.wp??RAM_STD.wp,prijs:{...RAM_STD.prijs,...(o.prijs||{})},aan:{spouw:false,buitengevel:false,dakbinnen:false,dakbuiten:false,platdak:false,vloer:true,bodem:false,hrpp:true,triple:false,pv:true,steiger:false},hoev:{}}})();
+const ramBewaar=()=>{try{localStorage.setItem('ee_raming',JSON.stringify({glas:ramS.glas,verlies:ramS.verlies,wp:ramS.wp,prijs:ramS.prijs}))}catch(e){}};
+function zonnepanelen(b){
+  const vl=vlakkenVan(b),pm2=1.95,uit=[];
+  vl.forEach((v,i)=>{const r=v.plat?'plat':v.dir;if(!(r in PV_OPBR)||v.opp<6)return;
+    const bruik=v.opp*(v.plat?0.5:0.7),n=Math.floor(bruik/pm2);if(n<2)return;
+    const kwp=n*ramS.wp/1000;uit.push({nr:i+1,dir:r,helling:v.helling,opp:v.opp,n,kwp,kwh:kwp*PV_OPBR[r]})});
+  return uit;
+}
+function ramingData(b){
+  const o=oppervlaktes(b);if(!o)return null;
+  const hellend=o.groepen[1].rijen.filter(r=>r.dir!=='plat').reduce((s,r)=>s+r.opp,0),plat=o.groepen[1].rijen.filter(r=>r.dir==='plat').reduce((s,r)=>s+r.opp,0);
+  const pv=zonnepanelen(b),kwp=pv.reduce((s,x)=>s+x.kwp,0);
+  const bron={gevelbruto:o.gevel,gevelnetto:o.gevel*(1-ramS.glas/100),glas:o.gevel*ramS.glas/100,dakhellend:hellend,dakplat:plat,vloer:o.vloer,pv:kwp};
+  const regels=RAM_MAATR.map(m=>{const auto=bron[m.bron]||0,h=ramS.hoev[m.k]!=null?ramS.hoev[m.k]:auto,p=ramS.prijs[m.k];
+    return{...m,auto,hoev:h,prijs:p,totaal:h*p,aan:!!ramS.aan[m.k]&&h>0,besteld:m.eenh==='kWp'?null:h*(1+ramS.verlies/100)}});
+  const sel=regels.filter(r=>r.aan),totaal=sel.reduce((s,r)=>s+r.totaal,0);
+  const h=heights(b);
+  return{o,regels,sel,totaal,pv,kwp,kwh:pv.reduce((s,x)=>s+x.kwh,0),panelen:pv.reduce((s,x)=>s+x.n,0),glas:ramS.glas,verlies:ramS.verlies,wp:ramS.wp,werkhoogte:h.hmax,goot:Math.max(0,...vlakkenVan(b).filter(v=>!v.plat).map(v=>v.goot))||null};
+}
+const eur=v=>'€ '+Math.round(v).toLocaleString('nl-NL');
+function renderRaming(){
+  const el=$('bag-raming');if(!el)return;const b=selB();
+  if(!b){el.innerHTML='<p class="klein">Zoek een adres of klik op een pand.</p>';return}
+  const r=ramingData(b);
+  if(!r){el.innerHTML=`<p class="klein">${b.h===undefined?'3D-model laden…':'Geen 3D-model: geen automatische hoeveelheden. Gebruik de tab Opmeten.'}</p>`;return}
+  el.innerHTML=`<div class="ram-inst"><label>Ramen/deuren in gevel <input type="number" id="ram-glas" min="0" max="80" step="1" value="${r.glas}"> %</label>
+      <label>Snijverlies materiaal <input type="number" id="ram-verlies" min="0" max="30" step="1" value="${r.verlies}"> %</label>
+      <label>Paneel <input type="number" id="ram-wp" min="300" max="700" step="5" value="${r.wp}"> Wp</label></div>
+    <table class="ram-tab"><thead><tr><th></th><th>Maatregel</th><th>Hoeveelheid</th><th>Prijs p/eenh.</th><th>Totaal</th></tr></thead><tbody>
+    ${r.regels.map(x=>`<tr class="${x.aan?'aan':''}"><td><input type="checkbox" data-aan="${x.k}"${ramS.aan[x.k]?' checked':''}></td>
+      <td><b>${x.naam}</b><small>${x.uitleg}</small></td>
+      <td><input type="number" class="ram-h" data-h="${x.k}" step="0.1" min="0" value="${(Math.round(x.hoev*10)/10)}"> ${x.eenh}${ramS.hoev[x.k]!=null?` <a href="#" data-reset="${x.k}" title="terug naar ${fmt(x.auto,1)}">↺</a>`:''}${x.besteld!=null&&x.aan?`<small>bestellen ± ${fmt(x.besteld,1)} ${x.eenh}</small>`:''}</td>
+      <td>€ <input type="number" class="ram-p" data-p="${x.k}" step="1" min="0" value="${x.prijs}"></td>
+      <td class="m2">${x.aan?eur(x.totaal):'<span class="klein">–</span>'}</td></tr>`).join('')}
+    <tr class="tot"><td></td><td colspan="3">Totaal geselecteerde maatregelen (incl. btw, indicatief)</td><td class="m2">${eur(r.totaal)}</td></tr></tbody></table>
+    ${r.pv.length?`<h3 class="ram-h3">☀️ Zonnepanelen per dakvlak</h3><table class="ram-tab"><thead><tr><th>Dakvlak</th><th>Oriëntatie</th><th>Helling</th><th>Panelen</th><th>kWp</th><th>kWh/jaar</th></tr></thead><tbody>
+      ${r.pv.map(p=>`<tr><td>${p.nr}</td><td><span class="bag-pill" style="background:${p.dir==='plat'?'#9aa59f':DCOL[p.dir]}">${p.dir}</span></td><td>${fmt(p.helling,0)}°</td><td>${p.n}</td><td>${fmt(p.kwp,2)}</td><td>${fmt(p.kwh,0)}</td></tr>`).join('')}
+      <tr class="tot"><td colspan="3">Totaal</td><td>${r.panelen}</td><td>${fmt(r.kwp,2)}</td><td>${fmt(r.kwh,0)}</td></tr></tbody></table>`:'<p class="klein">☀️ Geen geschikt dakvlak voor zonnepanelen gevonden (noordelijk, te klein of geen 3D-model).</p>'}
+    <p class="klein">Werkhoogte (nok) ${fm(r.werkhoogte)}${r.goot?` · goothoogte ${fm(r.goot)}`:''}. Prijzen zijn richtprijzen incl. btw en worden in deze browser onthouden — pas ze aan naar je eigen offertes. Hoeveelheden uit het 3D-model (bruto, buitenwerks); klik ↺ om een aangepaste hoeveelheid terug te zetten. Zonnepanelen: ${r.wp} Wp per paneel (± 1,95 m²), 70% van een hellend en 50% van een plat dakvlak benut; opbrengst indicatief. Subsidies (ISDE) niet meegerekend.</p>
+    <div class="acties"><button class="actie licht" type="button" id="ram-csv">⬇️ Raming + materiaalstaat (CSV)</button><button class="actie licht" type="button" id="ram-std">Richtprijzen herstellen</button></div>`;
+  const her=()=>{renderRaming();changed()};
+  el.querySelectorAll('[data-aan]').forEach(c=>c.onchange=()=>{ramS.aan[c.dataset.aan]=c.checked;her()});
+  el.querySelectorAll('[data-h]').forEach(c=>c.onchange=()=>{const v=parseFloat(String(c.value).replace(',','.'));ramS.hoev[c.dataset.h]=isNaN(v)?null:v;her()});
+  el.querySelectorAll('[data-reset]').forEach(a=>a.onclick=e=>{e.preventDefault();delete ramS.hoev[a.dataset.reset];her()});
+  el.querySelectorAll('[data-p]').forEach(c=>c.onchange=()=>{const v=parseFloat(String(c.value).replace(',','.'));if(!isNaN(v)){ramS.prijs[c.dataset.p]=v;ramBewaar()}her()});
+  [['ram-glas','glas'],['ram-verlies','verlies'],['ram-wp','wp']].forEach(([id,k])=>$(id).onchange=()=>{const v=parseFloat($(id).value);if(!isNaN(v)){ramS[k]=v;ramBewaar()}her()});
+  $('ram-std').onclick=()=>{ramS.prijs={...RAM_STD.prijs};ramS.glas=RAM_STD.glas;ramS.verlies=RAM_STD.verlies;ramS.wp=RAM_STD.wp;ramBewaar();her()};
+  $('ram-csv').onclick=()=>{const L=[['Maatregel','Hoeveelheid','Eenheid','Bestellen (incl. snijverlies)','Prijs p/eenheid','Totaal (incl. btw)']];
+    r.sel.forEach(x=>L.push([x.naam,fmt(x.hoev,1),x.eenh,x.besteld!=null?fmt(x.besteld,1):'',fmt(x.prijs,2),fmt(x.totaal,0)]));
+    L.push(['Totaal','','','','',fmt(r.totaal,0)]);if(r.pv.length){L.push([]);L.push(['Zonnepanelen dakvlak','Oriëntatie','Helling','Panelen','kWp','kWh/jaar']);r.pv.forEach(p=>L.push(['Dakvlak '+p.nr,p.dir,fmt(p.helling,0),p.n,fmt(p.kwp,2),fmt(p.kwh,0)]))}
+    const t='﻿'+L.map(a=>a.map(v=>{v=String(v??'');return/[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(';')).join('\r\n');
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));a.download=`Raming ${addrOf(b).split(',')[0]}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};
+}
 function renderOpp(){
   const el=$('bag-opp');if(!el)return;const b=selB();
   if(!b){el.innerHTML='<p class="klein">Zoek een adres of klik op een pand.</p>';return}
@@ -1260,7 +1349,7 @@ const role=i=>S.roles[i]||'Gevel';
 function totals(){const t={};visible().forEach(({e,i})=>{if(role(i)!=='Belendend')t[e.dir]=(t[e.dir]||0)+e.len});return t}
 
 /* ===== Render ===== */
-function renderAll(fit){renderMap(fit);build3d(false);renderPand();renderGevels();renderHInfo();renderDak();renderOpp();renderList()}
+function renderAll(fit){renderMap(fit);build3d(false);renderPand();renderGevels();renderHInfo();renderDak();renderOpp();renderRaming();renderList()}
 function renderGevels(){renderTable();renderRose();renderRes();renderGroepen();renderLegenda()}
 
 function renderMap(fit){
@@ -1370,7 +1459,7 @@ function renderVbo(b){
     (cur?`<div class="bag-label" id="bag-label">${labelHtml(cur,res)}</div>`:'')+
     (cur&&cur.postcode&&verwCache[cur.postcode]?window.VERW.html(verwCache[cur.postcode]):'');
   const s=$('bag-vbosel');if(s)s.onchange=()=>{const v=b.vbos.find(x=>x.p.identificatie===s.value);if(!v)return;S.vboId=s.value;S.addr=vboAdres(v.p);
-    $('bag-q').value=S.addr;try{window.bagAdresGekozen&&window.bagAdresGekozen(S.addr)}catch(e){}renderPand();renderOpp();changed()};
+    $('bag-q').value=S.addr;try{window.bagAdresGekozen&&window.bagAdresGekozen(S.addr)}catch(e){}renderPand();renderOpp();renderRaming();changed()};
   const cp=$('bag-epcopy');if(cp)cp.onclick=async()=>{const t=vboZoek(cur);try{await navigator.clipboard.writeText(t);cp.textContent='Gekopieerd: '+t}catch(e){cp.textContent=t}setTimeout(()=>{if($('bag-epcopy'))$('bag-epcopy').textContent='Kopieer postcode + huisnr'},2500)};
   const st=$('bag-epset');if(st)st.onclick=()=>{const u=prompt('Adres van de label-server (Cloudflare Worker), bv. https://ep-label.jouwnaam.workers.dev',labelApi()||'https://');if(u&&/^https:\/\//.test(u.trim())){try{localStorage.setItem('ee_label_api',u.trim())}catch(e){}renderVbo(b)}};
   const rt=$('bag-epretry');if(rt)rt.onclick=()=>{delete labelCache[k];renderVbo(b)};
@@ -1636,6 +1725,7 @@ async function pdfGegevens(){
     lagenGeschat:h.lagenEst, route:hoogteRoute,
     dakvlakken:vlakkenVan(b).map((v,i)=>({nr:i+1,dir:v.plat?'plat':v.dir,az:v.plat?'-':Math.round(v.az)+'°',helling:fmt(v.helling,0)+'°',opp:fmt(v.opp,1)+' m²',hoogte:fm(v.hoogte),goot:v.plat?'-':fm(v.goot),kleur:v.plat?'#9aa59f':DCOL[v.dir]})),
     dakTotaal:vlakkenVan(b).reduce((s,v)=>s+v.opp,0),
+    raming:(()=>{const r=ramingData(b);if(!r||!r.sel.length&&!r.pv.length)return null;return{regels:r.sel.map(x=>({naam:x.naam,hoev:fmt(x.hoev,1)+' '+x.eenh,besteld:x.besteld!=null?fmt(x.besteld,1)+' '+x.eenh:'-',prijs:'€ '+fmt(x.prijs,2),totaal:eur(x.totaal)})),totaal:eur(r.totaal),pv:r.pv.map(p=>({nr:p.nr,dir:p.dir,helling:fmt(p.helling,0)+'°',n:String(p.n),kwp:fmt(p.kwp,2),kwh:fmt(p.kwh,0)})),panelen:r.panelen,kwp:fmt(r.kwp,2),kwh:fmt(r.kwh,0),glas:r.glas,verlies:r.verlies,wp:r.wp}})(),
     opp:(()=>{const o=oppervlaktes(b);if(!o)return null;const n=x=>fmt(x,1)+' m²';return{vbos:o.vbos,groepen:o.groepen.map(g=>({titel:g.titel,sub:g.sub,tot:n(g.tot),rijen:g.rijen.map(r=>({naam:r.naam,dir:r.dir||'',helling:r.dir&&r.dir!=='hor.'&&r.helling<89?fmt(r.helling,0)+'°':'',opp:n(r.opp),kleur:!r.dir||r.dir==='hor.'||r.dir==='plat'?'#6b7a73':DCOL[r.dir]}))})),
       txt:{gevel:n(o.gevel),dak:n(o.dak),vloer:n(o.vloer),als:n(o.als),inhoud:fmt(o.inhoud,0)+' m³',gedeeld:o.gedeeld?n(o.gedeeld):null,ag:o.ag?fmt(o.ag,0)+' m²':null,alsAg:o.alsAg?fmt(o.alsAg,2):null}}})()
   };
@@ -2802,6 +2892,32 @@ function pandPaginas(doc, pd){
   y = doc.lastAutoTable.finalY + 6;
   pdfDisclaimer(doc, y, 'Hoogtes t.o.v. maaiveld en indicatief, uit de 3D BAG (TU Delft / 3DGI, gereconstrueerd uit de AHN-puntenwolk)' + (pd.route==='pdok' ? ', via de 3D Tiles van de Kadaster 3D Basisvoorziening (PDOK); nok = hoogste nok of dakpunt' : pd.route==='tegels' ? ', via de LoD1.3-tegels (nok en maaiveld daarin niet beschikbaar)' : '') + '. Recente nieuwbouw of verbouw kan afwijken.' + (pd.lagenGeschat ? ' Bouwlagen zijn geschat (ca. 3 m per laag).' : '') + ' BAG-gegevens: Kadaster via PDOK.');
   if(pd.opp) oppPagina(doc, pd, meta);
+  if(pd.raming) ramingPagina(doc, pd, meta);
+}
+function ramingPagina(doc, pd, meta){
+  const r = pd.raming;
+  doc.addPage();
+  let y = pdfKop(doc, 'Kostenraming verduurzaming (indicatief)', pd.adres);
+  y = pdfMeta(doc, y, meta);
+  const tab = {theme:'grid', styles:{font:'helvetica', fontSize:8.6, cellPadding:1.8, lineColor:[214,226,216], lineWidth:0.2, textColor:[29,42,34]},
+    headStyles:{fillColor:HEX('#0B3D2E'), textColor:[255,255,255], fontStyle:'bold'}};
+  if(r.regels.length){
+    y = pdfSectie(doc, 'Maatregelen en hoeveelheden', PM, y, PBR);
+    const body = r.regels.map(x => [pdfTekst(x.naam), pdfTekst(x.hoev), pdfTekst(x.besteld), pdfTekst(x.prijs), pdfTekst(x.totaal)]);
+    body.push([{content:'Totaal (incl. btw, indicatief)', colSpan:4, styles:{fontStyle:'bold', fillColor:HEX('#eef7ef')}}, {content:pdfTekst(r.totaal), styles:{fontStyle:'bold', fillColor:HEX('#eef7ef'), halign:'right'}}]);
+    doc.autoTable({...tab, startY:y, margin:{left:PM, right:PM, bottom:24}, head:[['Maatregel','Hoeveelheid','Bestellen (+'+r.verlies+'% snijverlies)','Prijs p/eenheid','Totaal']], body,
+      columnStyles:{1:{halign:'right'}, 2:{halign:'right'}, 3:{halign:'right'}, 4:{halign:'right', cellWidth:26}}});
+    y = doc.lastAutoTable.finalY + 8;
+  }
+  if(r.pv.length){
+    if(y + 40 > PONDER){ doc.addPage(); y = 18; }
+    y = pdfSectie(doc, 'Zonnepanelen per dakvlak  ·  ' + r.panelen + ' panelen · ' + pdfTekst(r.kwp) + ' kWp · ca. ' + pdfTekst(r.kwh) + ' kWh/jaar', PM, y, PBR);
+    doc.autoTable({...tab, startY:y, margin:{left:PM, right:PM, bottom:24}, head:[['Dakvlak','Orientatie','Helling','Panelen','kWp','kWh/jaar']],
+      body: r.pv.map(p => [String(p.nr), p.dir, pdfTekst(p.helling), p.n, pdfTekst(p.kwp), pdfTekst(p.kwh)]),
+      columnStyles:{2:{halign:'right'}, 3:{halign:'right'}, 4:{halign:'right'}, 5:{halign:'right'}}});
+    y = doc.lastAutoTable.finalY + 6;
+  }
+  pdfDisclaimer(doc, y, 'Indicatieve raming op basis van bruto buitenwerkse oppervlaktes uit het 3D-model (3D BAG); ramen/deuren ' + r.glas + '% van de gevel. Prijzen zijn richtprijzen incl. btw, door de adviseur aan te passen; geen offerte. Zonnepanelen: ' + r.wp + ' Wp per paneel, opbrengst indicatief. Subsidies (ISDE) niet meegerekend.');
 }
 function oppPagina(doc, pd, meta){
   const o = pd.opp, t = o.txt;
