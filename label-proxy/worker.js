@@ -11,7 +11,7 @@ export default {
   async fetch(req, env, ctx) {
     const origin = req.headers.get('Origin') || '';
     const cors = {
-      'Access-Control-Allow-Origin': TOEGESTAAN.some(o => origin.startsWith(o)) ? origin : TOEGESTAAN[0],
+      'Access-Control-Allow-Origin': '*',   /* openbare gegevens: elke plek waar de app draait (ook tablet/bestand) */
       'Access-Control-Allow-Methods': 'GET, OPTIONS', 'Vary': 'Origin'
     };
     if (req.method === 'OPTIONS') return new Response(null, { headers: cors });
