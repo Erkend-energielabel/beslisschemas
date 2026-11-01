@@ -1,0 +1,1587 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DLB Opname</title>
+<meta name="theme-color" content="#231f20">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="DLB Opname">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Stencil+One&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#231f20; --ink2:#4a4546; --mute:#8a8687; --line:#e3e5df; --bg:#f4f5f1; --card:#fff;
+  --green:#88bd6a; --lime:#9aeb04; --green-d:#5d8f42; --red:#d83a2e; --amber:#e8a317;
+  --stencil:'Saira Stencil One', 'Arial Black', system-ui, sans-serif;
+  --sans:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --r:14px; --st:env(safe-area-inset-top,0px); --sb:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 var(--sans);-webkit-text-size-adjust:100%}
+body{min-height:100vh;padding-bottom:calc(84px + var(--sb))}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input,textarea,select{font:inherit;color:inherit}
+a{color:var(--green-d)}
+.hidden{display:none!important}
+
+/* header */
+.top{position:sticky;top:0;z-index:20;background:#fff;border-bottom:3px solid var(--green);padding:calc(var(--st) + 8px) 14px 8px;display:flex;align-items:center;gap:10px}
+.top img.logo{height:34px;display:block}
+.top .ttl{font-family:var(--stencil);font-size:20px;letter-spacing:.5px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .back{font-size:26px;line-height:1;padding:2px 8px 2px 0;color:var(--ink)}
+.top .act{font-size:22px;padding:4px 6px}
+.swoosh{height:4px;background:linear-gradient(90deg,var(--lime),var(--green))}
+
+main{padding:14px;max-width:760px;margin:0 auto}
+h2{font-family:var(--stencil);font-weight:400;font-size:22px;margin:18px 0 10px;letter-spacing:.4px}
+h3{font-size:15px;margin:16px 0 8px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink2)}
+.muted{color:var(--mute)} .small{font-size:13px}
+
+.card{background:var(--card);border-radius:var(--r);padding:14px;box-shadow:0 1px 0 var(--line),0 1px 8px rgba(35,31,32,.04);margin-bottom:12px}
+.row{display:flex;align-items:center;gap:10px}
+.grow{flex:1;min-width:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 14px;border-radius:11px;background:var(--ink);color:#fff;font-weight:600;font-size:14px}
+.btn.lime{background:var(--lime);color:var(--ink)}
+.btn.ghost{background:#fff;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line)}
+.btn.danger{background:#fff;color:var(--red);box-shadow:inset 0 0 0 1.5px #f1c9c5}
+.btn.sm{padding:7px 10px;font-size:13px;border-radius:9px}
+.btn:disabled{opacity:.45}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:999px;background:#fff;box-shadow:inset 0 0 0 1.5px var(--line);font-size:13px;font-weight:500;white-space:nowrap}
+.chip.on{background:var(--ink);color:#fff;box-shadow:none}
+.chips{display:flex;gap:7px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.badge{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:.4px;background:#eef0ea;color:var(--ink2)}
+.badge.ok{background:#e9f6dc;color:var(--green-d)} .badge.busy{background:#fff4d6;color:#8a6200} .badge.err{background:#fde3e0;color:var(--red)}
+
+/* list */
+.search{width:100%;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);background:#fff;outline:none}
+.search:focus{border-color:var(--green)}
+.rec-item{display:flex;gap:12px;align-items:center}
+.rec-ico{width:42px;height:42px;border-radius:12px;background:var(--ink);color:var(--lime);display:grid;place-items:center;font-size:19px;flex:none}
+.rec-item .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-item .m{font-size:12.5px;color:var(--mute)}
+.empty{text-align:center;padding:40px 20px;color:var(--mute)}
+.empty .big{font-family:var(--stencil);font-size:24px;color:var(--ink);margin-bottom:6px}
+
+/* tab bar */
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:#fff;border-top:1px solid var(--line);display:flex;justify-content:space-around;align-items:center;padding:6px 8px calc(6px + var(--sb))}
+.tabbar button{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:600;color:var(--mute);padding:4px 10px;min-width:64px}
+.tabbar button .i{font-size:21px;line-height:1}
+.tabbar button.on{color:var(--ink)}
+.tabbar .recbtn{width:62px;height:62px;border-radius:50%;background:var(--ink);margin-top:-26px;box-shadow:0 0 0 5px #fff,0 6px 18px rgba(0,0,0,.18);display:grid;place-items:center;min-width:0;padding:0}
+.tabbar .recbtn span{width:22px;height:22px;border-radius:50%;background:var(--lime)}
+
+/* record screen */
+.recscreen{position:fixed;inset:0;z-index:50;background:var(--ink);color:#fff;display:flex;flex-direction:column;padding:calc(var(--st) + 14px) 18px calc(var(--sb) + 18px)}
+.recscreen .hd{display:flex;align-items:center;justify-content:space-between}
+.recscreen .hd img{height:26px;filter:invert(1) hue-rotate(180deg) brightness(1.2);mix-blend-mode:lighten}
+.recscreen .state{font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;display:flex;align-items:center;gap:7px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--lime);box-shadow:0 0 0 0 rgba(154,235,4,.7);animation:pulse 1.4s infinite}
+.paused .dot{animation:none;background:var(--amber)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(154,235,4,.6)}70%{box-shadow:0 0 0 12px rgba(154,235,4,0)}100%{box-shadow:0 0 0 0 rgba(154,235,4,0)}}
+.timer{font-family:var(--stencil);font-size:60px;text-align:center;margin:12px 0 4px;letter-spacing:2px}
+.rec-type{display:flex;justify-content:center;gap:8px;margin-bottom:8px}
+.rec-type .chip{background:transparent;color:#cfcfcf;box-shadow:inset 0 0 0 1.5px #4a4546}
+.rec-type .chip.on{background:var(--lime);color:var(--ink);box-shadow:none}
+canvas.wave{width:100%;height:90px;display:block;margin:6px 0}
+.rec-notes{min-height:60px}
+.rec-notes{flex:1;overflow:auto;margin:6px 0;font-size:14px}
+.rec-notes .n{background:#2f2a2b;border-radius:10px;padding:8px 11px;margin-bottom:6px}
+.rec-notes .n b{color:var(--lime);font-weight:600;margin-right:6px}
+.rec-ctrl{display:flex;justify-content:space-around;align-items:center;margin-top:10px}
+.rc{display:flex;flex-direction:column;align-items:center;gap:6px;color:#ddd;font-size:12px;font-weight:600}
+.rc .c{width:58px;height:58px;border-radius:50%;background:#3a3536;display:grid;place-items:center;font-size:23px;color:#fff}
+.rc.stop .c{width:78px;height:78px;background:#fff}
+.rc.stop .c span{width:28px;height:28px;border-radius:6px;background:var(--red)}
+.rc.hl .c{background:var(--lime);color:var(--ink)}
+.flash{position:fixed;left:50%;top:40%;transform:translate(-50%,-50%);background:var(--lime);color:var(--ink);padding:10px 18px;border-radius:999px;font-weight:700;z-index:90;pointer-events:none;animation:fl 1s forwards}
+@keyframes fl{0%{opacity:0;transform:translate(-50%,-30%)}20%{opacity:1;transform:translate(-50%,-50%)}80%{opacity:1}100%{opacity:0}}
+.warn{background:#3a3536;border-left:3px solid var(--amber);padding:8px 10px;border-radius:8px;font-size:12.5px;color:#e8e3e3}
+
+/* detail */
+.meta{color:var(--mute);font-size:13px;margin:-4px 0 12px}
+.player{position:sticky;top:calc(var(--st) + 56px);z-index:15}
+.player .row{gap:8px}
+.pbtn{width:44px;height:44px;border-radius:50%;background:var(--ink);color:var(--lime);font-size:18px;display:grid;place-items:center;flex:none}
+.skip{font-size:12px;font-weight:700;padding:6px 6px;color:var(--ink2)}
+input[type=range]{width:100%;accent-color:var(--green-d)}
+.ptime{font-size:12px;color:var(--mute);font-variant-numeric:tabular-nums;display:flex;justify-content:space-between}
+.speed{font-size:12px;font-weight:700;padding:4px 8px;border-radius:8px;background:#eef0ea}
+.tabs{display:flex;gap:4px;background:#e8eae4;padding:4px;border-radius:12px;margin:4px 0 12px}
+.tabs button{flex:1;padding:8px 4px;border-radius:9px;font-weight:600;font-size:13.5px;color:var(--ink2)}
+.tabs button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+
+.line{display:flex;gap:10px;padding:9px 6px;border-radius:10px}
+.line.cur{background:#f0f8e6}
+.line .av{width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff}
+.line .who{font-size:12.5px;font-weight:700}
+.line .ts{font-size:11.5px;color:var(--mute);margin-left:6px;font-variant-numeric:tabular-nums}
+.line .tx{margin-top:1px}
+.line .tx[contenteditable=true]{background:#fffbe6;outline:1.5px dashed var(--amber);border-radius:6px;padding:2px 4px}
+.line.hl{box-shadow:inset 3px 0 0 var(--lime)}
+.tlink{color:var(--green-d);font-weight:600;cursor:pointer;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+.md h1{font-family:var(--stencil);font-weight:400;font-size:22px;margin:4px 0 10px;border-bottom:3px solid var(--green);padding-bottom:4px}
+.md h2{font-family:var(--sans);font-weight:700;font-size:17px;margin:18px 0 6px;letter-spacing:0}
+.md h3{font-size:14px;margin:14px 0 6px}
+.md p{margin:6px 0}
+.md ul,.md ol{margin:6px 0;padding-left:22px}
+.md li{margin:3px 0}
+.md li.task{list-style:none;margin-left:-20px}
+.md table{border-collapse:collapse;width:100%;font-size:13.5px;margin:8px 0;display:block;overflow-x:auto}
+.md th{background:var(--ink);color:#fff;text-align:left;font-weight:600}
+.md th,.md td{padding:6px 8px;border:1px solid var(--line);vertical-align:top}
+.md tr:nth-child(even) td{background:#f7f8f4}
+.md blockquote{margin:8px 0;padding:6px 12px;border-left:3px solid var(--green);background:#f5f9f0;border-radius:0 8px 8px 0}
+.md code{background:#eef0ea;padding:1px 5px;border-radius:5px;font-size:13px}
+.md hr{border:0;border-top:1px solid var(--line);margin:14px 0}
+
+/* mindmap */
+.mm{overflow-x:auto;padding:6px 0 10px}
+.mm ul{list-style:none;margin:0;padding-left:22px;position:relative}
+.mm>ul{padding-left:0}
+.mm li{position:relative;padding:4px 0 4px 14px}
+.mm li::before{content:'';position:absolute;left:0;top:0;bottom:0;border-left:2px solid var(--green)}
+.mm li:last-child::before{bottom:50%}
+.mm li::after{content:'';position:absolute;left:0;top:50%;width:12px;border-top:2px solid var(--green)}
+.mm>ul>li{padding-left:0}.mm>ul>li::before,.mm>ul>li::after{display:none}
+.mm .node{display:inline-block;padding:5px 10px;border-radius:9px;background:#fff;box-shadow:inset 0 0 0 1.5px var(--line);font-size:13.5px}
+.mm>ul>li>.node{background:var(--ink);color:#fff;font-family:var(--stencil);font-size:17px;box-shadow:none}
+.mm>ul>li>ul>li>.node{background:#eef7e2;box-shadow:inset 0 0 0 1.5px var(--green);font-weight:600}
+
+/* chat */
+.msg{margin:8px 0;display:flex}
+.msg .b{max-width:88%;padding:9px 12px;border-radius:14px;background:#fff;box-shadow:0 1px 0 var(--line)}
+.msg.u{justify-content:flex-end}.msg.u .b{background:var(--ink);color:#fff}
+.chatin{display:flex;gap:8px;position:sticky;bottom:calc(84px + var(--sb));background:var(--bg);padding:8px 0}
+.chatin textarea{flex:1;resize:none;border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;min-height:44px;max-height:140px;outline:none;background:#fff}
+.chatin textarea:focus{border-color:var(--green)}
+
+/* forms */
+label.f{display:block;font-size:13px;font-weight:600;color:var(--ink2);margin:10px 0 4px}
+.inp{width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid var(--line);background:#fff;outline:none}
+.inp:focus{border-color:var(--green)}
+textarea.inp{min-height:90px;resize:vertical}
+.hint{font-size:12px;color:var(--mute);margin-top:4px}
+.sw{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0}
+.tgl{appearance:none;width:46px;height:28px;border-radius:999px;background:#d9dbd5;position:relative;flex:none;transition:.2s}
+.tgl::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tgl:checked{background:var(--green-d)}.tgl:checked::after{left:21px}
+
+/* sheet / modal */
+.ov{position:fixed;inset:0;background:rgba(20,18,18,.45);z-index:70;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--bg);width:100%;max-width:760px;max-height:88vh;overflow:auto;border-radius:20px 20px 0 0;padding:16px 16px calc(var(--sb) + 18px)}
+.sheet .grab{width:40px;height:5px;border-radius:9px;background:#cfd2ca;margin:0 auto 10px}
+.tpl{display:flex;gap:12px;align-items:center;padding:12px;background:#fff;border-radius:12px;margin-bottom:8px;text-align:left;width:100%}
+.tpl .e{font-size:22px;width:32px;text-align:center}
+.tpl .n{font-weight:600}.tpl .d{font-size:12.5px;color:var(--mute)}
+.toast{position:fixed;left:50%;bottom:calc(100px + var(--sb));transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:12px;z-index:95;font-size:14px;max-width:90vw;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+.prog{height:6px;border-radius:9px;background:#e6e8e2;overflow:hidden;margin:8px 0}
+.prog i{display:block;height:100%;background:linear-gradient(90deg,var(--lime),var(--green));transition:width .3s}
+.spin{display:inline-block;width:16px;height:16px;border:2.5px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .8s linear infinite;vertical-align:-3px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.photos{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.photos img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px}
+.banner{background:#fff;border:1.5px solid var(--green);border-radius:12px;padding:10px 12px;font-size:13.5px;margin-bottom:12px}
+
+/* print */
+#print{display:none}
+@media print{
+  body>*:not(#print){display:none!important}
+  #print{display:block;padding:0;color:#231f20;font:11pt/1.45 Calibri,Arial,sans-serif}
+  #print .ph{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #88bd6a;padding-bottom:8px;margin-bottom:14px}
+  #print .ph img{height:52px}
+  #print .pf{margin-top:24px;border-top:1px solid #ccc;padding-top:6px;font-size:8.5pt;color:#666}
+  #print h1{font-size:18pt;margin:0 0 8px} #print h2{font-size:13pt;color:#231f20;margin:14px 0 4px} #print table{border-collapse:collapse;width:100%}
+  #print th{background:#231f20;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact} #print th,#print td{border:1px solid #bbb;padding:4px 6px;text-align:left;vertical-align:top}
+  @page{margin:16mm 16mm 18mm}
+}
+</style>
+</head>
+<body>
+<header class="top" id="top"></header>
+<div class="swoosh"></div>
+<main id="app"></main>
+<nav class="tabbar" id="tabbar">
+  <button data-go="#/" id="tb-home"><span class="i">☰</span>Opnames</button>
+  <button data-go="#/ask" id="tb-ask"><span class="i">✦</span>Vraag</button>
+  <button class="recbtn" id="tb-rec" aria-label="Opname starten"><span></span></button>
+  <button data-go="#/import" id="tb-imp"><span class="i">⇪</span>Importeer</button>
+  <button data-go="#/settings" id="tb-set"><span class="i">⚙</span>Instellingen</button>
+</nav>
+<div id="print"></div>
+<input type="file" id="fileAudio" accept="audio/*,video/*,.m4a,.mp3,.wav,.aac,.mp4,.mov,.caf,.ogg,.webm" class="hidden">
+<input type="file" id="filePhoto" accept="image/*" multiple class="hidden">
+<input type="file" id="fileBackup" accept="application/json,.json" class="hidden">
+
+<script>
+'use strict';
+/* =========================================================
+   DLB Opname — De Laat Bouwbegeleiding
+   Opnemen · Transcriberen (met sprekers) · Samenvatten · Vragen
+   Alles lokaal op het toestel (IndexedDB); API-sleutels alleen
+   naar de gekozen aanbieder (Google Gemini / ElevenLabs / Anthropic).
+   ========================================================= */
+const APP_VERSION = '1.0.0';
+const COMPANY = {
+  name: 'De Laat Bouwbegeleiding',
+  addr: 'Aelbert Cuyplaan 45, 3343 DA Hendrik-Ido-Ambacht',
+  tel: '06 51 63 08 96', mail: 'info@delaatbouwbegeleiding.nl', web: 'www.delaatbouwbegeleiding.nl', kvk: '76790606'
+};
+
+/* ---------- helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function fmtT(sec) {
+  sec = Math.max(0, Math.floor(sec || 0));
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  return (h ? h + ':' + String(m).padStart(2, '0') : String(m).padStart(2, '0')) + ':' + String(s).padStart(2, '0');
+}
+function fmtDur(sec) {
+  sec = Math.round(sec || 0); const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
+  if (h) return `${h} u ${m} min`; if (m) return `${m} min`; return `${sec} s`;
+}
+const fmtDate = (ts) => new Date(ts).toLocaleString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const fmtDateLong = (ts) => new Date(ts).toLocaleString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+function parseTs(v) {
+  if (typeof v === 'number') return v;
+  const p = String(v || '0').trim().replace(/[^\d:.]/g, '').split(':').map(Number);
+  if (p.some(isNaN)) return 0;
+  return p.reduce((a, b) => a * 60 + b, 0);
+}
+function toast(msg, ms = 2600) {
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), ms);
+}
+function flash(msg) { const f = document.createElement('div'); f.className = 'flash'; f.textContent = msg; document.body.appendChild(f); setTimeout(() => f.remove(), 1000); }
+const blobToB64 = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(blob); });
+const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const SPK_COLORS = ['#231f20', '#5d8f42', '#2f6fae', '#b5651d', '#7b4fa0', '#c0392b', '#138d75', '#8a6200'];
+
+/* ---------- settings ---------- */
+const DEFAULTS = {
+  userName: 'Jacob', sttProvider: 'gemini', llmProvider: 'gemini',
+  geminiKey: '', elevenKey: '', anthropicKey: '',
+  geminiModel: 'gemini-flash-latest', claudeModel: 'claude-sonnet-5-5', elevenModel: 'scribe_v2',
+  lang: 'nl', glossary: 'De Laat Bouwbegeleiding, Erkend-Energielabel, EPA, NTA 8800, ISSO 82.1, Rc-waarde, HR++, warmtepomp, rookgasafvoer, VvE, uitvoerder, bouwbegeleiding, oplevering, meerwerk, minderwerk, bestek, termijnstaat, VCA, VGM, Bouwbesluit, Bbl',
+  autoTranscribe: true, autoSummary: true, defaultTemplate: 'algemeen', autoTitle: true, segMinutes: 15
+};
+const S = Object.assign({}, DEFAULTS, (() => { try { return JSON.parse(localStorage.getItem('dlb-settings') || '{}'); } catch { return {}; } })());
+const saveSettings = () => { try { localStorage.setItem('dlb-settings', JSON.stringify(S)); } catch {} };
+const glossaryList = () => S.glossary.split(/[,\n]/).map((s) => s.trim()).filter(Boolean).slice(0, 100);
+const hasSTT = () => (S.sttProvider === 'elevenlabs' ? !!S.elevenKey : !!S.geminiKey);
+const hasLLM = () => (S.llmProvider === 'gemini' ? !!S.geminiKey : !!S.anthropicKey);
+const segSeconds = () => (S.sttProvider === 'elevenlabs' ? 30 : Math.min(25, Math.max(3, +S.segMinutes || 10))) * 60;
+
+/* ---------- IndexedDB ---------- */
+const DB = {
+  db: null,
+  open() {
+    return new Promise((res, rej) => {
+      const r = indexedDB.open('dlb-opname', 1);
+      r.onupgradeneeded = () => {
+        const d = r.result;
+        d.createObjectStore('recs', { keyPath: 'id' });
+        d.createObjectStore('blobs');
+        d.createObjectStore('chunks', { keyPath: ['rid', 'seg', 'n'] });
+        d.createObjectStore('templates', { keyPath: 'id' });
+      };
+      r.onsuccess = () => { this.db = r.result; res(); };
+      r.onerror = () => rej(r.error);
+    });
+  },
+  tx(store, mode, fn) {
+    return new Promise((res, rej) => {
+      const t = this.db.transaction(store, mode); const st = t.objectStore(store); let out;
+      const rq = fn(st); if (rq) rq.onsuccess = () => { out = rq.result; };
+      t.oncomplete = () => res(out); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error('Opslag afgebroken (vol?)'));
+    });
+  },
+  get(s, k) { return this.tx(s, 'readonly', (st) => st.get(k)); },
+  put(s, v, k) { return this.tx(s, 'readwrite', (st) => (k === undefined ? st.put(v) : st.put(v, k))); },
+  del(s, k) { return this.tx(s, 'readwrite', (st) => st.delete(k)); },
+  all(s) { return this.tx(s, 'readonly', (st) => st.getAll()); },
+  delRange(s, range) { return this.tx(s, 'readwrite', (st) => st.delete(range)); },
+};
+async function updateRec(id, fn) {
+  const r = await DB.get('recs', id); if (!r) return null;
+  await fn(r); r.updatedAt = Date.now(); await DB.put('recs', r); return r;
+}
+
+/* ---------- templates ---------- */
+const TEMPLATES = [
+  { id: 'algemeen', e: '📝', name: 'Algemene samenvatting', d: 'Kern, belangrijkste punten, besluiten en acties',
+    prompt: 'Maak een heldere samenvatting met: # titel, ## Kern (3-5 zinnen), ## Belangrijkste punten (bullets), ## Besluiten / afspraken, ## Acties (tabel: Actie | Wie | Wanneer), ## Open vragen. Laat secties weg die niet van toepassing zijn.' },
+  { id: 'bouwoverleg', e: '🏗️', name: 'Bouwoverleg / notulen', d: 'Aanwezigen, per onderwerp, besluiten, actielijst, planning, VGM',
+    prompt: 'Schrijf formele notulen van een bouwoverleg. Structuur: # Notulen bouwoverleg – [project indien genoemd]; ## Aanwezigen (namen/rollen indien genoemd); ## Bespreekpunten – per onderwerp een ### kop met korte samenvatting, wat is besloten en door wie; ## Planning & voortgang; ## Kwaliteit & opmerkingen uitvoering; ## VGM / veiligheid (alleen als besproken); ## Meer- en minderwerk (alleen als besproken, met bedragen indien genoemd); ## Actielijst als tabel: Nr | Actie | Wie | Gereed vóór | Status (nieuw); ## Volgend overleg (indien genoemd).' },
+  { id: 'acties', e: '✅', name: 'Actielijst', d: 'Alleen acties en afspraken in een tabel',
+    prompt: 'Haal ALLE concrete acties, toezeggingen en afspraken uit het gesprek. Geef: # Actielijst; daarna één tabel: Nr | Actie | Wie | Deadline | Prioriteit (hoog/middel/laag) | Bron [mm:ss]. Daaronder ## Voor mij (' + '{USER}' + ') met een takenlijst (- [ ] ...) van wat de gebruiker zelf moet doen.' },
+  { id: 'klant', e: '🤝', name: 'Klantgesprek / intake', d: 'Situatie, wensen, budget, vervolg en offerte-input',
+    prompt: 'Vat dit klant- of intakegesprek samen voor een bouwbegeleider/adviseur: # Intake – [klant/adres indien genoemd]; ## Situatie & object (adres, bouwjaar, type woning/gebouw indien genoemd); ## Wensen & doelen klant; ## Knelpunten / zorgen; ## Budget & planning; ## Gemaakte afspraken; ## Input voor offerte (werkzaamheden, uren/inschatting, uitgangspunten); ## Vervolgstappen (tabel Actie | Wie | Wanneer); ## Nog uit te vragen.' },
+  { id: 'telefoon', e: '📞', name: 'Telefoongesprek', d: 'Kort: met wie, waarover, afspraken, terugbellen',
+    prompt: 'Maak een beknopt telefoonnotitie: # Telefoonnotitie; **Met:** (naam/bedrijf indien genoemd) · **Onderwerp:** ...; ## Samenvatting (max 5 bullets); ## Afspraken; ## Terugbellen / opvolgen (wie, wanneer). Houd het kort.' },
+  { id: 'oplevering', e: '🔍', name: 'Oplevering / opnamelijst', d: 'Gebreken per ruimte, ernst, verantwoordelijke',
+    prompt: 'Maak een opleverings- / opnamelijst. # Opnamelijst – [adres/project indien genoemd]; per ruimte of onderdeel een ### kop met een tabel: Nr | Gebrek / opmerking | Ernst (kritiek/gemiddeld/cosmetisch) | Verantwoordelijke | Termijn | [mm:ss]. Daarna ## Samenvatting (aantal punten per ernst) en ## Afspraken over herstel.' },
+  { id: 'epa', e: '🏠', name: 'EPA-opname woning', d: 'Woningkenmerken voor energielabel (NTA 8800)',
+    prompt: 'Dit is een ingesproken opname tijdens een EPA-woningopname (energielabel, NTA 8800 / ISSO 82.1). Zet alle genoemde gegevens gestructureerd op een rij: # EPA-opname – [adres indien genoemd]; ## Algemeen (adres, woningtype, bouwjaar, gebruiksoppervlak, aantal bouwlagen); ## Thermische schil – tabel Onderdeel | Situatie | Isolatie / Rc / U-waarde | Bewijs aanwezig? (gevels, dak, vloer, ramen/glas per oriëntatie, deuren); ## Installaties – verwarming, warm tapwater, ventilatie, koeling, PV/zonneboiler (merk/type/bouwjaar indien genoemd); ## Bijzonderheden & foto-/bewijslast; ## Ontbrekende gegevens (wat nog nagevraagd of gecontroleerd moet worden). Verzin geen waarden: alleen wat gezegd is.' },
+  { id: 'vve', e: '🏢', name: 'VvE-vergadering', d: 'Agendapunten, stemmingen, vragen bewoners',
+    prompt: 'Notuleer deze VvE-/bewonersbijeenkomst: # Notulen VvE-vergadering; ## Aanwezigen / quorum (indien genoemd); ## Per agendapunt: ### kop, bespreking, vragen van leden en antwoorden, besluit + stemverhouding indien genoemd; ## Planning werkzaamheden & overlast voor bewoners; ## Actielijst (Actie | Wie | Wanneer); ## Rondvraag.' },
+  { id: 'mail', e: '✉️', name: 'Follow-up e-mail', d: 'Concept-mail aan de andere partij',
+    prompt: 'Schrijf een zakelijke, vriendelijke follow-up e-mail in het Nederlands namens {USER} van De Laat Bouwbegeleiding aan de gesprekspartner(s). Begin met **Onderwerp:** ... , dan de mail: korte bedankregel, samenvatting van de afspraken als bullets, wie wat doet en wanneer, en een afsluiting met "Met vriendelijke groet,\n{USER}\nDe Laat Bouwbegeleiding\n06 51 63 08 96". Geen markdown-koppen.' },
+  { id: 'mindmap', e: '🧠', name: 'Mindmap', d: 'Visuele boomstructuur van het gesprek', kind: 'mindmap',
+    prompt: 'Maak een mindmap van het gesprek. Antwoord UITSLUITEND met een geneste Markdown-lijst: de eerste regel "- [hoofdonderwerp]", daaronder 3-7 hoofdtakken ("  - "), elk met 2-5 korte subpunten ("    - "), eventueel nog één niveau dieper. Maximaal 8 woorden per punt. Geen andere tekst.' },
+];
+let customTemplates = [];
+const allTemplates = () => [...TEMPLATES, ...customTemplates];
+const tplById = (id) => allTemplates().find((t) => t.id === id) || TEMPLATES[0];
+
+/* ---------- markdown renderer ---------- */
+function inlineMd(s) {
+  s = esc(s);
+  s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/(^|[^*])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>');
+  s = s.replace(/\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g, (m, t) => `<span class="tlink" data-t="${parseTs(t)}">[${t}]</span>`);
+  return s;
+}
+function md(src) {
+  const lines = String(src || '').replace(/\r/g, '').split('\n'); let out = ''; let i = 0;
+  const listStack = [];
+  const closeLists = (lvl = -1) => { while (listStack.length && listStack[listStack.length - 1].lvl > lvl) out += `</${listStack.pop().tag}>`; };
+  while (i < lines.length) {
+    const l = lines[i];
+    if (/^\s*\|.*\|\s*$/.test(l) && i + 1 < lines.length && /^\s*\|?\s*:?-{2,}/.test(lines[i + 1])) {
+      closeLists();
+      const cells = (r) => r.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
+      out += '<table><thead><tr>' + cells(l).map((c) => `<th>${inlineMd(c)}</th>`).join('') + '</tr></thead><tbody>';
+      i += 2;
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) { out += '<tr>' + cells(lines[i]).map((c) => `<td>${inlineMd(c)}</td>`).join('') + '</tr>'; i++; }
+      out += '</tbody></table>'; continue;
+    }
+    let m;
+    if ((m = l.match(/^(#{1,4})\s+(.*)/))) { closeLists(); const n = Math.min(m[1].length, 3); out += `<h${n}>${inlineMd(m[2])}</h${n}>`; }
+    else if ((m = l.match(/^(\s*)([-*+]|\d+[.)])\s+(.*)/))) {
+      const lvl = Math.floor(m[1].replace(/\t/g, '  ').length / 2); const tag = /\d/.test(m[2]) ? 'ol' : 'ul';
+      closeLists(lvl);
+      if (!listStack.length || listStack[listStack.length - 1].lvl < lvl) { out += `<${tag}>`; listStack.push({ lvl, tag }); }
+      let txt = m[3]; let cls = '';
+      const tk = txt.match(/^\[( |x|X)\]\s+(.*)/);
+      if (tk) { cls = ' class="task"'; txt = (tk[1] === ' ' ? '☐ ' : '☑ ') + tk[2]; }
+      out += `<li${cls}>${inlineMd(txt)}</li>`;
+    }
+    else if (/^\s*>\s?/.test(l)) { closeLists(); out += `<blockquote>${inlineMd(l.replace(/^\s*>\s?/, ''))}</blockquote>`; }
+    else if (/^\s*(---|\*\*\*)\s*$/.test(l)) { closeLists(); out += '<hr>'; }
+    else if (!l.trim()) { closeLists(); }
+    else { closeLists(); out += `<p>${inlineMd(l)}</p>`; }
+    i++;
+  }
+  closeLists();
+  return out;
+}
+function mindmapHtml(src) {
+  const items = String(src || '').split('\n').map((l) => { const m = l.match(/^(\s*)[-*+]\s+(.*)/); return m ? { lvl: Math.floor(m[1].replace(/\t/g, '  ').length / 2), t: m[2].replace(/\*\*/g, '') } : null; }).filter(Boolean);
+  if (!items.length) return '<div class="md">' + md(src) + '</div>';
+  let html = '<div class="mm"><ul>'; let cur = 0; let first = true;
+  for (const it of items) {
+    if (first) { cur = it.lvl; first = false; html += `<li><span class="node">${esc(it.t)}</span>`; continue; }
+    if (it.lvl > cur) { html += '<ul>'.repeat(it.lvl - cur); }
+    else { html += '</li>'; if (it.lvl < cur) html += '</ul></li>'.repeat(cur - it.lvl); }
+    html += `<li><span class="node">${esc(it.t)}</span>`; cur = it.lvl;
+  }
+  html += '</li>' + '</ul></li>'.repeat(Math.max(0, cur - items[0].lvl)) + '</ul></div>';
+  return html;
+}
+
+/* =========================================================
+   RECORDER  (segment-rotatie + chunk-opslag = crashbestendig)
+   ========================================================= */
+const R = {
+  a: null,
+  pickMime() {
+    const c = ['audio/mp4;codecs=mp4a.40.2', 'audio/mp4', 'audio/aac', 'audio/webm;codecs=opus', 'audio/webm'];
+    if (!window.MediaRecorder) return '';
+    return c.find((t) => { try { return MediaRecorder.isTypeSupported(t); } catch { return false; } }) || '';
+  },
+  async getStream() {
+    return navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+  },
+  async start(type = 'gesprek') {
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) throw new Error('Opnemen wordt niet ondersteund in deze browser.');
+    const stream = await this.getStream();
+    const id = uid(); const now = Date.now();
+    const rec = { id, title: 'Opname ' + new Date(now).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
+      createdAt: now, updatedAt: now, type, duration: 0, segments: [], highlights: [], notes: [], photos: [], transcript: null, speakers: {}, summaries: [], chat: [], status: 'recording' };
+    await DB.put('recs', rec);
+    this.a = { id, rec, stream, doneSecs: 0, segIdx: 0, paused: false, mr: null };
+    this.setupMeter(stream); this.wake(); this.watchTrack();
+    this.newSegment();
+    try { navigator.storage?.persist?.(); } catch {}
+    return id;
+  },
+  newSegment() {
+    const a = this.a; if (!a) return;
+    const mime = this.pickMime(); const opts = { audioBitsPerSecond: 48000 }; if (mime) opts.mimeType = mime;
+    let mr; try { mr = new MediaRecorder(a.stream, opts); } catch { mr = new MediaRecorder(a.stream); }
+    const segIdx = a.segIdx; const start = a.doneSecs; let n = 0; const pending = [];
+    a.mr = mr; a.mime = mr.mimeType || mime || 'audio/mp4'; a.segStartWall = Date.now(); a.segStart = start; a.pending = pending;
+    mr.ondataavailable = (e) => {
+      if (e.data && e.data.size) pending.push(DB.put('chunks', { rid: a.id, seg: segIdx, n: n++, blob: e.data, mime: a.mime, start }).catch((err) => console.warn(err)));
+    };
+    mr.onerror = (e) => { console.warn('MediaRecorder error', e); this.recover('fout'); };
+    mr.start(4000);
+    clearTimeout(a.rot); a.rot = setTimeout(() => this.rotate(), segSeconds() * 1000);
+  },
+  async stopSegment() {
+    const a = this.a; if (!a || !a.mr) return;
+    clearTimeout(a.rot);
+    const mr = a.mr; const segIdx = a.segIdx; const start = a.segStart; const mime = a.mime; const pending = a.pending;
+    const dur = (Date.now() - a.segStartWall) / 1000;
+    a.mr = null;
+    await new Promise((res) => {
+      if (mr.state === 'inactive') return res();
+      const to = setTimeout(res, 3000);
+      mr.addEventListener('stop', () => { clearTimeout(to); res(); }, { once: true });
+      try { mr.stop(); } catch { clearTimeout(to); res(); }
+    });
+    await sleep(60); await Promise.all(pending);
+    const seg = await assembleSegment(a.id, segIdx, start, dur, mime);
+    a.doneSecs += dur; a.segIdx++;
+    a.rec = await updateRec(a.id, (r) => { if (seg && !r.segments.some((s) => s.idx === seg.idx)) r.segments.push(seg); r.duration = a.doneSecs; }) || a.rec;
+  },
+  async rotate() { if (!this.a || this.a.paused) return; await this.stopSegment(); if (this.a && !this.a.paused) this.newSegment(); },
+  async pause() { if (!this.a || this.a.paused) return; this.a.paused = true; await this.stopSegment(); },
+  async resume() {
+    const a = this.a; if (!a || !a.paused) return;
+    if (!a.stream.getAudioTracks().some((t) => t.readyState === 'live')) { a.stream = await this.getStream(); this.setupMeter(a.stream); this.watchTrack(); }
+    a.paused = false; this.newSegment(); this.wake();
+  },
+  async stop() {
+    const a = this.a; if (!a) return null;
+    if (!a.paused) await this.stopSegment();
+    a.stream.getTracks().forEach((t) => t.stop());
+    cancelAnimationFrame(a.raf); try { a.ctx?.close(); } catch {}
+    try { a.wl?.release(); } catch {}
+    const id = a.id; this.a = null;
+    await updateRec(id, (r) => { r.status = r.segments.length ? 'recorded' : 'empty'; r.duration = a.doneSecs; });
+    return id;
+  },
+  elapsed() { const a = this.a; if (!a) return 0; return a.doneSecs + (a.mr ? (Date.now() - a.segStartWall) / 1000 : 0); },
+  async addHighlight() { const a = this.a; if (!a) return; const t = this.elapsed(); a.rec = await updateRec(a.id, (r) => r.highlights.push(t)); flash('★ Highlight ' + fmtT(t)); navigator.vibrate?.(30); },
+  async addNote(text) { const a = this.a; if (!a || !text.trim()) return; const t = this.elapsed(); a.rec = await updateRec(a.id, (r) => r.notes.push({ t, text: text.trim() })); },
+  setupMeter(stream) {
+    const a = this.a; try { a.ctx?.close(); } catch {}
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)(); ctx.resume?.();
+      const src = ctx.createMediaStreamSource(stream); const an = ctx.createAnalyser(); an.fftSize = 1024; src.connect(an);
+      a.ctx = ctx; a.an = an; a.levels = a.levels || [];
+    } catch (e) { console.warn('meter', e); }
+  },
+  async wake() { try { if ('wakeLock' in navigator && document.visibilityState === 'visible') this.a.wl = await navigator.wakeLock.request('screen'); } catch {} },
+  watchTrack() {
+    const tr = this.a?.stream.getAudioTracks()[0]; if (!tr) return;
+    tr.onended = () => { if (document.visibilityState === 'visible') this.recover('microfoon gestopt'); };
+  },
+  async recover(reason) {
+    const a = this.a; if (!a || a.paused || a.recovering) return; a.recovering = true;
+    try {
+      await this.stopSegment();
+      a.stream.getTracks().forEach((t) => t.stop());
+      a.stream = await this.getStream(); this.setupMeter(a.stream); this.watchTrack();
+      a.rec = await updateRec(a.id, (r) => r.notes.push({ t: a.doneSecs, text: `⚠ Onderbreking (${reason}) — opname automatisch hervat` }));
+      this.newSegment(); this.wake(); toast('Opname hervat na onderbreking');
+    } catch (e) {
+      a.paused = true; toast('Opname gepauzeerd: tik op ▶ om verder te gaan'); RecUI.render();
+    } finally { a.recovering = false; RecUI.render(); }
+  },
+};
+async function assembleSegment(rid, seg, start, dur, mime) {
+  const range = IDBKeyRange.bound([rid, seg, 0], [rid, seg, Number.MAX_SAFE_INTEGER]);
+  const all = (await DB.tx('chunks', 'readonly', (st) => st.getAll(range))).sort((a, b) => a.n - b.n);
+  if (!all.length) return null;
+  const type = (all[0].mime || mime || 'audio/mp4').split(';')[0];
+  const blob = new Blob(all.map((c) => c.blob), { type });
+  const key = `${rid}:${seg}`;
+  await DB.put('blobs', blob, key);
+  await DB.delRange('chunks', IDBKeyRange.bound([rid, seg, 0], [rid, seg, Number.MAX_SAFE_INTEGER]));
+  return { idx: seg, start: start ?? all[0].start ?? 0, dur, mime: type, key, size: blob.size };
+}
+async function recoverOrphans() {
+  const chunks = await DB.all('chunks'); if (!chunks.length) return;
+  const groups = {};
+  for (const c of chunks) { const k = c.rid + '|' + c.seg; (groups[k] = groups[k] || []).push(c); }
+  for (const k of Object.keys(groups)) {
+    const [rid, segS] = k.split('|'); const seg = +segS; const g = groups[k];
+    const est = g.length * 4; // ~4 s per chunk
+    const s = await assembleSegment(rid, seg, g[0].start || 0, est, g[0].mime);
+    let rec = await DB.get('recs', rid);
+    if (!rec) rec = { id: rid, title: 'Herstelde opname', createdAt: Date.now(), type: 'gesprek', duration: 0, segments: [], highlights: [], notes: [], photos: [], transcript: null, speakers: {}, summaries: [], chat: [] };
+    if (s && !rec.segments.some((x) => x.idx === s.idx)) rec.segments.push(s);
+    rec.segments.sort((a, b) => a.idx - b.idx);
+    rec.duration = rec.segments.reduce((m, x) => Math.max(m, x.start + x.dur), 0);
+    rec.status = 'recorded'; rec.notes.push({ t: rec.duration, text: '⚠ Opname hersteld na onverwacht afsluiten van de app' });
+    await DB.put('recs', rec);
+  }
+  toast('Onderbroken opname hersteld ✔');
+}
+
+/* Record screen UI */
+const RecUI = {
+  el: null,
+  async open() {
+    if (R.a) return this.show();
+    let type = localStorage.getItem('dlb-lasttype') || 'gesprek';
+    try { await R.start(type); } catch (e) {
+      const msg = e.name === 'NotAllowedError' ? 'Geen toegang tot de microfoon. Sta dit toe via Instellingen › Safari › Microfoon (of in de app-melding).' : esc(e.message || String(e));
+      return modalMsg('Opname kon niet starten', msg + (isIOS && isStandalone() ? '<br><br>Tip: werkt de microfoon niet in de beginscherm-app, sluit de app helemaal af (omhoog vegen) en open opnieuw.' : ''));
+    }
+    this.show();
+  },
+  show() {
+    this.el?.remove();
+    const el = document.createElement('div'); el.className = 'recscreen'; this.el = el;
+    el.innerHTML = `
+      <div class="hd"><img src="logo.png" alt=""><div class="state"><span class="dot"></span><span id="rs-state">Opname</span></div></div>
+      <div class="timer" id="rs-time">00:00</div>
+      <div class="rec-type">
+        <button class="chip" data-type="gesprek">👥 Overleg</button>
+        <button class="chip" data-type="telefoon">📞 Telefoon (luidspreker)</button>
+        <button class="chip" data-type="dictaat">🎙 Dictaat</button>
+      </div>
+      <canvas class="wave" id="rs-wave"></canvas>
+      <div class="warn">Houd de app open en het scherm aan (wordt automatisch wakker gehouden). Bij wegschakelen pauzeert iOS de microfoon; de app hervat zodra je terugkomt.</div>
+      <div class="rec-notes" id="rs-notes"></div>
+      <div class="row" style="gap:8px;margin-top:6px">
+        <input class="inp grow" id="rs-note" placeholder="Notitie toevoegen…" style="background:#2f2a2b;border-color:#4a4546;color:#fff">
+        <button class="btn lime sm" id="rs-addnote">+</button>
+      </div>
+      <div class="rec-ctrl">
+        <button class="rc" id="rs-pause"><span class="c">❚❚</span><span id="rs-plabel">Pauze</span></button>
+        <button class="rc stop" id="rs-stop"><span class="c"><span></span></span>Stop</button>
+        <button class="rc hl" id="rs-hl"><span class="c">★</span>Highlight</button>
+      </div>`;
+    document.body.appendChild(el);
+    $$('.rec-type .chip', el).forEach((b) => b.onclick = async () => {
+      localStorage.setItem('dlb-lasttype', b.dataset.type);
+      R.a.rec = await updateRec(R.a.id, (r) => { r.type = b.dataset.type; }); this.render();
+    });
+    $('#rs-hl', el).onclick = () => R.addHighlight().then(() => this.render());
+    const addNote = async () => { const i = $('#rs-note', el); await R.addNote(i.value); i.value = ''; this.render(); };
+    $('#rs-addnote', el).onclick = addNote;
+    $('#rs-note', el).onkeydown = (e) => { if (e.key === 'Enter') addNote(); };
+    $('#rs-pause', el).onclick = async () => { if (R.a.paused) await R.resume(); else await R.pause(); this.render(); };
+    $('#rs-stop', el).onclick = async () => {
+      $('#rs-stop', el).disabled = true; $('#rs-state', el).textContent = 'Opslaan…';
+      const id = await R.stop(); this.close();
+      const rec = await DB.get('recs', id);
+      if (rec.status === 'empty') { toast('Lege opname — niet opgeslagen'); await deleteRec(id); location.hash = '#/'; return; }
+      location.hash = '#/rec/' + id;
+      if (S.autoTranscribe && hasSTT()) Proc.transcribe(id);
+    };
+    this.render(); this.loop();
+  },
+  render() {
+    const el = this.el; if (!el || !R.a) return;
+    el.classList.toggle('paused', R.a.paused);
+    $('#rs-state', el).textContent = R.a.paused ? 'Gepauzeerd' : 'Opname';
+    $('#rs-plabel', el).textContent = R.a.paused ? 'Verder' : 'Pauze';
+    $('#rs-pause .c', el).textContent = R.a.paused ? '▶' : '❚❚';
+    $$('.rec-type .chip', el).forEach((b) => b.classList.toggle('on', b.dataset.type === R.a.rec.type));
+    const r = R.a.rec; const items = [...r.notes.map((n) => ({ t: n.t, h: `<b>${fmtT(n.t)}</b>${esc(n.text)}` })), ...r.highlights.map((t) => ({ t, h: `<b>${fmtT(t)}</b>★ Highlight` }))].sort((a, b) => b.t - a.t);
+    $('#rs-notes', el).innerHTML = items.map((i) => `<div class="n">${i.h}</div>`).join('');
+  },
+  loop() {
+    const el = this.el; if (!el || !R.a) return;
+    const cv = $('#rs-wave', el); const dpr = window.devicePixelRatio || 1;
+    const draw = () => {
+      if (!this.el || !R.a) return;
+      $('#rs-time', el).textContent = fmtT(R.elapsed());
+      const W = cv.clientWidth * dpr, H = cv.clientHeight * dpr; if (cv.width !== W) { cv.width = W; cv.height = H; }
+      const g = cv.getContext('2d'); g.clearRect(0, 0, W, H);
+      const a = R.a; let lvl = 0;
+      if (a.an && !a.paused) { const d = new Float32Array(a.an.fftSize); a.an.getFloatTimeDomainData(d); let s = 0; for (const v of d) s += v * v; lvl = Math.min(1, Math.sqrt(s / d.length) * 5); }
+      a.levels.push(lvl); const bw = 6 * dpr, gap = 3 * dpr, n = Math.floor(W / (bw + gap)); if (a.levels.length > n) a.levels.splice(0, a.levels.length - n);
+      const grad = g.createLinearGradient(0, 0, W, 0); grad.addColorStop(0, '#9aeb04'); grad.addColorStop(1, '#88bd6a'); g.fillStyle = grad;
+      a.levels.forEach((v, i) => { const h = Math.max(3 * dpr, v * H * 0.95); const x = W - (a.levels.length - i) * (bw + gap); g.beginPath(); g.roundRect ? g.roundRect(x, (H - h) / 2, bw, h, 3 * dpr) : g.rect(x, (H - h) / 2, bw, h); g.fill(); });
+      a.raf = requestAnimationFrame(draw);
+    };
+    draw();
+  },
+  close() { this.el?.remove(); this.el = null; },
+};
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState !== 'visible' || !R.a) return;
+  R.wake(); try { await R.a.ctx?.resume(); } catch {}
+  const a = R.a; if (a.paused) return;
+  const live = a.stream.getAudioTracks().some((t) => t.readyState === 'live' && !t.muted);
+  if (!live || !a.mr || a.mr.state !== 'recording') R.recover('app op achtergrond');
+});
+
+/* =========================================================
+   AI-AANBIEDERS
+   ========================================================= */
+async function errText(r) { let t = ''; try { t = await r.text(); const j = JSON.parse(t); t = j.error?.message || j.detail?.message || j.detail || j.message || t; } catch {} return `${r.status} ${typeof t === 'string' ? t.slice(0, 300) : JSON.stringify(t).slice(0, 300)}`; }
+function netErr(e, who) { if (e instanceof TypeError) return new Error(`${who}: geen verbinding (offline of geblokkeerd door de browser).`); return e; }
+
+async function geminiGenerate({ contents, system, json, schema, maxTokens = 32768, temperature = 0.2 }) {
+  if (!S.geminiKey) throw new Error('Geen Gemini API-sleutel ingesteld (Instellingen).');
+  const body = { contents, generationConfig: { temperature, maxOutputTokens: maxTokens } };
+  if (system) body.systemInstruction = { parts: [{ text: system }] };
+  if (json) { body.generationConfig.responseMimeType = 'application/json'; if (schema) body.generationConfig.responseSchema = schema; }
+  let r;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(S.geminiModel || 'gemini-flash-latest')}:generateContent`, {
+        method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': S.geminiKey }, body: JSON.stringify(body) });
+    } catch (e) { throw netErr(e, 'Gemini'); }
+    if (r.status === 429 || r.status === 503) {
+      // Gratis limiet (per minuut) of overbelast: wachten en opnieuw proberen
+      let wait = 30; let daily = false;
+      try { const j = await r.clone().json(); const ri = (j.error?.details || []).find((d) => d.retryDelay); if (ri) wait = Math.ceil(parseFloat(ri.retryDelay)) || 30; daily = /per ?day|PerDay|daily/i.test(JSON.stringify(j)); } catch {}
+      if (daily) throw new Error('Gratis daglimiet van Gemini bereikt. Morgen verder, of zet billing aan in Google AI Studio (kost dan centen per uur).');
+      if (attempt < 3) { toast(`Gratis limiet: even wachten (${Math.min(wait, 65)} s)…`, 4000); await sleep(Math.min(wait, 65) * 1000); continue; }
+    }
+    break;
+  }
+  if (!r.ok) throw new Error('Gemini ' + await errText(r));
+  const d = await r.json(); const c = d.candidates?.[0];
+  if (!c) throw new Error('Gemini gaf geen antwoord (' + (d.promptFeedback?.blockReason || 'onbekend') + ')');
+  return (c.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join('');
+}
+async function geminiUploadFile(blob, mime) {
+  // Resumable upload via Files API (voor bestanden > ~18 MB)
+  let r = await fetch('https://generativelanguage.googleapis.com/upload/v1beta/files', {
+    method: 'POST', headers: { 'x-goog-api-key': S.geminiKey, 'X-Goog-Upload-Protocol': 'resumable', 'X-Goog-Upload-Command': 'start',
+      'X-Goog-Upload-Header-Content-Length': String(blob.size), 'X-Goog-Upload-Header-Content-Type': mime, 'content-type': 'application/json' },
+    body: JSON.stringify({ file: { display_name: 'dlb-opname' } }) });
+  if (!r.ok) throw new Error('Gemini upload ' + await errText(r));
+  const url = r.headers.get('x-goog-upload-url');
+  if (!url) throw new Error('Gemini upload: browser geeft upload-URL niet vrij. Kies ElevenLabs voor lange geïmporteerde bestanden.');
+  r = await fetch(url, { method: 'POST', headers: { 'X-Goog-Upload-Command': 'upload, finalize', 'X-Goog-Upload-Offset': '0' }, body: blob });
+  if (!r.ok) throw new Error('Gemini upload ' + await errText(r));
+  let f = (await r.json()).file;
+  for (let i = 0; i < 60 && f.state === 'PROCESSING'; i++) {
+    await sleep(2000);
+    const g = await fetch(`https://generativelanguage.googleapis.com/v1beta/${f.name}`, { headers: { 'x-goog-api-key': S.geminiKey } });
+    f = await g.json();
+  }
+  if (f.state && f.state !== 'ACTIVE') throw new Error('Gemini kon het bestand niet verwerken (' + f.state + ')');
+  return f.uri;
+}
+function geminiMime(m) {
+  m = (m || '').split(';')[0];
+  if (/mp4|m4a|aac|quicktime|x-m4a/.test(m)) return 'audio/mp4';
+  if (/mpeg|mp3/.test(m)) return 'audio/mp3';
+  if (/wav/.test(m)) return 'audio/wav';
+  if (/ogg|opus/.test(m)) return 'audio/ogg';
+  if (/webm/.test(m)) return 'audio/webm';
+  if (/flac/.test(m)) return 'audio/flac';
+  return m || 'audio/mp4';
+}
+
+async function sttGemini(blob, seg, ctxText) {
+  const mime = geminiMime(blob.type || seg.mime);
+  const gl = glossaryList();
+  const prompt = `Je bent een professionele notulist/transcribent. Transcribeer dit audiofragment volledig en letterlijk in de gesproken taal (meestal Nederlands${S.lang && S.lang !== 'nl' && S.lang !== 'auto' ? ', verwacht: ' + S.lang : ''}).
+Regels:
+- Splits per spreekbeurt. Geef elke stem een vast label: "Spreker 1", "Spreker 2", enz. Gebruik een echte naam alleen als die stem zichzelf duidelijk voorstelt of zo wordt aangesproken.
+- "start" = begintijd van de spreekbeurt binnen DIT fragment, formaat MM:SS.
+- Schrijf correcte zinnen met leestekens. Laat haperingen ("eh", "uhm") weg, maar verander niets aan de inhoud. Niet samenvatten, niets weglaten.
+- Onverstaanbaar: schrijf [onverstaanbaar]. Geen spraak: lege lijst.
+${gl.length ? '- Spel deze vaktermen/namen correct indien ze voorkomen: ' + gl.join(', ') + '.' : ''}
+${ctxText ? '\nContext — dit fragment is een vervolg op een eerder deel van hetzelfde gesprek. ' + ctxText + '\nGebruik voor dezelfde stemmen dezelfde labels.' : ''}`;
+  let part;
+  if (blob.size > 18 * 1024 * 1024) part = { file_data: { mime_type: mime, file_uri: await geminiUploadFile(blob, mime) } };
+  else part = { inline_data: { mime_type: mime, data: await blobToB64(blob) } };
+  const schema = { type: 'ARRAY', items: { type: 'OBJECT', properties: { speaker: { type: 'STRING' }, start: { type: 'STRING' }, text: { type: 'STRING' } }, required: ['speaker', 'start', 'text'] } };
+  const out = await geminiGenerate({ contents: [{ role: 'user', parts: [part, { text: prompt }] }], json: true, schema, temperature: 0, maxTokens: 60000 });
+  let arr; try { arr = JSON.parse(out); } catch { const m = out.match(/\[[\s\S]*\]/); arr = m ? JSON.parse(m[0]) : []; }
+  if (!Array.isArray(arr)) arr = arr.segments || [];
+  const lines = arr.filter((x) => x && x.text && x.text.trim()).map((x) => ({ speaker: String(x.speaker || 'Spreker 1').trim(), start: Math.min(parseTs(x.start), seg.dur || 1e9), text: x.text.trim() }));
+  lines.sort((a, b) => a.start - b.start);
+  lines.forEach((l, i) => { l.end = i + 1 < lines.length ? lines[i + 1].start : (seg.dur || l.start + 5); });
+  return lines;
+}
+
+async function sttEleven(blob, seg) {
+  if (!S.elevenKey) throw new Error('Geen ElevenLabs API-sleutel ingesteld (Instellingen).');
+  const ext = /mp4|m4a|aac/.test(blob.type) ? 'm4a' : /webm/.test(blob.type) ? 'webm' : /wav/.test(blob.type) ? 'wav' : /mpeg|mp3/.test(blob.type) ? 'mp3' : 'm4a';
+  const fd = new FormData();
+  fd.append('file', blob, 'opname.' + ext);
+  fd.append('model_id', S.elevenModel || 'scribe_v2');
+  fd.append('diarize', 'true'); fd.append('tag_audio_events', 'false'); fd.append('timestamps_granularity', 'word');
+  const lc = { nl: 'nld', en: 'eng', de: 'deu', fr: 'fra', pl: 'pol', tr: 'tur' }[S.lang];
+  if (lc) fd.append('language_code', lc);
+  glossaryList().forEach((k) => fd.append('keyterms', k));
+  let r;
+  try { r = await fetch('https://api.elevenlabs.io/v1/speech-to-text', { method: 'POST', headers: { 'xi-api-key': S.elevenKey }, body: fd }); }
+  catch (e) { throw netErr(e, 'ElevenLabs'); }
+  if (!r.ok) throw new Error('ElevenLabs ' + await errText(r));
+  const d = await r.json();
+  const words = (d.words || []).filter((w) => w.type !== 'audio_event');
+  const lines = []; let cur = null;
+  for (const w of words) {
+    const spk = `${seg.idx}:${w.speaker_id || 'speaker_0'}`;
+    if (w.type === 'spacing') { if (cur) cur.text += w.text; continue; }
+    const longGap = cur && w.start - cur.end > 2.5;
+    const tooLong = cur && w.start - cur.start > 45 && /[.?!]\s*$/.test(cur.text);
+    if (!cur || cur.speaker !== spk || longGap || tooLong) { cur = { speaker: spk, start: w.start, end: w.end, text: w.text }; lines.push(cur); }
+    else { cur.text += w.text; cur.end = w.end; }
+  }
+  if (!lines.length && d.text) lines.push({ speaker: `${seg.idx}:speaker_0`, start: 0, end: seg.dur || 0, text: d.text });
+  lines.forEach((l) => { l.text = l.text.replace(/\s+/g, ' ').trim(); });
+  return lines.filter((l) => l.text);
+}
+
+async function claudeStream({ system, messages, maxTokens = 8000, onText }) {
+  if (!S.anthropicKey) throw new Error('Geen Anthropic (Claude) API-sleutel ingesteld (Instellingen).');
+  let r;
+  try {
+    r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': S.anthropicKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: S.claudeModel || 'claude-sonnet-5-5', max_tokens: maxTokens, system, messages, stream: true }) });
+  } catch (e) { throw netErr(e, 'Claude'); }
+  if (!r.ok) throw new Error('Claude ' + await errText(r));
+  const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = ''; let text = '';
+  for (;;) {
+    const { value, done } = await reader.read(); if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let idx;
+    while ((idx = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, idx).trim(); buf = buf.slice(idx + 1);
+      if (!line.startsWith('data:')) continue;
+      let ev; try { ev = JSON.parse(line.slice(5)); } catch { continue; }
+      if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') { text += ev.delta.text; onText?.(text); }
+      else if (ev.type === 'error') throw new Error('Claude: ' + (ev.error?.message || 'fout'));
+    }
+  }
+  return text;
+}
+async function llm({ system, messages, maxTokens = 8000, onText }) {
+  if (S.llmProvider === 'gemini') {
+    const toParts = (c) => (typeof c === 'string' ? [{ text: c }] : c.map((b) => (b.type === 'image' ? { inline_data: { mime_type: b.source.media_type, data: b.source.data } } : { text: b.text })));
+    const contents = messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: toParts(m.content) }));
+    const t = await geminiGenerate({ contents, system, maxTokens: Math.max(maxTokens, 16000), temperature: 0.3 });
+    onText?.(t); return t;
+  }
+  return claudeStream({ system, messages, maxTokens, onText });
+}
+
+/* =========================================================
+   VERWERKING
+   ========================================================= */
+function speakerOrder(rec) {
+  const order = []; for (const l of rec.transcript?.segments || []) if (!order.includes(l.speaker)) order.push(l.speaker);
+  return order;
+}
+function spkName(rec, label) {
+  if (rec.speakers?.[label]) return rec.speakers[label];
+  if (/^Spreker \d+$/.test(label) || !/^\d+:/.test(label)) return label;
+  return 'Spreker ' + (speakerOrder(rec).indexOf(label) + 1);
+}
+function initials(name) {
+  const m = name.match(/^Spreker\s*(\d+)/i); if (m) return 'S' + m[1];
+  const w = name.split(/\s+/).filter(Boolean); return ((w[0]?.[0] || '?') + (w.length > 1 ? w[w.length - 1][0] : (w[0]?.[1] || ''))).toUpperCase();
+}
+function spkColor(rec, label) {
+  const names = [...new Set(speakerOrder(rec).map((l) => spkName(rec, l)))];
+  return SPK_COLORS[Math.max(0, names.indexOf(spkName(rec, label))) % SPK_COLORS.length];
+}
+function transcriptText(rec, maxChars = 700000) {
+  let t = (rec.transcript?.segments || []).map((l) => `[${fmtT(l.start)}] ${spkName(rec, l.speaker)}: ${l.text}`).join('\n');
+  if (t.length > maxChars) t = t.slice(0, maxChars) + '\n…[ingekort]';
+  return t;
+}
+function recContext(rec) {
+  const segs = rec.transcript?.segments || [];
+  const hl = rec.highlights.map((t) => { const near = segs.filter((l) => l.start <= t + 2 && (l.end ?? l.start) >= t - 25).map((l) => `${spkName(rec, l.speaker)}: ${l.text}`).join(' / '); return `- [${fmtT(t)}] ${near || '(geen tekst)'}`; }).join('\n');
+  const notes = rec.notes.map((n) => `- [${fmtT(n.t)}] ${n.text}`).join('\n');
+  const names = [...new Set(speakerOrder(rec).map((l) => spkName(rec, l)))].join(', ');
+  return `Opname: ${rec.title}\nDatum: ${fmtDateLong(rec.createdAt)}\nDuur: ${fmtDur(rec.duration)}\nSoort: ${({ gesprek: 'overleg / gesprek op locatie', telefoon: 'telefoongesprek (luidspreker)', dictaat: 'ingesproken dictaat' })[rec.type] || rec.type}\nSprekers: ${names || 'onbekend'} (de gebruiker zelf is ${S.userName})\n` +
+    (hl ? `\n## Highlights (door gebruiker gemarkeerd — geef extra aandacht)\n${hl}\n` : '') +
+    (notes ? `\n## Notities van de gebruiker\n${notes}\n` : '') +
+    `\n## Transcriptie\n${transcriptText(rec)}`;
+}
+const SYS = () => `Je bent de AI-notulist van ${S.userName} van De Laat Bouwbegeleiding (bouwbegeleiding, uitvoering en directievoering, rookgasafvoer-renovaties bij VvE's, EPA-energielabels via Erkend-Energielabel.nl; regio Drechtsteden). Schrijf zakelijk, helder en beknopt Nederlands. Baseer je UITSLUITEND op de transcriptie, notities en highlights; verzin geen namen, bedragen of datums. Markeer onzekerheden met "(onduidelijk)". Verwijs bij belangrijke punten naar tijdstempels in het formaat [mm:ss]. Gebruik Markdown.`;
+
+const Proc = {
+  busy: {},
+  async transcribe(id) {
+    if (this.busy[id]) return; this.busy[id] = true;
+    try {
+      let rec = await updateRec(id, (r) => { r.status = 'transcribing'; r.error = null; r.progress = 0; if (!r.transcript) r.transcript = { segments: [], done: [] }; });
+      View.refresh(id);
+      const segs = [...rec.segments].sort((a, b) => a.idx - b.idx);
+      for (let i = 0; i < segs.length; i++) {
+        const seg = segs[i];
+        rec = await DB.get('recs', id); if (!rec) return;
+        if (rec.transcript.done.includes(seg.idx)) continue;
+        await updateRec(id, (r) => { r.progress = i / segs.length; r.progressText = `Fragment ${i + 1} van ${segs.length}`; }); View.refresh(id);
+        const blob = await DB.get('blobs', seg.key);
+        if (!blob) { await updateRec(id, (r) => r.transcript.done.push(seg.idx)); continue; }
+        let ctx = '';
+        const prev = rec.transcript.segments.filter((l) => l.start < seg.start).slice(-8);
+        if (prev.length) ctx = `Sprekers tot nu toe: ${[...new Set(rec.transcript.segments.map((l) => l.speaker))].join(', ')}. Laatste uitspraken:\n` + prev.map((l) => `${l.speaker}: ${l.text.slice(0, 200)}`).join('\n');
+        let lines;
+        for (let attempt = 0; ; attempt++) {
+          try { lines = S.sttProvider === 'elevenlabs' ? await sttEleven(blob, seg) : await sttGemini(blob, seg, ctx); break; }
+          catch (e) { if (attempt >= 1 || /sleutel|API key|401|403|400/i.test(e.message)) throw e; await sleep(2500); }
+        }
+        lines.forEach((l) => { l.start += seg.start; l.end = (l.end ?? 0) + seg.start; });
+        await updateRec(id, (r) => { r.transcript.segments.push(...lines); r.transcript.segments.sort((a, b) => a.start - b.start); r.transcript.done.push(seg.idx); r.transcript.provider = S.sttProvider; });
+        View.refresh(id);
+      }
+      rec = await updateRec(id, (r) => { r.status = 'transcribed'; r.progress = 1; r.progressText = ''; });
+      View.refresh(id);
+      if (!rec.transcript.segments.length) { toast('Geen spraak gevonden in de opname'); return; }
+      if (hasLLM()) {
+        if (S.autoTitle && !rec.titleSet) await this.autoTitle(id).catch((e) => console.warn(e));
+        if (S.autoSummary && !(await DB.get('recs', id)).summaries.length) await this.summarize(id, S.defaultTemplate);
+      }
+    } catch (e) {
+      console.error(e);
+      await updateRec(id, (r) => { r.status = 'error'; r.error = e.message || String(e); });
+      View.refresh(id); toast('Transcriptie mislukt: ' + (e.message || e), 5000);
+    } finally { delete this.busy[id]; }
+  },
+  async autoTitle(id) {
+    const rec = await DB.get('recs', id);
+    const t = await llm({ system: 'Je maakt korte, zakelijke titels in het Nederlands.', maxTokens: 60,
+      messages: [{ role: 'user', content: `Geef een korte titel (max. 7 woorden) voor deze opname. Noem project/adres/onderwerp als dat genoemd wordt. Antwoord alleen met de titel, zonder aanhalingstekens.\n\n${transcriptText(rec, 8000)}` }] });
+    const title = t.split('\n')[0].replace(/^["'#*\s]+|["'*\s]+$/g, '').slice(0, 80);
+    if (title) await updateRec(id, (r) => { if (!r.titleSet) r.title = title; r.titleSet = true; });
+    View.refresh(id);
+  },
+  async summarize(id, tplId, extra) {
+    const key = id + ':sum'; if (this.busy[key]) return; this.busy[key] = true;
+    const tpl = tplById(tplId);
+    const sid = uid();
+    try {
+      await updateRec(id, (r) => { r.summaries.push({ id: sid, tpl: tpl.id, name: tpl.name, kind: tpl.kind || '', content: '', createdAt: Date.now(), busy: true }); });
+      View.state.sum = sid; View.state.tab = 'sum'; View.refresh(id);
+      const rec = await DB.get('recs', id);
+      const instr = (tpl.prompt || '').replaceAll('{USER}', S.userName) + (extra ? `\n\nExtra instructie: ${extra}` : '');
+      let last = 0;
+      const text = `${recContext(rec)}\n\n---\nOPDRACHT — ${tpl.name}:\n${instr}`;
+      const imgs = [];
+      for (const k of (rec.photos || []).slice(0, 6)) { const b = await DB.get('blobs', k); if (b) imgs.push({ type: 'image', source: { type: 'base64', media_type: b.type || 'image/jpeg', data: await blobToB64(b) } }); }
+      const userContent = imgs.length ? [...imgs, { type: 'text', text: `(Bijgevoegd: ${imgs.length} foto('s) die de gebruiker bij deze opname heeft gemaakt — gebruik ze als context.)\n\n` + text }] : text;
+      const content = await llm({ system: SYS(), maxTokens: 8000,
+        messages: [{ role: 'user', content: userContent }],
+        onText: (t) => { const now = Date.now(); if (now - last > 250) { last = now; View.liveSummary(id, sid, t); } } });
+      await updateRec(id, (r) => { const s = r.summaries.find((x) => x.id === sid); if (s) { s.content = content; s.busy = false; } });
+    } catch (e) {
+      await updateRec(id, (r) => { const s = r.summaries.find((x) => x.id === sid); if (s) { s.busy = false; s.error = e.message; s.content = s.content || ''; } });
+      toast('Samenvatting mislukt: ' + e.message, 5000);
+    } finally { delete this.busy[key]; View.refresh(id); }
+  },
+};
+
+/* =========================================================
+   EXPORT  (Word .docx in DLB-stijl, PDF via print, tekst)
+   ========================================================= */
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8) { let c = 0xffffffff; for (let i = 0; i < u8.length; i++) c = CRC_T[(c ^ u8[i]) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+function zipStore(files) {
+  const enc = new TextEncoder(); const parts = []; const central = []; let offset = 0;
+  for (const f of files) {
+    const name = enc.encode(f.name); const data = typeof f.data === 'string' ? enc.encode(f.data) : f.data; const crc = crc32(data);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true);
+    lh.setUint16(10, 0, true); lh.setUint16(12, 0x21, true); lh.setUint32(14, crc, true); lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true);
+    lh.setUint16(26, name.length, true); lh.setUint16(28, 0, true);
+    parts.push(new Uint8Array(lh.buffer), name, data);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(10, 0, true);
+    ch.setUint16(12, 0, true); ch.setUint16(14, 0x21, true); ch.setUint32(16, crc, true); ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true);
+    ch.setUint16(28, name.length, true); ch.setUint32(42, offset, true);
+    central.push(new Uint8Array(ch.buffer), name);
+    offset += 30 + name.length + data.length;
+  }
+  const csize = central.reduce((a, b) => a + b.length, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, csize, true); end.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, new Uint8Array(end.buffer)], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+}
+const xe = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function runsXml(text, base = {}) {
+  // **vet**, *cursief*, [mm:ss]
+  const out = []; const re = /(\*\*[^*]+\*\*|\*[^*\s][^*]*\*)/g; let last = 0; let m;
+  const run = (t, o) => { if (!t) return; out.push(`<w:r><w:rPr>${o.b ? '<w:b/>' : ''}${o.i ? '<w:i/>' : ''}${o.color ? `<w:color w:val="${o.color}"/>` : ''}${o.sz ? `<w:sz w:val="${o.sz}"/>` : ''}</w:rPr><w:t xml:space="preserve">${xe(t)}</w:t></w:r>`); };
+  while ((m = re.exec(text))) { run(text.slice(last, m.index), base); const s = m[0]; if (s.startsWith('**')) run(s.slice(2, -2), { ...base, b: true }); else run(s.slice(1, -1), { ...base, i: true }); last = m.index + s.length; }
+  run(text.slice(last), base);
+  return out.join('');
+}
+function mdToDocxBody(src) {
+  const lines = String(src || '').replace(/\r/g, '').split('\n'); let x = ''; let i = 0;
+  const p = (inner, style, extra = '') => `<w:p><w:pPr>${style ? `<w:pStyle w:val="${style}"/>` : ''}${extra}</w:pPr>${inner}</w:p>`;
+  while (i < lines.length) {
+    const l = lines[i]; let m;
+    if (/^\s*\|.*\|\s*$/.test(l) && i + 1 < lines.length && /^\s*\|?\s*:?-{2,}/.test(lines[i + 1])) {
+      const cells = (r) => r.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
+      const head = cells(l); i += 2; const rows = [];
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) rows.push(cells(lines[i++]));
+      const b = '<w:tblBorders>' + ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map((s) => `<w:${s} w:val="single" w:sz="4" w:color="BFBFBF"/>`).join('') + '</w:tblBorders>';
+      x += `<w:tbl><w:tblPr><w:tblW w:w="5000" w:type="pct"/>${b}<w:tblCellMar><w:left w:w="80" w:type="dxa"/><w:right w:w="80" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${head.map(() => `<w:gridCol w:w="${Math.floor(9638 / head.length)}"/>`).join('')}</w:tblGrid>`;
+      x += '<w:tr><w:trPr><w:tblHeader/></w:trPr>' + head.map((c) => `<w:tc><w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="231F20"/></w:tcPr>${p(runsXml(c, { b: true, color: 'FFFFFF', sz: 19 }), '', '<w:spacing w:before="40" w:after="40"/>')}</w:tc>`).join('') + '</w:tr>';
+      rows.forEach((r, ri) => { x += '<w:tr>' + head.map((_, ci) => `<w:tc><w:tcPr>${ri % 2 ? '<w:shd w:val="clear" w:color="auto" w:fill="F4F6F0"/>' : ''}</w:tcPr>${p(runsXml(r[ci] || '', { sz: 19 }), '', '<w:spacing w:before="30" w:after="30"/>')}</w:tc>`).join('') + '</w:tr>'; });
+      x += '</w:tbl>' + p('', '', '<w:spacing w:after="60"/>'); continue;
+    }
+    if ((m = l.match(/^(#{1,4})\s+(.*)/))) x += p(runsXml(m[2]), 'Heading' + Math.min(m[1].length, 3));
+    else if ((m = l.match(/^(\s*)([-*+]|\d+[.)])\s+(.*)/))) {
+      const lvl = Math.floor(m[1].replace(/\t/g, '  ').length / 2); let t = m[3];
+      const tk = t.match(/^\[( |x|X)\]\s+(.*)/); const bullet = tk ? (tk[1] === ' ' ? '☐' : '☑') : /\d/.test(m[2]) ? m[2] : '•';
+      if (tk) t = tk[2];
+      x += p(`<w:r><w:rPr><w:color w:val="5D8F42"/></w:rPr><w:t xml:space="preserve">${xe(bullet)}</w:t></w:r><w:r><w:tab/></w:r>` + runsXml(t), 'ListParagraph', `<w:ind w:left="${360 + lvl * 360}" w:hanging="300"/>`);
+    }
+    else if (/^\s*>\s?/.test(l)) x += p(runsXml(l.replace(/^\s*>\s?/, ''), { i: true }), '', '<w:pBdr><w:left w:val="single" w:sz="18" w:color="88BD6A" w:space="8"/></w:pBdr><w:ind w:left="300"/>');
+    else if (/^\s*(---|\*\*\*)\s*$/.test(l)) x += p('', '', '<w:pBdr><w:bottom w:val="single" w:sz="4" w:color="BFBFBF"/></w:pBdr>');
+    else if (l.trim()) x += p(runsXml(l.replace(/\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g, '[$1]')));
+    i++;
+  }
+  return x;
+}
+async function buildDocx(title, metaLine, markdown) {
+  const logo = new Uint8Array(await (await fetch('logo.png')).arrayBuffer());
+  const cx = 2160000, cy = Math.round(2160000 * 214 / 640);
+  const img = `<w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="1" name="Logo"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="1" name="logo.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdLogo"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+  const meta = `<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="18" w:color="88BD6A" w:space="4"/></w:pBdr><w:spacing w:after="240"/></w:pPr>${runsXml(metaLine, { color: '7F7F7F', sz: 18 })}</w:p>`;
+  const body = mdToDocxBody(markdown);
+  const ns = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"';
+  const document = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ${ns}><w:body>${img}${meta}${body}<w:sectPr><w:footerReference w:type="default" r:id="rIdFooter"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="454" w:gutter="0"/></w:sectPr></w:body></w:document>`;
+  const footer = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:ftr ${ns}><w:p><w:pPr><w:pBdr><w:top w:val="single" w:sz="4" w:color="88BD6A" w:space="4"/></w:pBdr><w:jc w:val="center"/></w:pPr>${runsXml(`${COMPANY.name}  ·  ${COMPANY.addr}  ·  ${COMPANY.tel}  ·  ${COMPANY.mail}  ·  ${COMPANY.web}  ·  KvK ${COMPANY.kvk}`, { color: '7F7F7F', sz: 15 })}</w:p></w:ftr>`;
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+<w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="Calibri" w:cs="Calibri"/><w:sz w:val="21"/><w:color w:val="231F20"/><w:lang w:val="nl-NL"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="100" w:line="276" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>
+<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>
+<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:pPr><w:keepNext/><w:spacing w:before="120" w:after="160"/><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:b/><w:sz w:val="34"/><w:color w:val="231F20"/></w:rPr></w:style>
+<w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:pPr><w:keepNext/><w:pBdr><w:left w:val="single" w:sz="24" w:color="9AEB04" w:space="6"/></w:pBdr><w:spacing w:before="260" w:after="80"/><w:outlineLvl w:val="1"/></w:pPr><w:rPr><w:b/><w:sz w:val="26"/><w:color w:val="231F20"/></w:rPr></w:style>
+<w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:pPr><w:keepNext/><w:spacing w:before="180" w:after="60"/><w:outlineLvl w:val="2"/></w:pPr><w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="5D8F42"/></w:rPr></w:style>
+<w:style w:type="paragraph" w:styleId="ListParagraph"><w:name w:val="List Paragraph"/><w:basedOn w:val="Normal"/><w:pPr><w:tabs><w:tab w:val="left" w:pos="360"/></w:tabs><w:spacing w:after="40"/></w:pPr></w:style>
+</w:styles>`;
+  const files = [
+    { name: '[Content_Types].xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>` },
+    { name: '_rels/.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>` },
+    { name: 'docProps/core.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${xe(title)}</dc:title><dc:creator>${xe(S.userName)} — ${COMPANY.name}</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().slice(0, 19)}Z</dcterms:created></cp:coreProperties>` },
+    { name: 'word/_rels/document.xml.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rIdLogo" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/logo.png"/><Relationship Id="rIdFooter" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/></Relationships>` },
+    { name: 'word/document.xml', data: document },
+    { name: 'word/styles.xml', data: styles },
+    { name: 'word/footer1.xml', data: footer },
+    { name: 'word/media/logo.png', data: logo },
+  ];
+  return zipStore(files);
+}
+const safeName = (s) => String(s || 'opname').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'opname';
+async function shareOrDownload(blob, filename) {
+  const file = new File([blob], filename, { type: blob.type });
+  try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: filename }); return; } }
+  catch (e) { if (e.name === 'AbortError') return; }
+  const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 20000);
+}
+async function shareText(text, title) {
+  try { if (navigator.share) { await navigator.share({ title, text }); return; } } catch (e) { if (e.name === 'AbortError') return; }
+  copyText(text);
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); toast('Gekopieerd ✔'); }
+  catch { const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); toast('Gekopieerd ✔'); }
+}
+function printDoc(title, metaLine, html) {
+  $('#print').innerHTML = `<div class="ph"><img src="logo.png" alt="De Laat Bouwbegeleiding"><div style="font-size:9pt;color:#666;text-align:right">${esc(metaLine)}</div></div>${html}
+    <div class="pf">${esc(COMPANY.name)} · ${esc(COMPANY.addr)} · ${esc(COMPANY.tel)} · ${esc(COMPANY.mail)} · ${esc(COMPANY.web)} · KvK ${COMPANY.kvk}</div>`;
+  const old = document.title; document.title = safeName(title);
+  setTimeout(() => { window.print(); document.title = old; }, 200);
+}
+
+/* =========================================================
+   VIEWS
+   ========================================================= */
+const View = {
+  state: { tab: 'sum', sum: null, q: '', edit: false },
+  cur: null,
+  player: null,
+  refresh(id) { if (location.hash === '#/rec/' + id) renderDetail(id, true); else if (location.hash === '#/' || location.hash === '') renderHome(true); },
+  liveSummary(id, sid, text) {
+    if (location.hash !== '#/rec/' + id || this.state.tab !== 'sum' || this.state.sum !== sid) return;
+    const el = $('#sum-body'); if (el) el.innerHTML = md(text) + '<p class="muted small"><span class="spin"></span> bezig…</p>';
+  },
+};
+function setTop(html) { $('#top').innerHTML = html; }
+function topHome(title) { setTop(`<img class="logo" src="logo.png" alt="De Laat Bouwbegeleiding"><div class="ttl" style="text-align:right;font-size:16px;color:var(--ink2)">${esc(title)}</div>`); }
+function topBack(title, actions = '') { setTop(`<button class="back" onclick="history.length>1?history.back():location.hash='#/'">‹</button><div class="ttl">${esc(title)}</div>${actions}`); }
+function setTab(name) { ['home', 'ask', 'imp', 'set'].forEach((t) => $('#tb-' + t).classList.toggle('on', t === name)); }
+
+function statusBadge(r) {
+  if (r.status === 'recording') return '<span class="badge busy">● Opname</span>';
+  if (r.status === 'transcribing' || Proc.busy[r.id]) return '<span class="badge busy">Transcriberen</span>';
+  if (r.status === 'error') return '<span class="badge err">Fout</span>';
+  if (r.summaries?.length) return '<span class="badge ok">Klaar</span>';
+  if (r.transcript?.segments?.length) return '<span class="badge ok">Transcriptie</span>';
+  return '<span class="badge">Audio</span>';
+}
+const typeIco = (t) => ({ telefoon: '📞', dictaat: '🎙', import: '⇪' })[t] || '👥';
+
+async function renderHome(soft) {
+  setTab('home'); topHome('Opname & notulen');
+  const app = $('#app');
+  let recs = (await DB.all('recs')).sort((a, b) => b.createdAt - a.createdAt);
+  const q = View.state.q.trim().toLowerCase();
+  const hits = q ? recs.filter((r) => [r.title, ...(r.transcript?.segments || []).map((l) => l.text), ...r.summaries.map((s) => s.content), ...r.notes.map((n) => n.text)].join(' ').toLowerCase().includes(q)) : recs;
+  if (soft && $('#home-list')) { $('#home-list').innerHTML = listHtml(hits, q); bindList(); return; }
+  const banner = (!isStandalone() && isIOS) ? `<div class="banner">📲 <b>Installeer als app:</b> tik onderin Safari op <b>Deel</b> ⎋ en kies <b>Zet op beginscherm</b>.</div>` : '';
+  const keys = !hasSTT() ? `<div class="banner">🔑 Eenmalig instellen: maak een <b>gratis</b> Google Gemini-sleutel aan en plak hem in de instellingen. <a href="#/settings">Naar instellingen →</a></div>` : '';
+  app.innerHTML = `${banner}${keys}
+    <input class="search" id="q" type="search" placeholder="Zoek in alle opnames, transcripties en samenvattingen…" value="${esc(View.state.q)}">
+    <div id="home-list" style="margin-top:12px">${listHtml(hits, q)}</div>`;
+  $('#q').oninput = (e) => { View.state.q = e.target.value; renderHome(true); };
+  bindList();
+}
+function listHtml(recs, q) {
+  if (!recs.length) return q ? `<div class="empty">Niets gevonden voor “${esc(q)}”.</div>` :
+    `<div class="empty"><div class="big">Nog geen opnames</div>Tik op de groene knop onderin om een overleg, telefoongesprek of dictaat op te nemen.<br><br>Of importeer een bestaand audiobestand (bijv. een iPhone-gespreksopname of Dictafoon-memo).</div>`;
+  const groups = {};
+  for (const r of recs) { const d = new Date(r.createdAt); const k = d.toLocaleDateString('nl-NL', { month: 'long', year: 'numeric' }); (groups[k] = groups[k] || []).push(r); }
+  return Object.entries(groups).map(([k, rs]) => `<h3>${esc(k)}</h3>` + rs.map((r) => {
+    let snip = '';
+    if (q) { const all = (r.transcript?.segments || []).map((l) => l.text).join(' '); const i = all.toLowerCase().indexOf(q); if (i >= 0) snip = '…' + esc(all.slice(Math.max(0, i - 40), i + 80)) + '…'; }
+    return `<div class="card rec-item" data-id="${r.id}"><div class="rec-ico">${typeIco(r.type)}</div><div class="grow"><div class="t">${esc(r.title)}</div><div class="m">${fmtDate(r.createdAt)} · ${fmtDur(r.duration)}</div>${snip ? `<div class="m" style="margin-top:3px">${snip}</div>` : ''}</div>${statusBadge(r)}</div>`;
+  }).join('')).join('');
+}
+function bindList() { $$('.rec-item').forEach((el) => el.onclick = () => { location.hash = '#/rec/' + el.dataset.id; }); }
+
+/* ---- detail ---- */
+async function renderDetail(id, soft) {
+  setTab('home');
+  const rec = await DB.get('recs', id);
+  if (!rec) { location.hash = '#/'; return; }
+  if (View.cur !== id) { View.cur = id; View.state.tab = rec.summaries.length ? 'sum' : 'tr'; View.state.sum = rec.summaries.at(-1)?.id || null; View.state.edit = false; Player.load(rec); }
+  const st = View.state;
+  topBack(rec.title, `<button class="act" id="d-menu" aria-label="Menu">⋯</button>`);
+  $('#d-menu').onclick = () => detailMenu(rec);
+  const app = $('#app');
+  const scroll = window.scrollY;
+  const tabs = [['sum', 'Samenvatting'], ['tr', 'Transcriptie'], ['ask', 'Vraag'], ['notes', 'Notities']];
+  let body = '';
+  if (st.tab === 'sum') body = sumTab(rec);
+  else if (st.tab === 'tr') body = trTab(rec);
+  else if (st.tab === 'ask') body = askTab(rec);
+  else body = notesTab(rec);
+  if (soft && $('#d-body') && $('#d-tabs')) {
+    $('#d-body').innerHTML = body; $$('#d-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.t === st.tab));
+    $('#d-meta').innerHTML = metaHtml(rec);
+  } else {
+    app.innerHTML = `
+      <div class="meta" id="d-meta">${metaHtml(rec)}</div>
+      <div class="card player" id="player">${Player.html()}</div>
+      <div class="tabs" id="d-tabs">${tabs.map(([k, n]) => `<button data-t="${k}" class="${st.tab === k ? 'on' : ''}">${n}</button>`).join('')}</div>
+      <div id="d-body">${body}</div>`;
+    Player.bind();
+    $$('#d-tabs button').forEach((b) => b.onclick = () => { st.tab = b.dataset.t; renderDetail(id, true); });
+  }
+  bindDetail(rec);
+  if (soft) window.scrollTo(0, scroll);
+}
+function metaHtml(rec) { return `${typeIco(rec.type)} ${fmtDateLong(rec.createdAt)} · ${fmtDur(rec.duration)} ${statusBadge(rec)}`; }
+
+function trStatusCard(rec) {
+  const busy = rec.status === 'transcribing' || Proc.busy[rec.id];
+  if (busy) return `<div class="card"><div class="row"><span class="spin"></span><b>Transcriberen…</b><span class="muted small">${esc(rec.progressText || '')}</span></div><div class="prog"><i style="width:${Math.round((rec.progress || 0) * 100)}%"></i></div><div class="hint">Je kunt de app gewoon blijven gebruiken. Houd hem open tot dit klaar is.</div></div>`;
+  if (rec.status === 'error') return `<div class="card"><b style="color:var(--red)">Transcriptie mislukt</b><div class="small" style="margin:6px 0 10px">${esc(rec.error)}</div><button class="btn" data-act="transcribe">↻ Opnieuw proberen</button> <a class="small" href="#/settings">Instellingen</a></div>`;
+  if (!rec.transcript?.segments?.length) return `<div class="card"><b>Nog niet getranscribeerd</b><div class="hint" style="margin:4px 0 10px">Via ${S.sttProvider === 'elevenlabs' ? 'ElevenLabs Scribe' : 'Google Gemini'} met sprekerherkenning.</div><button class="btn lime" data-act="transcribe" ${hasSTT() ? '' : 'disabled'}>✦ Transcriberen</button>${hasSTT() ? '' : ' <a class="small" href="#/settings">Sleutel instellen →</a>'}</div>`;
+  return '';
+}
+function sumTab(rec) {
+  const st = View.state; const s = rec.summaries.find((x) => x.id === st.sum) || rec.summaries.at(-1);
+  if (s) st.sum = s.id;
+  const pre = trStatusCard(rec);
+  const chips = rec.summaries.map((x) => `<button class="chip ${s && x.id === s.id ? 'on' : ''}" data-sum="${x.id}">${tplById(x.tpl).e || '📝'} ${esc(x.name)}</button>`).join('');
+  const newBtn = `<button class="chip" data-act="newsum" style="box-shadow:inset 0 0 0 1.5px var(--green);color:var(--green-d)">＋ Nieuw</button>`;
+  if (!s) return pre + (rec.transcript?.segments?.length ? `<div class="card"><b>Nog geen samenvatting</b><div class="hint" style="margin:4px 0 10px">Kies een sjabloon: notulen, actielijst, klantgesprek, oplevering, EPA-opname…</div><button class="btn lime" data-act="newsum" ${hasLLM() ? '' : 'disabled'}>✦ Samenvatting maken</button>${hasLLM() ? '' : ' <a class="small" href="#/settings">Sleutel instellen →</a>'}</div>` : '');
+  const content = s.busy ? md(s.content) + '<p class="muted small"><span class="spin"></span> bezig…</p>' : (s.kind === 'mindmap' ? mindmapHtml(s.content) : md(s.content));
+  return pre + `<div class="chips" style="margin-bottom:10px">${chips}${newBtn}</div>
+    <div class="card"><div class="md" id="sum-body">${content || (s.error ? `<p style="color:var(--red)">${esc(s.error)}</p>` : '')}</div>
+    <div class="hint" style="margin-top:10px">${esc(fmtDate(s.createdAt))} · ${S.llmProvider === 'gemini' ? 'Gemini' : 'Claude'}</div></div>
+    <div class="btns">
+      <button class="btn sm" data-act="docx">⬇ Word</button>
+      <button class="btn sm ghost" data-act="pdf">PDF / print</button>
+      <button class="btn sm ghost" data-act="share">Delen</button>
+      <button class="btn sm ghost" data-act="copy">Kopieer</button>
+      <button class="btn sm ghost" data-act="regen">↻ Opnieuw</button>
+      <button class="btn sm danger" data-act="delsum">Verwijder</button>
+    </div>`;
+}
+function trTab(rec) {
+  const pre = trStatusCard(rec); const segs = rec.transcript?.segments || [];
+  if (!segs.length) return pre;
+  const st = View.state;
+  const hlT = rec.highlights;
+  const lines = segs.map((l, i) => {
+    const name = spkName(rec, l.speaker); const col = spkColor(rec, l.speaker);
+    const nxt = segs[i + 1]?.start ?? Infinity; const isHl = hlT.some((t) => t >= l.start && t < nxt);
+    return `<div class="line ${isHl ? 'hl' : ''}" data-i="${i}" data-t="${l.start}"><div class="av" style="background:${col}">${esc(initials(name))}</div><div class="grow"><div><span class="who" style="color:${col}">${esc(name)}</span><span class="ts">${fmtT(l.start)}${isHl ? ' ★' : ''}</span></div><div class="tx" ${st.edit ? 'contenteditable="true"' : ''} data-i="${i}">${esc(l.text)}</div></div></div>`;
+  }).join('');
+  return pre + `<div class="btns" style="margin-bottom:10px">
+      <button class="btn sm" data-act="speakers">👥 Sprekers benoemen</button>
+      <button class="btn sm ghost" data-act="edit">${st.edit ? '✔ Klaar met bewerken' : '✎ Bewerken'}</button>
+      <button class="btn sm ghost" data-act="trtxt">⬇ Tekst</button>
+      <button class="btn sm ghost" data-act="trdocx">⬇ Word</button>
+    </div><div class="card" style="padding:6px">${lines}</div>
+    <div class="hint">${segs.length} spreekbeurten · ${rec.transcript.provider === 'elevenlabs' ? 'ElevenLabs Scribe' : 'Google Gemini'} · tik op een regel om daar te luisteren</div>`;
+}
+function askTab(rec) {
+  if (!rec.transcript?.segments?.length) return trStatusCard(rec) || '<div class="card">Eerst transcriberen.</div>';
+  const sugg = ['Welke afspraken zijn er gemaakt?', `Wat moet ${S.userName} doen?`, 'Welke bedragen, maten of datums zijn genoemd?', 'Wat waren de zorgen of risico’s?', 'Wie zei wat over de planning?'];
+  const msgs = (rec.chat || []).map((m) => `<div class="msg ${m.role === 'user' ? 'u' : 'a'}"><div class="b ${m.role === 'user' ? '' : 'md'}">${m.role === 'user' ? esc(m.content) : md(m.content)}</div></div>`).join('');
+  return `${msgs ? '' : `<div class="card"><b>Vraag het aan je opname</b><div class="hint">Antwoorden verwijzen naar tijdstempels — tik erop om terug te luisteren.</div><div class="chips" style="flex-wrap:wrap;margin-top:10px">${sugg.map((s) => `<button class="chip" data-q="${esc(s)}">${esc(s)}</button>`).join('')}</div></div>`}
+    <div id="chat">${msgs}</div>
+    <div class="chatin"><textarea id="askq" rows="1" placeholder="Stel een vraag over dit gesprek…"></textarea><button class="btn lime" id="askgo" ${hasLLM() ? '' : 'disabled'}>➤</button></div>
+    ${rec.chat?.length ? '<button class="btn sm ghost" data-act="clearchat">Gesprek wissen</button>' : ''}`;
+}
+function notesTab(rec) {
+  const items = [...rec.notes.map((n, i) => ({ t: n.t, h: esc(n.text), i, k: 'n' })), ...rec.highlights.map((t, i) => ({ t, h: '★ Highlight', i, k: 'h' }))].sort((a, b) => a.t - b.t);
+  return `<div class="card"><h3 style="margin-top:0">Notities & highlights</h3>
+    ${items.length ? items.map((x) => `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="tlink" data-t="${x.t}">${fmtT(x.t)}</span><span class="grow">${x.h}</span><button class="small muted" data-delnote="${x.k}:${x.i}">✕</button></div>`).join('') : '<div class="muted small">Nog geen notities.</div>'}
+    <div class="row" style="margin-top:10px"><input class="inp grow" id="newnote" placeholder="Notitie toevoegen (op huidig afspeelmoment)…"><button class="btn sm" data-act="addnote">+</button></div>
+    <div class="hint">Notities en highlights worden meegenomen in samenvattingen.</div></div>
+    <div class="card"><div class="row"><h3 class="grow" style="margin:0">Foto’s & documenten</h3><button class="btn sm" data-act="addphoto">＋ Foto</button></div>
+    <div class="photos" id="photos" style="margin-top:10px"></div><div class="hint">Foto’s van tekeningen, whiteboard of situatie. Worden met de opname bewaard (en bij Claude meegestuurd als context bij een nieuwe samenvatting).</div></div>
+    <div class="card"><h3 style="margin-top:0">Audio</h3>
+    <div class="small muted">${rec.segments.length} fragment(en) · ${(rec.segments.reduce((a, s) => a + (s.size || 0), 0) / 1048576).toFixed(1)} MB · ${esc(rec.segments[0]?.mime || '')}</div>
+    <div class="btns" style="margin-top:8px"><button class="btn sm ghost" data-act="audioexp">⬇ Audio delen</button></div></div>`;
+}
+
+function bindDetail(rec) {
+  const id = rec.id; const st = View.state;
+  $$('[data-sum]').forEach((b) => b.onclick = () => { st.sum = b.dataset.sum; renderDetail(id, true); });
+  $$('.tlink').forEach((t) => t.onclick = () => Player.seek(+t.dataset.t, true));
+  $$('.line').forEach((l) => l.onclick = (e) => { if (st.edit) return; Player.seek(+l.dataset.t, true); });
+  $$('.tx[contenteditable=true]').forEach((t) => t.onblur = async () => { const i = +t.dataset.i; const v = t.textContent.trim(); await updateRec(id, (r) => { if (r.transcript.segments[i]) r.transcript.segments[i].text = v; }); });
+  $$('[data-q]').forEach((b) => b.onclick = () => askRec(id, b.dataset.q));
+  const go = $('#askgo'); if (go) { go.onclick = () => { const q = $('#askq').value.trim(); if (q) askRec(id, q); }; $('#askq').onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); go.click(); } }; }
+  $$('[data-delnote]').forEach((b) => b.onclick = async () => { const [k, i] = b.dataset.delnote.split(':'); await updateRec(id, (r) => { if (k === 'n') r.notes.splice(+i, 1); else r.highlights.splice(+i, 1); }); renderDetail(id, true); });
+  if ($('#photos')) loadPhotos(rec);
+  $$('[data-act]').forEach((b) => b.onclick = async () => {
+    const act = b.dataset.act; const r = await DB.get('recs', id); const s = r.summaries.find((x) => x.id === st.sum);
+    const metaLine = `${fmtDateLong(r.createdAt)} · ${fmtDur(r.duration)} · ${S.userName}, ${COMPANY.name}`;
+    switch (act) {
+      case 'transcribe': Proc.transcribe(id); renderDetail(id, true); break;
+      case 'newsum': templatePicker(id); break;
+      case 'regen': if (s) templatePicker(id, s.tpl); break;
+      case 'delsum': if (s && await confirmBox('Samenvatting verwijderen?')) { await updateRec(id, (x) => { x.summaries = x.summaries.filter((y) => y.id !== s.id); }); st.sum = null; renderDetail(id, true); } break;
+      case 'copy': if (s) copyText(s.content); break;
+      case 'share': if (s) shareText(s.content, r.title); break;
+      case 'docx': if (s) { b.disabled = true; try { const doc = await buildDocx(r.title, metaLine, s.kind === 'mindmap' ? '# ' + r.title + ' – mindmap\n' + s.content : s.content); await shareOrDownload(doc, safeName(`${r.title} - ${s.name}`) + '.docx'); } catch (e) { toast('Word-export mislukt: ' + e.message); } b.disabled = false; } break;
+      case 'pdf': if (s) printDoc(`${r.title} - ${s.name}`, metaLine, s.kind === 'mindmap' ? mindmapHtml(s.content) : `<div class="md">${md(s.content)}</div>`); break;
+      case 'speakers': speakerSheet(id); break;
+      case 'edit': st.edit = !st.edit; renderDetail(id, true); break;
+      case 'trtxt': shareOrDownload(new Blob([`${r.title}\n${metaLine}\n\n${transcriptText(r, 1e9)}`], { type: 'text/plain' }), safeName(r.title) + ' - transcriptie.txt'); break;
+      case 'trdocx': { const mdx = `# Transcriptie – ${r.title}\n\n` + (r.transcript.segments.map((l) => `**${spkName(r, l.speaker)}** *${fmtT(l.start)}*  \n${l.text}`).join('\n\n')); const doc = await buildDocx(r.title, metaLine, mdx.replace(/ {2}\n/g, ' — ')); shareOrDownload(doc, safeName(r.title) + ' - transcriptie.docx'); break; }
+      case 'clearchat': await updateRec(id, (x) => { x.chat = []; }); renderDetail(id, true); break;
+      case 'addnote': { const v = $('#newnote').value.trim(); if (v) { await updateRec(id, (x) => x.notes.push({ t: Player.time(), text: v })); renderDetail(id, true); } break; }
+      case 'addphoto': { const inp = $('#filePhoto'); inp.onchange = async () => { for (const f of inp.files) { const k = `${id}:photo:${uid()}`; await DB.put('blobs', await shrinkImage(f), k); await updateRec(id, (x) => x.photos.push(k)); } inp.value = ''; renderDetail(id, true); }; inp.click(); break; }
+      case 'audioexp': { const files = []; for (const sg of r.segments) { const bl = await DB.get('blobs', sg.key); if (bl) files.push(new File([bl], `${safeName(r.title)}${r.segments.length > 1 ? ' deel ' + (sg.idx + 1) : ''}.${/mp4|m4a|aac/.test(sg.mime) ? 'm4a' : /webm/.test(sg.mime) ? 'webm' : 'audio'}`, { type: sg.mime })); }
+        try { if (navigator.canShare?.({ files })) await navigator.share({ files }); else files.forEach((f) => shareOrDownload(f, f.name)); } catch {} break; }
+    }
+  });
+}
+async function shrinkImage(file) {
+  try {
+    const bmp = await createImageBitmap(file); const max = 1600; const sc = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    return await new Promise((res) => c.toBlob((b) => res(b || file), 'image/jpeg', 0.82));
+  } catch { return file; }
+}
+async function loadPhotos(rec) {
+  const el = $('#photos'); if (!el) return;
+  const urls = [];
+  for (const k of rec.photos || []) { const b = await DB.get('blobs', k); if (b) urls.push([k, URL.createObjectURL(b)]); }
+  el.innerHTML = urls.map(([k, u]) => `<img src="${u}" data-k="${k}" alt="">`).join('');
+  $$('img', el).forEach((img) => img.onclick = async () => {
+    const k = img.dataset.k;
+    const ov = sheet(`<img src="${img.src}" style="width:100%;border-radius:12px"><div class="btns" style="margin-top:10px"><button class="btn danger sm" id="delph">Verwijder foto</button></div>`);
+    $('#delph', ov).onclick = async () => { await DB.del('blobs', k); await updateRec(rec.id, (r) => { r.photos = r.photos.filter((x) => x !== k); }); ov.remove(); renderDetail(rec.id, true); };
+  });
+}
+
+async function askRec(id, q) {
+  const rec0 = await DB.get('recs', id);
+  await updateRec(id, (r) => { r.chat = r.chat || []; r.chat.push({ role: 'user', content: q }); });
+  View.state.tab = 'ask'; await renderDetail(id, true);
+  const chat = $('#chat'); const bub = document.createElement('div'); bub.className = 'msg a'; bub.innerHTML = '<div class="b md"><span class="spin"></span></div>'; chat.appendChild(bub);
+  bub.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  const rec = await DB.get('recs', id);
+  const sums = rec.summaries.filter((s) => s.content).map((s) => `### ${s.name}\n${s.content}`).join('\n\n');
+  const system = SYS() + `\n\nBeantwoord vragen over onderstaande opname. Wees concreet en kort. Verwijs naar tijdstempels [mm:ss] als bron. Staat het antwoord niet in de opname, zeg dat eerlijk.\n\n${recContext(rec)}${sums ? '\n\n## Eerder gemaakte samenvattingen\n' + sums : ''}`;
+  try {
+    const ans = await llm({ system, messages: rec.chat.map((m) => ({ role: m.role, content: m.content })), maxTokens: 3000, onText: (t) => { $('.b', bub).innerHTML = md(t); } });
+    await updateRec(id, (r) => r.chat.push({ role: 'assistant', content: ans }));
+  } catch (e) {
+    await updateRec(id, (r) => r.chat.push({ role: 'assistant', content: '⚠ ' + e.message }));
+  }
+  renderDetail(id, true);
+  setTimeout(() => $('#chat')?.lastElementChild?.scrollIntoView({ block: 'end' }), 50);
+}
+
+/* ---- player (meerdere fragmenten als één tijdlijn) ---- */
+const Player = {
+  rec: null, audio: null, segI: 0, url: null, rate: 1,
+  load(rec) {
+    this.stop(); this.rec = rec; this.segI = 0;
+    this.audio = new Audio(); this.audio.preload = 'metadata';
+    this.audio.ontimeupdate = () => this.tick();
+    this.audio.onended = () => { if (this.segI + 1 < this.segs().length) { this.loadSeg(this.segI + 1, 0, true); } else this.tick(); };
+    this.audio.onplay = this.audio.onpause = () => this.tick();
+  },
+  segs() { return [...(this.rec?.segments || [])].sort((a, b) => a.idx - b.idx); },
+  total() { return this.rec?.duration || this.segs().reduce((m, s) => Math.max(m, s.start + s.dur), 0); },
+  async loadSeg(i, offset = 0, play = false) {
+    const seg = this.segs()[i]; if (!seg) return;
+    this.segI = i; const blob = await DB.get('blobs', seg.key); if (!blob) return;
+    if (this.url) URL.revokeObjectURL(this.url);
+    this.url = URL.createObjectURL(blob); this.audio.src = this.url; this.audio.playbackRate = this.rate;
+    await new Promise((r) => { const done = () => r(); this.audio.addEventListener('loadedmetadata', done, { once: true }); setTimeout(done, 1500); });
+    try { this.audio.currentTime = offset; } catch {}
+    if (play) this.audio.play().catch(() => {});
+  },
+  time() { const s = this.segs()[this.segI]; return (s ? s.start : 0) + (this.audio?.currentTime || 0); },
+  async seek(t, play) {
+    const segs = this.segs(); if (!segs.length) return;
+    let i = segs.findIndex((s) => t >= s.start && t < s.start + s.dur); if (i < 0) i = t < segs[0].start ? 0 : segs.length - 1;
+    const off = Math.max(0, t - segs[i].start);
+    if (i !== this.segI || !this.audio.src) await this.loadSeg(i, off, play);
+    else { try { this.audio.currentTime = off; } catch {} if (play) this.audio.play().catch(() => {}); }
+    this.tick();
+  },
+  toggle() { if (!this.audio.src) return this.loadSeg(0, 0, true); if (this.audio.paused) this.audio.play().catch(() => {}); else this.audio.pause(); },
+  stop() { try { this.audio?.pause(); } catch {} if (this.url) URL.revokeObjectURL(this.url); this.url = null; },
+  html() {
+    return `<div class="row"><button class="skip" id="p-back">−15</button><button class="pbtn" id="p-play">▶</button><button class="skip" id="p-fwd">+15</button>
+      <div class="grow"><input type="range" id="p-seek" min="0" max="${Math.max(1, Math.round(this.total()))}" step="1" value="0"><div class="ptime"><span id="p-cur">00:00</span><span>${fmtT(this.total())}</span></div></div>
+      <button class="speed" id="p-rate">${this.rate}×</button></div>`;
+  },
+  bind() {
+    $('#p-play').onclick = () => this.toggle();
+    $('#p-back').onclick = () => this.seek(Math.max(0, this.time() - 15), !this.audio.paused);
+    $('#p-fwd').onclick = () => this.seek(Math.min(this.total(), this.time() + 15), !this.audio.paused);
+    $('#p-seek').oninput = (e) => { this.dragging = true; $('#p-cur').textContent = fmtT(+e.target.value); };
+    $('#p-seek').onchange = (e) => { this.dragging = false; this.seek(+e.target.value, !this.audio.paused); };
+    $('#p-rate').onclick = () => { const r = [1, 1.25, 1.5, 2]; this.rate = r[(r.indexOf(this.rate) + 1) % r.length]; this.audio.playbackRate = this.rate; $('#p-rate').textContent = this.rate + '×'; };
+    this.tick();
+  },
+  tick() {
+    const t = this.time(); const p = $('#p-play'); if (!p) return;
+    p.textContent = this.audio && !this.audio.paused ? '❚❚' : '▶';
+    if (!this.dragging) { $('#p-seek').value = Math.round(t); $('#p-cur').textContent = fmtT(t); }
+    if (View.state.tab === 'tr' && this.audio && !this.audio.paused) {
+      const ls = $$('.line'); let cur = null;
+      for (const l of ls) { if (+l.dataset.t <= t + 0.3) cur = l; else break; }
+      ls.forEach((l) => l.classList.toggle('cur', l === cur));
+      if (cur && cur !== this.lastCur) { this.lastCur = cur; const r = cur.getBoundingClientRect(); if (r.top < 140 || r.bottom > innerHeight - 100) cur.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+    }
+  },
+};
+
+/* ---- sheets / dialogs ---- */
+function sheet(inner) {
+  const ov = document.createElement('div'); ov.className = 'ov';
+  ov.innerHTML = `<div class="sheet"><div class="grab"></div>${inner}</div>`;
+  ov.onclick = (e) => { if (e.target === ov) ov.remove(); };
+  document.body.appendChild(ov); return ov;
+}
+function modalMsg(title, html) { const ov = sheet(`<h2 style="margin-top:0">${esc(title)}</h2><div>${html}</div><div class="btns" style="margin-top:14px"><button class="btn" id="mok">OK</button></div>`); $('#mok', ov).onclick = () => ov.remove(); }
+function confirmBox(msg, ok = 'Verwijderen') {
+  return new Promise((res) => {
+    const ov = sheet(`<div style="font-weight:600;font-size:16px;margin-bottom:14px">${esc(msg)}</div><div class="btns"><button class="btn danger" id="cy">${esc(ok)}</button><button class="btn ghost" id="cn">Annuleren</button></div>`);
+    $('#cy', ov).onclick = () => { ov.remove(); res(true); }; $('#cn', ov).onclick = () => { ov.remove(); res(false); };
+  });
+}
+function promptBox(title, value = '', ph = '') {
+  return new Promise((res) => {
+    const ov = sheet(`<div style="font-weight:600;margin-bottom:8px">${esc(title)}</div><input class="inp" id="pv" value="${esc(value)}" placeholder="${esc(ph)}"><div class="btns" style="margin-top:12px"><button class="btn" id="py">Opslaan</button><button class="btn ghost" id="pn">Annuleren</button></div>`);
+    const i = $('#pv', ov); setTimeout(() => i.focus(), 50);
+    $('#py', ov).onclick = () => { ov.remove(); res(i.value); }; $('#pn', ov).onclick = () => { ov.remove(); res(null); };
+    i.onkeydown = (e) => { if (e.key === 'Enter') $('#py', ov).click(); };
+  });
+}
+function templatePicker(id, preselect) {
+  const tpls = allTemplates();
+  const ov = sheet(`<h2 style="margin-top:0">Kies een sjabloon</h2>
+    <input class="inp" id="tp-extra" placeholder="Optioneel: extra instructie (bv. 'focus op planning', 'in het Engels')">
+    <div style="margin-top:10px">${tpls.map((t) => `<button class="tpl" data-t="${t.id}" ${t.id === preselect ? 'style="box-shadow:inset 0 0 0 2px var(--green)"' : ''}><span class="e">${t.e || '📝'}</span><span class="grow"><div class="n">${esc(t.name)}${t.custom ? ' <span class="badge">eigen</span>' : ''}</div><div class="d">${esc(t.d || '')}</div></span>${t.custom ? `<span class="small muted" data-deltpl="${t.id}">✕</span>` : ''}</button>`).join('')}</div>
+    <button class="btn ghost" id="tp-new" style="width:100%;margin-top:6px">＋ Eigen sjabloon maken</button>`);
+  $$('.tpl', ov).forEach((b) => b.onclick = async (e) => {
+    if (e.target.dataset.deltpl) { if (await confirmBox('Eigen sjabloon verwijderen?')) { await DB.del('templates', e.target.dataset.deltpl); customTemplates = customTemplates.filter((t) => t.id !== e.target.dataset.deltpl); ov.remove(); templatePicker(id); } return; }
+    const extra = $('#tp-extra', ov).value.trim(); ov.remove(); Proc.summarize(id, b.dataset.t, extra);
+  });
+  $('#tp-new', ov).onclick = () => { ov.remove(); templateEditor(id); };
+}
+function templateEditor(id) {
+  const ov = sheet(`<h2 style="margin-top:0">Eigen sjabloon</h2>
+    <label class="f">Naam</label><input class="inp" id="te-n" placeholder="bv. Werkbespreking Lage Land">
+    <label class="f">Icoon (emoji)</label><input class="inp" id="te-e" value="📋" style="width:80px">
+    <label class="f">Wat moet erin? (beschrijf het gewenste verslag)</label><textarea class="inp" id="te-p" placeholder="bv. Per woningblok de voortgang, problemen met installateurs, materiaalbestellingen en een actielijst met wie/wanneer."></textarea>
+    <div class="btns" style="margin-top:10px"><button class="btn ghost sm" id="te-ai" ${hasLLM() ? '' : 'disabled'}>✦ Laat AI het sjabloon uitschrijven</button></div>
+    <div class="btns" style="margin-top:14px"><button class="btn" id="te-save">Opslaan${id ? ' & gebruiken' : ''}</button><button class="btn ghost" id="te-x">Annuleren</button></div>`);
+  $('#te-x', ov).onclick = () => ov.remove();
+  $('#te-ai', ov).onclick = async () => {
+    const b = $('#te-ai', ov); b.disabled = true; b.innerHTML = '<span class="spin"></span> bezig…';
+    try {
+      const t = await llm({ system: 'Je schrijft instructies voor een AI-notulist. Alleen de instructie, in het Nederlands, in Markdown-structuurbeschrijving (koppen/tabellen die het verslag moet bevatten).', maxTokens: 800,
+        messages: [{ role: 'user', content: `Schrijf een heldere sjabloon-instructie voor een verslag met de naam "${$('#te-n', ov).value}". Wens van de gebruiker: ${$('#te-p', ov).value}` }] });
+      $('#te-p', ov).value = t.trim();
+    } catch (e) { toast(e.message); }
+    b.disabled = false; b.textContent = '✦ Laat AI het sjabloon uitschrijven';
+  };
+  $('#te-save', ov).onclick = async () => {
+    const t = { id: 'c_' + uid(), name: $('#te-n', ov).value.trim() || 'Eigen sjabloon', e: $('#te-e', ov).value.trim() || '📋', d: 'Eigen sjabloon', prompt: $('#te-p', ov).value.trim(), custom: true };
+    if (!t.prompt) return toast('Beschrijf wat er in het verslag moet');
+    await DB.put('templates', t); customTemplates.push(t); ov.remove();
+    if (id) Proc.summarize(id, t.id); else renderSettings();
+  };
+}
+async function speakerSheet(id) {
+  const rec = await DB.get('recs', id); const order = speakerOrder(rec);
+  const rows = order.map((lab) => {
+    const ls = rec.transcript.segments.filter((l) => l.speaker === lab); const sample = ls.find((l) => l.text.length > 25) || ls[0];
+    return `<div class="card" style="padding:10px"><div class="row"><div class="av" style="width:28px;height:28px;border-radius:50%;background:${spkColor(rec, lab)}"></div><b class="grow">${esc(spkName(rec, lab))}</b><span class="small muted">${ls.length}×</span><button class="small" data-play="${sample?.start || 0}">▶</button></div>
+      <div class="small muted" style="margin:6px 0">“${esc((sample?.text || '').slice(0, 110))}”</div>
+      <div class="row"><input class="inp grow" data-lab="${esc(lab)}" value="${esc(rec.speakers[lab] || '')}" placeholder="Naam (bv. ${esc(S.userName)}, uitvoerder, klant…)"><button class="btn sm ghost" data-me="${esc(lab)}">Ik</button></div></div>`;
+  }).join('');
+  const ov = sheet(`<h2 style="margin-top:0">Sprekers benoemen</h2><div class="hint" style="margin-bottom:10px">Geef twee labels dezelfde naam om ze samen te voegen.</div>${rows}<div class="btns"><button class="btn" id="sp-save">Opslaan</button></div>`);
+  $$('[data-play]', ov).forEach((b) => b.onclick = () => Player.seek(+b.dataset.play, true));
+  $$('[data-me]', ov).forEach((b) => b.onclick = () => { $(`[data-lab="${CSS.escape(b.dataset.me)}"]`, ov).value = S.userName; });
+  $('#sp-save', ov).onclick = async () => {
+    await updateRec(id, (r) => { $$('[data-lab]', ov).forEach((i) => { const v = i.value.trim(); if (v) r.speakers[i.dataset.lab] = v; else delete r.speakers[i.dataset.lab]; }); });
+    ov.remove(); renderDetail(id, true); toast('Sprekers opgeslagen');
+  };
+}
+function detailMenu(rec) {
+  const ov = sheet(`<button class="tpl" data-m="rename"><span class="e">✎</span><span class="grow n">Naam wijzigen</span></button>
+    <button class="tpl" data-m="retitle" ${hasLLM() && rec.transcript?.segments?.length ? '' : 'disabled style="opacity:.4"'}><span class="e">✦</span><span class="grow n">Titel automatisch laten bepalen</span></button>
+    <button class="tpl" data-m="retrans" ${hasSTT() ? '' : 'disabled style="opacity:.4"'}><span class="e">↻</span><span class="grow n">Opnieuw transcriberen (${S.sttProvider === 'elevenlabs' ? 'ElevenLabs' : 'Gemini'})</span></button>
+    <button class="tpl" data-m="type"><span class="e">${typeIco(rec.type)}</span><span class="grow n">Soort wijzigen (overleg / telefoon / dictaat)</span></button>
+    <button class="tpl" data-m="del" style="color:var(--red)"><span class="e">🗑</span><span class="grow n">Opname verwijderen</span></button>`);
+  $$('[data-m]', ov).forEach((b) => b.onclick = async () => {
+    ov.remove(); const m = b.dataset.m;
+    if (m === 'rename') { const v = await promptBox('Naam van de opname', rec.title); if (v?.trim()) { await updateRec(rec.id, (r) => { r.title = v.trim(); r.titleSet = true; }); renderDetail(rec.id, true); } }
+    if (m === 'retitle') { await updateRec(rec.id, (r) => { r.titleSet = false; }); Proc.autoTitle(rec.id).catch((e) => toast(e.message)); }
+    if (m === 'retrans') { if (await confirmBox('Huidige transcriptie vervangen?', 'Opnieuw transcriberen')) { await updateRec(rec.id, (r) => { r.transcript = null; r.speakers = {}; }); Proc.transcribe(rec.id); } }
+    if (m === 'type') { const order = ['gesprek', 'telefoon', 'dictaat']; await updateRec(rec.id, (r) => { r.type = order[(order.indexOf(r.type) + 1) % order.length]; }); renderDetail(rec.id, true); }
+    if (m === 'del') { if (await confirmBox('Opname, audio en samenvattingen definitief verwijderen?')) { await deleteRec(rec.id); location.hash = '#/'; toast('Verwijderd'); } }
+  });
+}
+async function deleteRec(id) {
+  const r = await DB.get('recs', id); if (!r) return;
+  for (const s of r.segments) await DB.del('blobs', s.key);
+  for (const p of r.photos || []) await DB.del('blobs', p);
+  await DB.del('recs', id);
+  if (View.cur === id) { Player.stop(); View.cur = null; }
+}
+
+/* ---- vraag over alle opnames ---- */
+let askAll = [];
+async function renderAsk() {
+  setTab('ask'); topHome('Vraag over al je opnames');
+  const recs = (await DB.all('recs')).filter((r) => r.transcript?.segments?.length).sort((a, b) => b.createdAt - a.createdAt);
+  $('#app').innerHTML = `
+    <div class="card"><b>Zoek en vraag door al je gesprekken heen</b><div class="hint">Bijv. “Wat is er met de installateur afgesproken over Lage Land?” of “Welke acties staan nog open voor mij deze week?” — ${recs.length} getranscribeerde opname(s) beschikbaar.</div>
+    <label class="f">Periode</label><select class="inp" id="aa-period"><option value="7">Afgelopen 7 dagen</option><option value="30" selected>Afgelopen 30 dagen</option><option value="90">Afgelopen 3 maanden</option><option value="0">Alles</option></select></div>
+    <div id="aa-chat">${askAll.map((m) => `<div class="msg ${m.role === 'user' ? 'u' : 'a'}"><div class="b ${m.role === 'user' ? '' : 'md'}">${m.role === 'user' ? esc(m.content) : md(m.content)}</div></div>`).join('')}</div>
+    <div class="chatin"><textarea id="aa-q" rows="1" placeholder="Stel je vraag…"></textarea><button class="btn lime" id="aa-go" ${hasLLM() && recs.length ? '' : 'disabled'}>➤</button></div>
+    ${askAll.length ? '<button class="btn sm ghost" id="aa-clear">Wissen</button>' : ''}`;
+  $('#aa-clear') && ($('#aa-clear').onclick = () => { askAll = []; renderAsk(); });
+  const go = $('#aa-go');
+  $('#aa-q').onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); go.click(); } };
+  go.onclick = async () => {
+    const q = $('#aa-q').value.trim(); if (!q) return;
+    const days = +$('#aa-period').value; const since = days ? Date.now() - days * 864e5 : 0;
+    const pool = recs.filter((r) => r.createdAt >= since);
+    // eenvoudige relevantie: zoekwoorden-score, dan nieuwste eerst, tot budget
+    const words = q.toLowerCase().split(/\W+/).filter((w) => w.length > 3);
+    const scored = pool.map((r) => { const txt = (r.title + ' ' + transcriptText(r) + ' ' + r.summaries.map((s) => s.content).join(' ')).toLowerCase(); return { r, s: words.reduce((a, w) => a + (txt.split(w).length - 1), 0) }; })
+      .sort((a, b) => b.s - a.s || b.r.createdAt - a.r.createdAt);
+    let budget = 500000; const ctx = [];
+    for (const { r } of scored) {
+      const sum = r.summaries.find((s) => s.content)?.content || '';
+      const block = `\n\n=== OPNAME: ${r.title} — ${fmtDateLong(r.createdAt)} ===\n${sum ? 'Samenvatting:\n' + sum + '\n\nTranscriptie:\n' : ''}${transcriptText(r, 120000)}`;
+      if (block.length > budget) { if (budget > 5000 && sum) { ctx.push(`\n\n=== OPNAME: ${r.title} — ${fmtDateLong(r.createdAt)} (alleen samenvatting) ===\n${sum}`); budget -= sum.length; } continue; }
+      ctx.push(block); budget -= block.length;
+    }
+    askAll.push({ role: 'user', content: q }); $('#aa-q').value = '';
+    await renderAsk();
+    const bub = document.createElement('div'); bub.className = 'msg a'; bub.innerHTML = '<div class="b md"><span class="spin"></span></div>'; $('#aa-chat').appendChild(bub); bub.scrollIntoView({ block: 'end' });
+    try {
+      const ans = await llm({ system: SYS() + `\n\nJe hebt toegang tot meerdere opnames van ${S.userName}. Beantwoord de vraag op basis daarvan. Noem bij elk punt de bron als: (Opnametitel, datum, [mm:ss]). Staat het er niet in, zeg dat.\n${ctx.join('') || '(geen opnames in deze periode)'}`,
+        messages: askAll.map((m) => ({ role: m.role, content: m.content })), maxTokens: 4000, onText: (t) => { $('.b', bub).innerHTML = md(t); } });
+      askAll.push({ role: 'assistant', content: ans });
+    } catch (e) { askAll.push({ role: 'assistant', content: '⚠ ' + e.message }); }
+    renderAsk();
+  };
+}
+
+/* ---- import ---- */
+function renderImport() {
+  setTab('imp'); topHome('Audio importeren');
+  $('#app').innerHTML = `
+    <div class="card"><h2 style="margin-top:0">Bestand importeren</h2>
+      <p>Importeer een bestaande opname: een Dictafoon-memo, WhatsApp-spraakbericht, Teams-opname of een iPhone-<b>gespreksopname</b>.</p>
+      <button class="btn lime" id="imp-go" style="width:100%">⇪ Kies audiobestand</button>
+      <div class="hint">m4a, mp3, wav, aac, mp4/mov (video → alleen geluid). Lange bestanden (&gt; 30 min) transcriberen het best via ElevenLabs.</div></div>
+    <div class="card"><h3 style="margin-top:0">📞 Telefoongesprekken opnemen</h3>
+      <p class="small">Een web-app mag het telefoongesprek zelf niet afluisteren (iOS-beveiliging). Twee goede routes:</p>
+      <ol class="small" style="padding-left:18px">
+        <li><b>Ingebouwde iOS-gespreksopname</b> (iOS 18.1+): tik tijdens het bellen linksboven op de opnameknop. De opname komt in de <b>Notities</b>-app → open de notitie → houd de audio ingedrukt → <i>Bewaar audio in Bestanden</i> → importeer hier. (De andere partij hoort een melding.)</li>
+        <li><b>Luidspreker</b>: start hier een opname met soort “Telefoon”, zet het gesprek op de luidspreker.</li>
+      </ol></div>
+    <div class="card"><h3 style="margin-top:0">Vanuit Dictafoon / WhatsApp</h3><p class="small">Deel ⎋ › <i>Bewaar in Bestanden</i>, daarna hier importeren.</p></div>`;
+  $('#imp-go').onclick = () => $('#fileAudio').click();
+}
+$('#fileAudio').onchange = async (e) => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  toast('Importeren…');
+  const id = uid(); const key = `${id}:0`;
+  const dur = await new Promise((res) => { const a = new Audio(); const u = URL.createObjectURL(f); a.preload = 'metadata'; a.onloadedmetadata = () => { res(isFinite(a.duration) ? a.duration : 0); URL.revokeObjectURL(u); }; a.onerror = () => res(0); a.src = u; setTimeout(() => res(0), 5000); });
+  const type = f.type || (/\.mp3$/i.test(f.name) ? 'audio/mpeg' : /\.wav$/i.test(f.name) ? 'audio/wav' : 'audio/mp4');
+  const blob = new Blob([f], { type });
+  try { await DB.put('blobs', blob, key); } catch (err) { return modalMsg('Opslaan mislukt', esc(err.message)); }
+  const name = f.name.replace(/\.[^.]+$/, '');
+  await DB.put('recs', { id, title: name || 'Geïmporteerde opname', createdAt: f.lastModified || Date.now(), updatedAt: Date.now(), type: /gesprek|call|telefoon/i.test(name) ? 'telefoon' : 'import', duration: dur,
+    segments: [{ idx: 0, start: 0, dur: dur || 3600, mime: type, key, size: blob.size }], highlights: [], notes: [], photos: [], transcript: null, speakers: {}, summaries: [], chat: [], status: 'recorded' });
+  location.hash = '#/rec/' + id;
+  if (S.autoTranscribe && hasSTT()) Proc.transcribe(id);
+};
+
+/* ---- settings ---- */
+async function renderSettings() {
+  setTab('set'); topHome('Instellingen');
+  let est = ''; try { const e = await navigator.storage.estimate(); est = `${(e.usage / 1048576).toFixed(0)} MB gebruikt van ~${(e.quota / 1073741824).toFixed(1)} GB`; } catch {}
+  const opt = (v, cur, label) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${label}</option>`;
+  $('#app').innerHTML = `
+  <div class="card"><h2 style="margin-top:0">Algemeen</h2>
+    <label class="f">Jouw naam (voor sprekers, acties en mails)</label><input class="inp" data-k="userName" value="${esc(S.userName)}">
+    <label class="f">Taal van de gesprekken</label><select class="inp" data-k="lang">${opt('nl', S.lang, 'Nederlands')}${opt('auto', S.lang, 'Automatisch / gemengd')}${opt('en', S.lang, 'Engels')}${opt('de', S.lang, 'Duits')}${opt('pl', S.lang, 'Pools')}${opt('tr', S.lang, 'Turks')}</select>
+    <div class="sw"><span>Automatisch transcriberen na opname</span><input type="checkbox" class="tgl" data-k="autoTranscribe" ${S.autoTranscribe ? 'checked' : ''}></div>
+    <div class="sw"><span>Automatisch samenvatten</span><input type="checkbox" class="tgl" data-k="autoSummary" ${S.autoSummary ? 'checked' : ''}></div>
+    <div class="sw"><span>Automatische titel</span><input type="checkbox" class="tgl" data-k="autoTitle" ${S.autoTitle ? 'checked' : ''}></div>
+    <label class="f">Standaard-sjabloon</label><select class="inp" data-k="defaultTemplate">${allTemplates().map((t) => opt(t.id, S.defaultTemplate, t.e + ' ' + t.name)).join('')}</select>
+    <label class="f">Vaktermen & namen (verbetert herkenning)</label><textarea class="inp" data-k="glossary">${esc(S.glossary)}</textarea>
+    <div class="hint">Komma-gescheiden. Zet hier projectnamen, straatnamen, collega’s en merken in.</div>
+  </div>
+
+  <div class="card"><h2 style="margin-top:0">Transcriptie</h2>
+    <div class="banner" style="margin:0 0 6px">💚 <b>Gratis gebruiken:</b> alleen een Google Gemini-sleutel is nodig — voor transcriptie én samenvattingen. Geen creditcard.</div>
+    <label class="f">Dienst</label><select class="inp" data-k="sttProvider">${opt('gemini', S.sttProvider, 'Google Gemini — GRATIS, met sprekers')}${opt('elevenlabs', S.sttProvider, 'ElevenLabs Scribe — betaald, topkwaliteit, lange bestanden')}</select>
+    <label class="f">Google Gemini API-sleutel</label><input class="inp" type="password" autocomplete="off" data-k="geminiKey" value="${esc(S.geminiKey)}" placeholder="AIza…">
+    <div class="hint">Gratis aan te maken op <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Gratis versie: beperkt aantal verzoeken per minuut/dag (ruim genoeg voor een paar overleggen per dag) en Google mag de inhoud gebruiken om z’n AI te verbeteren. Voor vertrouwelijke klantgesprekken: zet billing aan (zelfde sleutel, enkele centen per uur).</div>
+    <label class="f">ElevenLabs API-sleutel (optioneel)</label><input class="inp" type="password" autocomplete="off" data-k="elevenKey" value="${esc(S.elevenKey)}" placeholder="sk_…">
+    <div class="hint"><a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noopener">elevenlabs.io › API keys</a> · ca. € 0,20–0,40 per uur audio.</div>
+    <div class="btns" style="margin-top:10px"><button class="btn sm ghost" id="t-stt">Verbinding testen</button></div>
+  </div>
+
+  <div class="card"><h2 style="margin-top:0">Samenvatten & vragen</h2>
+    <label class="f">AI-model</label><select class="inp" data-k="llmProvider">${opt('gemini', S.llmProvider, 'Gemini — GRATIS, zelfde sleutel als transcriptie')}${opt('claude', S.llmProvider, 'Claude (Anthropic) — net iets betere verslagen, betaald')}</select>
+    <label class="f">Anthropic API-sleutel (alleen bij Claude)</label><input class="inp" type="password" autocomplete="off" data-k="anthropicKey" value="${esc(S.anthropicKey)}" placeholder="sk-ant-…">
+    <div class="hint"><a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com › API keys</a> · een samenvatting van een uur overleg kost enkele centen.</div>
+    <div class="btns" style="margin-top:10px"><button class="btn sm ghost" id="t-llm">Verbinding testen</button></div>
+  </div>
+
+  <div class="card"><h2 style="margin-top:0">Eigen sjablonen</h2>
+    ${customTemplates.length ? customTemplates.map((t) => `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${t.e}</span><span class="grow">${esc(t.name)}</span><button class="small muted" data-deltpl="${t.id}">verwijder</button></div>`).join('') : '<div class="muted small">Nog geen eigen sjablonen.</div>'}
+    <button class="btn sm" id="s-newtpl" style="margin-top:10px">＋ Nieuw sjabloon</button>
+  </div>
+
+  <details class="card"><summary style="font-weight:700">Geavanceerd</summary>
+    <label class="f">Gemini-model</label><input class="inp" data-k="geminiModel" value="${esc(S.geminiModel)}"><div class="hint">Standaard: gemini-flash-latest (gratis, volgt automatisch de nieuwste Flash). Loop je tegen de gratis limiet aan: probeer gemini-flash-lite-latest (ruimere limieten).</div>
+    <label class="f">Claude-model</label><input class="inp" data-k="claudeModel" value="${esc(S.claudeModel)}"><div class="hint">Standaard: claude-sonnet-5-5. Goedkoper: claude-haiku-5-5.</div>
+    <label class="f">ElevenLabs-model</label><input class="inp" data-k="elevenModel" value="${esc(S.elevenModel)}">
+    <label class="f">Fragmentlengte bij Gemini (minuten)</label><input class="inp" type="number" min="3" max="25" data-k="segMinutes" value="${esc(S.segMinutes)}"><div class="hint">Opnames worden in fragmenten opgeslagen (crashbestendig) en per fragment getranscribeerd.</div>
+  </details>
+
+  <div class="card"><h2 style="margin-top:0">Opslag & back-up</h2>
+    <div class="small muted">${esc(est)} · alles staat alleen op dit toestel.</div>
+    <div class="btns" style="margin-top:10px"><button class="btn sm ghost" id="b-exp">⬇ Back-up (tekst, zonder audio)</button><button class="btn sm ghost" id="b-imp">⇪ Back-up terugzetten</button></div>
+    <div class="hint">Tip: verwijder oude opnames of deel de audio naar OneDrive om ruimte te sparen. iOS kan data van web-apps wissen als je de app weken niet opent — maak geregeld een back-up of exporteer verslagen naar Word.</div>
+  </div>
+  <div class="card small muted">DLB Opname v${APP_VERSION} · ${esc(COMPANY.name)}<br>API-sleutels blijven op dit toestel en gaan alleen naar de gekozen dienst.</div>`;
+  $$('[data-k]').forEach((el) => {
+    el.onchange = () => { const k = el.dataset.k; S[k] = el.type === 'checkbox' ? el.checked : el.value.trim(); saveSettings(); toast('Opgeslagen'); };
+  });
+  $$('[data-deltpl]').forEach((b) => b.onclick = async () => { if (await confirmBox('Sjabloon verwijderen?')) { await DB.del('templates', b.dataset.deltpl); customTemplates = customTemplates.filter((t) => t.id !== b.dataset.deltpl); renderSettings(); } });
+  $('#s-newtpl').onclick = () => templateEditor(null);
+  $('#t-llm').onclick = async (e) => {
+    const b = e.target; b.innerHTML = '<span class="spin"></span>';
+    try { const t = await llm({ system: 'Antwoord kort.', messages: [{ role: 'user', content: 'Zeg alleen: verbinding werkt' }], maxTokens: 20 }); toast('✔ ' + t.trim().slice(0, 60)); }
+    catch (err) { modalMsg('Test mislukt', esc(err.message)); }
+    b.textContent = 'Verbinding testen';
+  };
+  $('#t-stt').onclick = async (e) => {
+    const b = e.target; b.innerHTML = '<span class="spin"></span>';
+    try {
+      if (S.sttProvider === 'elevenlabs') {
+        const r = await fetch('https://api.elevenlabs.io/v1/user/subscription', { headers: { 'xi-api-key': S.elevenKey } }).catch((x) => { throw netErr(x, 'ElevenLabs'); });
+        if (!r.ok) throw new Error('ElevenLabs ' + await errText(r)); toast('✔ ElevenLabs verbonden');
+      } else { await geminiGenerate({ contents: [{ role: 'user', parts: [{ text: 'Zeg alleen OK' }] }], maxTokens: 50 }); toast('✔ Gemini verbonden (' + S.geminiModel + ')'); }
+    } catch (err) { modalMsg('Test mislukt', esc(err.message)); }
+    b.textContent = 'Verbinding testen';
+  };
+  $('#b-exp').onclick = async () => {
+    const recs = await DB.all('recs');
+    const data = { app: 'dlb-opname', version: APP_VERSION, exportedAt: new Date().toISOString(), templates: customTemplates, recs: recs.map((r) => ({ ...r, segments: r.segments.map((s) => ({ ...s, key: null })), photos: [] })) };
+    shareOrDownload(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }), `DLB-opname-backup-${new Date().toISOString().slice(0, 10)}.json`);
+  };
+  $('#b-imp').onclick = () => $('#fileBackup').click();
+}
+$('#fileBackup').onchange = async (e) => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text()); if (d.app !== 'dlb-opname') throw new Error('Geen DLB-opname back-up');
+    let n = 0; for (const r of d.recs || []) { if (!(await DB.get('recs', r.id))) { r.segments = r.segments.filter((s) => s.key); await DB.put('recs', r); n++; } }
+    for (const t of d.templates || []) { await DB.put('templates', t); }
+    customTemplates = await DB.all('templates'); toast(`${n} opname(s) teruggezet`); location.hash = '#/';
+  } catch (err) { modalMsg('Terugzetten mislukt', esc(err.message)); }
+};
+
+/* ---- router ---- */
+function route() {
+  const h = location.hash || '#/';
+  if (h !== '#/rec/' + View.cur && !h.startsWith('#/rec/')) { /* keep player loaded silently */ }
+  window.scrollTo(0, 0);
+  if (h.startsWith('#/rec/')) return renderDetail(h.slice(6));
+  if (h === '#/ask') return renderAsk();
+  if (h === '#/import') return renderImport();
+  if (h === '#/settings') return renderSettings();
+  return renderHome();
+}
+$$('#tabbar [data-go]').forEach((b) => b.onclick = () => { location.hash = b.dataset.go; });
+$('#tb-rec').onclick = () => RecUI.open();
+window.addEventListener('hashchange', route);
+window.addEventListener('beforeunload', (e) => { if (R.a) { e.preventDefault(); e.returnValue = ''; } });
+
+(async function init() {
+  try { await DB.open(); } catch (e) { $('#app').innerHTML = `<div class="card">Opslag niet beschikbaar: ${esc(e.message)}. Gebruik Safari (geen privévenster).</div>`; return; }
+  customTemplates = await DB.all('templates');
+  await recoverOrphans().catch((e) => console.warn(e));
+  // opnames die tijdens transcriberen werden afgebroken: status herstellen
+  for (const r of await DB.all('recs')) {
+    if (r.status === 'transcribing') await updateRec(r.id, (x) => { x.status = 'error'; x.error = 'Onderbroken — tik op “Opnieuw proberen” om verder te gaan (al verwerkte fragmenten blijven bewaard).'; });
+    if (r.status === 'recording') await updateRec(r.id, (x) => { x.status = x.segments.length ? 'recorded' : 'empty'; });
+  }
+  for (const r of await DB.all('recs')) for (const s of r.summaries) if (s.busy) await updateRec(r.id, (x) => { x.summaries = x.summaries.filter((y) => !y.busy || y.content); x.summaries.forEach((y) => { y.busy = false; }); });
+  route();
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>
