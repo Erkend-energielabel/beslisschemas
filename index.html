@@ -668,7 +668,10 @@ function init(){
   if(klaar)return true;
   if(!window.L){status('Kaartbibliotheek niet geladen (geen internet?).','err');return false}
   klaar=true;
-  map=L.map('bag-map',{maxZoom:21}).setView([51.85,4.63],16);
+  map=L.map('bag-map',{maxZoom:21,scrollWheelZoom:false,zoomControl:false}).setView([51.85,4.63],16);
+  L.control.zoom({position:'bottomright'}).addTo(map);
+  // scrollen over de pagina zoomt de kaart niet; na een klik op de kaart wel (tot de muis de kaart verlaat)
+  map.on('click focus',()=>map.scrollWheelZoom.enable());map.getContainer().addEventListener('mouseleave',()=>map.scrollWheelZoom.disable());
   layers={lucht:L.tileLayer('https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_orthoHR/EPSG:3857/{z}/{x}/{y}.jpeg',{maxZoom:21,maxNativeZoom:19,attribution:'Luchtfoto © PDOK'}),
     kaart:L.tileLayer('https://service.pdok.nl/brt/achtergrondkaart/wmts/v2_0/standaard/EPSG:3857/{z}/{x}/{y}.png',{maxZoom:21,maxNativeZoom:19,attribution:'BRT © Kadaster/PDOK'})};
   layers.lucht.addTo(map);
@@ -2484,7 +2487,7 @@ const today = () => { const d=new Date(); return d.toLocaleDateString('nl-NL',{d
 const isoDate = () => { const d=new Date(), p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); };
 
 const STORE='ee-beslisschemas-v2';
-function load(){ try{ const s=JSON.parse(localStorage.getItem(STORE)); if(s && s.run && s.saved) return s; }catch(e){} return null; }
+function load(){ try{ const s=JSON.parse(localStorage.getItem(STORE)); if(s && s.run && s.run.cur && FLOWS[s.run.cur.split('.')[0]]) return s; }catch(e){} return null; }
 function save(){ try{ localStorage.setItem(STORE, JSON.stringify(S)); }catch(e){} try{ window.bsLogChanged && window.bsLogChanged(); }catch(e){} }
 
 function newRun(flow){ return {ruimte:'', steps:[{kind:'flow', flow}], cur:flow+'.'+FLOWS[flow].start, stack:[], helpers:{}, savedAt:null, tab:flow}; }
@@ -2725,7 +2728,7 @@ async function copyReport(){
 async function saveFile(text, name){
   text = text || reportText(); name = name || bestandsnaam();
   const blob=new Blob([text],{type:'text/plain;charset=utf-8'});
-  try{ const file=new File([blob],name,{type:'text/plain'}); if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:name}); return; } }catch(e){ if(e && e.name==='AbortError') return; }
+  try{ const file=new File([blob],name,{type:'text/plain'}); if(window.matchMedia && matchMedia('(pointer:coarse)').matches && navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], title:name}); return; } }catch(e){ if(e && e.name==='AbortError') return; }
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},500);
 }
 function saveRun(){
