@@ -338,7 +338,10 @@ body.tab-bag .wrap{max-width:1180px}
 #bag .isde-x2{background:#1e7a3c;color:#fff;border-radius:8px;padding:1px 7px;font-size:.72rem;margin-left:6px}
 #bag .isde-box{background:#ecf8ef;border:1px solid #9fd5ae;border-radius:10px;padding:8px 12px;margin:10px 0;font-size:.8rem}
 #bag .isde-box ul{margin:4px 0 0 18px;padding:0}#bag .isde-box li{margin:2px 0}
-.hoofdtabs .topknop.topinst{padding:11px 12px;margin-left:-2px;background:#2f9e3e}
+/* PDF-knop + tandwiel als één knop */
+.hoofdtabs .topgroep{flex:0 0 auto;display:flex;align-items:stretch;border-radius:9px;overflow:hidden;box-shadow:0 1px 0 rgba(0,0,0,.04)}
+.hoofdtabs .topgroep .topknop{border-radius:0;margin:0}
+.hoofdtabs .topgroep .topknop.topinst{flex:0 0 auto;padding:0 13px;font-size:1rem;line-height:1;border-left:1px solid rgba(255,255,255,.45);display:flex;align-items:center;justify-content:center}
 .pdf-inhoud{position:fixed;z-index:2000;background:#fff;border:1px solid #cfdcd2;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:10px 14px;min-width:250px;font-size:.88rem}
 .pdf-inhoud b{display:block;margin:0 0 6px;color:#0B3D2E}
 .pdf-inhoud label{display:flex;gap:8px;align-items:center;padding:4px 0;cursor:pointer}
@@ -3344,7 +3347,7 @@ function topMelding(soort, tekst){ const el = $('top-melding'); el.className = '
 (function(){
   const k = $('top-pdf'); if(!k) return;
   const b = document.createElement('button'); b.type='button'; b.className='topknop topinst'; b.id='top-pdfinst'; b.title='Kies wat standaard in de PDF komt'; b.textContent='⚙';
-  k.insertAdjacentElement('afterend', b);
+  const g = document.createElement('span'); g.className='topgroep'; k.insertAdjacentElement('beforebegin', g); g.appendChild(k); g.appendChild(b);
   const p = document.createElement('div'); p.id='pdf-inhoud'; p.className='pdf-inhoud'; p.hidden=true; document.body.appendChild(p);
   const teken = () => { p.innerHTML = '<b>Standaard in de PDF</b>' + PDF_DEELS.map(([k2,t]) => `<label><input type="checkbox" data-pdfi="${k2}"${PDFI[k2]?' checked':''}> ${t}</label>`).join('') + '<small>Wordt onthouden in deze browser. Onderdelen zonder gegevens worden overgeslagen.</small>';
     p.querySelectorAll('[data-pdfi]').forEach(c => c.onchange = () => { PDFI[c.dataset.pdfi] = c.checked; pdfiBewaar(); }); };
