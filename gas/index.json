@@ -5,11 +5,6 @@
    "bron": "Stedin 2026",
    "url": "https://www.stedin.net/-/media/project/online/files/zakelijk/open-data/stedin-kleinverbruikgegevens-2026.csv",
    "regels": 192523
-  },
-  {
-   "bron": "Stedin Zeeland 2025",
-   "url": "https://www.stedin.net/-/media/project/online/files/zakelijk/open-data/stedin-zeeland-kleinverbruikgegevens-2025.csv",
-   "regels": 0
   }
  ],
  "pc4": 1046
