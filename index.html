@@ -264,6 +264,12 @@ body.tab-bag .wrap{max-width:1180px}
 .bag-mlijst tr.niet td{color:var(--grijs);font-style:italic}
 #bag #bag-loc{white-space:nowrap}
 @media(max-width:560px){#bag .bag-loct{display:none}}
+
+#bag .bag-vbosel{display:flex;flex-direction:column;gap:4px;font-size:.78rem;color:var(--grijs);margin:0 0 10px}
+#bag .bag-vbosel select{font-size:.95rem;padding:8px;border-radius:8px;border:1px solid #cfdcd2;background:#fff;color:var(--tekst);max-width:100%}
+#bag .bag-label{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;background:#f4f8f5;border-radius:8px;padding:8px 10px;margin:0 0 10px;font-size:.82rem}
+#bag .bag-label b{color:var(--tekst)}#bag .bag-label span{color:var(--grijs);flex:1;min-width:120px}
+#bag .bag-label .actie{padding:5px 10px;font-size:.8rem;text-decoration:none}
 #vbs{
   --bg:#F2F4F3; --surface:#FFFFFF; --ink:#18232A; --muted:#5A6870; --line:#D5DCDE; --soft:#E9EEEE;
   --accent:#5B2D86; --accent-ink:#FFFFFF; --accent-soft:#EFE8F6;
@@ -614,6 +620,7 @@ body.tab-bag .wrap{max-width:1180px}
       <div class="kaart">
         <h2>Pand</h2>
         <div id="bag-kpis"></div>
+        <div id="bag-vbo"></div>
         <div class="bag-meta" id="bag-meta"><b>Adres</b><span class="klein">Zoek een adres of klik op de kaart</span></div>
       </div>
 
@@ -811,6 +818,7 @@ function mijnLocatie(){
 }
 function useAddr(d){const m=/POINT\(([\d.]+) ([\d.]+)\)/.exec(d.centroide_rd||'');if(!m){status('Geen coördinaten bij dit adres.','err');return}
   try{window.bagAdresGekozen&&window.bagAdresGekozen(d.weergavenaam)}catch(e){}
+  S.vboId=d.adresseerbaarobject_id||null;
   loadArea(+m[1],+m[2],d.weergavenaam)}
 
 /* ===== Data ===== */
@@ -1179,12 +1187,16 @@ function hoogteObj(a,mv,r){
   return{a,mv,h70:r('b3_h_dak_70p'),h50:r('b3_h_dak_50p'),hmax:r('b3_h_dak_max'),hmin:r('b3_h_dak_min'),
     lagen:a.b3_bouwlagen??(r('b3_h_dak_70p')!=null?Math.max(1,Math.round(r('b3_h_dak_70p')/3)):null),lagenEst:a.b3_bouwlagen==null,
     top:null,route:a.route||null,dak:{slanted:'Hellend dak',horizontal:'Plat dak',multiple_horizontal:'Meerdere platte daken',no_points:'Onbekend',could_not_detect:'Onbekend'}[a.b3_dak_type]||a.b3_dak_type||'–',bron:a.bron||null}}
+const vboAdres=p=>`${adrTxt(p)}${p.postcode?', '+p.postcode:''}${p.woonplaats?' '+p.woonplaats:''}`;
+const vboSort=(a,c)=>String(a.p.openbare_ruimte).localeCompare(String(c.p.openbare_ruimte),'nl')||(a.p.huisnummer-c.p.huisnummer)||String(a.p.huisletter||'').localeCompare(String(c.p.huisletter||''))||String(a.p.toevoeging||'').localeCompare(String(c.p.toevoeging||''),'nl',{numeric:true});
+function vboGekozen(b){return S.vboId?b.vbos.find(v=>v.p.identificatie===S.vboId)||null:null}
 function addrOf(b){
+  const vk=vboGekozen(b);if(vk)return vboAdres(vk.p);
   if(S.addr&&S.addrPt&&inside(S.addrPt,b.ring))return S.addr;
   if(!b.adressen.length)return'(geen adres in BAG)';
   return b.adressen.slice(0,2).join(', ')+(b.adressen.length>2?` (+${b.adressen.length-2})`:'');
 }
-function vboOf(b){if(!b.vbos.length)return null;if(S.addrPt){let best=b.vbos[0],bd=1e9;b.vbos.forEach(v=>{if(!v.xy)return;const d=Math.hypot(v.xy[0]-S.addrPt[0],v.xy[1]-S.addrPt[1]);if(d<bd){bd=d;best=v}});return best.p}return b.vbos[0].p}
+function vboOf(b){if(!b.vbos.length)return null;{const vk=vboGekozen(b);if(vk)return vk.p}if(S.addrPt){let best=b.vbos[0],bd=1e9;b.vbos.forEach(v=>{if(!v.xy)return;const d=Math.hypot(v.xy[0]-S.addrPt[0],v.xy[1]-S.addrPt[1]);if(d<bd){bd=d;best=v}});return best.p}return b.vbos[0].p}
 function metaRows(b){const v=vboOf(b)||{};const rows=[['Adres',addrOf(b)],['Pand-ID',b.id],['Bouwjaar',b.bouwjaar||'–'],['Status BAG',b.status||'–']];
   if(v.oppervlakte)rows.push(['Gebruiksopp. VBO',v.oppervlakte+' m²']);
   if(v.gebruiksdoel)rows.push(['Gebruiksdoel',v.gebruiksdoel]);
@@ -1203,6 +1215,22 @@ function renderPand(){
   $('bag-kpis').innerHTML=`<div>Nokhoogte<b>${fm(h.hmax)}</b></div><div>Hoogte (70%)<b>${fm(h.h70)}</b></div>
     <div>Dakhelling<b>${dakHelling(b)?.tekst??(b.geo===undefined&&b.h===undefined?'…':'–')}</b></div><div>Bouwlagen${h.lagenEst?' (schatting)':''}<b>${h.lagen??'–'}</b></div><div>Footprint<b>${fmt(S.area,0)} m²</b></div>`;
   $('bag-meta').innerHTML=metaRows(b).map(r=>`<b>${esc(r[0])}</b><span>${esc(r[1])}</span>`).join('');
+  renderVbo(b);
+}
+/* keuzelijst van alle woningen/verblijfsobjecten in het pand + bestaand energielabel opzoeken */
+function renderVbo(b){
+  const el=$('bag-vbo');if(!el)return;
+  if(!b||!b.vbos.length){el.innerHTML='';return}
+  const lijst=[...b.vbos].sort(vboSort),cur=vboOf(b);
+  const lbl=cur?`<div class="bag-label"><b>Bestaand energielabel</b><span>${esc(adrTxt(cur))}${cur.postcode?' · '+esc(cur.postcode):''}</span>
+      <a class="actie licht" href="https://www.ep-online.nl/" target="_blank" rel="noopener" id="bag-eplink">Opzoeken in EP-Online ↗</a>
+      <button class="actie licht" type="button" id="bag-epcopy">Kopieer postcode + huisnr</button></div>`:'';
+  el.innerHTML=(lijst.length>1?`<label class="bag-vbosel">Woning in dit pand (${lijst.length})
+      <select id="bag-vbosel">${lijst.map(v=>`<option value="${esc(v.p.identificatie||'')}"${cur&&v.p===cur?' selected':''}>${esc(adrTxt(v.p))}${v.p.oppervlakte?' · '+v.p.oppervlakte+' m²':''}${v.p.gebruiksdoel&&v.p.gebruiksdoel!=='woonfunctie'?' · '+esc(v.p.gebruiksdoel):''}</option>`).join('')}</select></label>`:'')+lbl;
+  const s=$('bag-vbosel');if(s)s.onchange=()=>{const v=b.vbos.find(x=>x.p.identificatie===s.value);if(!v)return;S.vboId=s.value;S.addr=vboAdres(v.p);
+    $('bag-q').value=S.addr;try{window.bagAdresGekozen&&window.bagAdresGekozen(S.addr)}catch(e){}renderPand();renderOpp();changed()};
+  const c=$('bag-epcopy');if(c)c.onclick=async()=>{const t=`${cur.postcode||''} ${cur.huisnummer}${cur.huisletter||''}${cur.toevoeging?'-'+cur.toevoeging:''}`.trim();
+    try{await navigator.clipboard.writeText(t);c.textContent='Gekopieerd: '+t}catch(e){c.textContent=t}setTimeout(()=>{if($('bag-epcopy'))$('bag-epcopy').textContent='Kopieer postcode + huisnr'},2500)};
 }
 function renderTable(){
   const tb=$('bag-tb');const vis=visible();$('bag-ndelen').textContent=vis.length;if(!vis.length){tb.innerHTML='<tr><td colspan="5" class="klein">—</td></tr>';return}
