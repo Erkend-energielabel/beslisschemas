@@ -206,6 +206,53 @@ body.tab-bag .wrap{max-width:1180px}
 .bag-dakkpi div{background:var(--bg);border-radius:8px;padding:6px 8px;font-size:.7rem;color:var(--grijs)}
 .bag-dakkpi b{display:block;font-size:1rem;color:var(--tekst)}
 @media(max-width:560px){.bag-dakkpi{grid-template-columns:repeat(2,1fr)}}
+
+/* ===== opmeten ===== */
+.meet-bladen{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.meet-blad{border:1px solid var(--lijn);background:var(--kaart);color:var(--tekst);border-radius:999px;padding:7px 13px;font-weight:600;font-size:.85rem;cursor:pointer;min-height:36px;display:inline-flex;align-items:center;gap:6px}
+.meet-blad.on{background:var(--paars);border-color:var(--paars);color:#fff}
+@media (prefers-color-scheme: dark){.meet-blad.on{color:#0b1a12}}
+.meet-blad.on .klein{color:inherit;opacity:.8}
+.meet-nieuw{border-style:dashed;color:var(--paars)}
+.meet-tools{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px}
+.meet-tools .seg{display:flex;background:var(--bg);border:1px solid var(--lijn);border-radius:999px;padding:3px}
+.meet-tools .seg button{border:0;background:none;padding:7px 12px;border-radius:999px;font-weight:600;font-size:.84rem;color:var(--tekst);min-height:34px}
+.meet-tools .seg button.on{background:var(--paars);color:#fff}
+@media (prefers-color-scheme: dark){.meet-tools .seg button.on{color:#0b1a12}}
+.meet-tools .seg button:disabled{opacity:.4}
+.klein-knop{padding:7px 12px!important;min-height:34px!important;font-size:.84rem}
+.meet-chk{display:inline-flex!important;align-items:center;gap:6px;font-size:.84rem!important;color:var(--tekst)!important;margin:0 4px!important}
+.meet-chk input{width:auto}
+.meet-canvas{position:relative;height:min(68vh,620px);border:1px solid var(--lijn);border-radius:10px;overflow:hidden;background:#eef1ef;touch-action:none;user-select:none}
+#meet-svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.meet-leeg{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:20px;color:var(--grijs)}
+.meet-leeg b{color:var(--tekst);font-size:1.05rem}
+.meet-hint{position:absolute;left:8px;bottom:8px;right:8px;background:rgba(255,255,255,.94);color:#1d2b25;border-radius:8px;padding:6px 10px;font-size:.78rem;font-weight:600;pointer-events:none;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.meet-melding{font-size:.84rem;padding:8px 12px;border-radius:8px;margin:0 0 10px;background:var(--paars-licht);color:var(--paars);font-weight:600}
+.meet-melding.ok{background:var(--groen-licht);color:var(--groen)}.meet-melding.fout{background:var(--rood-licht);color:var(--rood)}.meet-melding.let{background:#fff1d6;color:#7a4b00}
+.meet-veld{display:flex!important;flex-direction:column;gap:3px;margin:0 0 10px!important}
+.meet-rij{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.meet-rij .meet-veld{flex:1 1 160px}
+.meet-rij .actie{margin-bottom:10px}
+.meet-schaal{font-size:.84rem;font-weight:600;border-radius:8px;padding:8px 10px;margin:0 0 10px}
+.meet-schaal.ok{background:var(--groen-licht);color:var(--groen)}.meet-schaal.let{background:#fff1d6;color:#7a4b00}
+.meet-kpi,.meet-tot{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:6px 0}
+.meet-tot{grid-template-columns:repeat(5,1fr)}
+.meet-kpi div,.meet-tot div{background:var(--bg);border-radius:8px;padding:6px 8px;font-size:.7rem;color:var(--grijs)}
+.meet-kpi b,.meet-tot b{display:block;font-size:1rem;color:var(--tekst)}
+@media(max-width:600px){.meet-kpi{grid-template-columns:repeat(2,1fr)}.meet-tot{grid-template-columns:repeat(2,1fr)}}
+.meet-h3{font-size:.85rem;color:var(--paars);margin:12px 0 4px}
+.meet-open input,.meet-open select{width:100%;font:inherit;font-size:.85rem;padding:5px 6px;border:1px solid var(--lijn);border-radius:6px;background:var(--bg);color:var(--tekst)}
+.tbl-wrap{overflow-x:auto}
+.meet-staat{min-width:720px}
+.meet-staat td:not(:first-child),.meet-staat th:not(:first-child){text-align:right}
+.meet-staat tbody tr[data-sel]{cursor:pointer}
+.meet-staat tbody tr[data-sel]:hover td{background:var(--groen-licht)}
+.meet-staat tr.sec td{font-weight:700;color:var(--paars);background:var(--paars-licht)}
+.meet-staat tr.sub td{font-style:italic;color:var(--grijs)}
+.meet-staat tfoot td{font-weight:800;border-top:2px solid var(--paars)}
+.meet-dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+[hidden]{display:none!important}
 #vbs{
   --bg:#F2F4F3; --surface:#FFFFFF; --ink:#18232A; --muted:#5A6870; --line:#D5DCDE; --soft:#E9EEEE;
   --accent:#5B2D86; --accent-ink:#FFFFFF; --accent-soft:#EFE8F6;
@@ -468,7 +515,8 @@ body.tab-bag .wrap{max-width:1180px}
 
   <div class="hoofdtabs" role="tablist">
     <button type="button" role="tab" id="tabknop-bs" aria-selected="true" data-tab="bs">📋 Beslisschema's</button>
-    <button type="button" role="tab" id="tabknop-bag" aria-selected="false" data-tab="bag">🏠 Pand analyse (BAG)</button>
+    <button type="button" role="tab" id="tabknop-bag" aria-selected="false" data-tab="bag">🏠 Pand<span class="lang"> analyse (BAG)</span></button>
+    <button type="button" role="tab" id="tabknop-meet" aria-selected="false" data-tab="meet">📐 Opmeten</button>
     <button type="button" class="topknop" id="top-pdf" title="Eén PDF met beslisschema's en pand analyse">📄 PDF<span class="lang"> downloaden</span></button>
   </div>
   <div id="top-melding" class="top-melding" hidden></div>
@@ -492,6 +540,31 @@ body.tab-bag .wrap{max-width:1180px}
   <p class="foot">Bron: ISSO-publicatie 82.1 <i>Energieprestatie woningen en woongebouwen</i>, 7e druk: §6.3 en §6.4 (afb. 6.1 t/m 6.5), afb. 7.3 en afb. 8.14. De toelichtingen bij hoofdstuk 6 zijn in eigen woorden samengevat met de exacte grenswaarden; bij twijfel geldt de tekst van de publicatie.</p>
   <div id="vbs-toast" class="toast" hidden></div>
   </div>
+  </section>
+  <section id="tab-meet" role="tabpanel" hidden>
+    <div id="meet">
+      <div class="kaart">
+        <h2>Plattegrond opmeten</h2>
+        <p class="klein" style="margin:0 0 10px">Upload een plattegrond (PDF of foto), zet de schaal met een bekende maat en klik de ruimtes in. Je krijgt per ruimte vloer-, wand- en plafondoppervlak, en een ruimtestaat met de gebruiksoppervlakte (indicatie). Alles blijft per project in deze browser.</p>
+        <div class="meet-bladen" id="meet-bladen"></div>
+        <div id="meet-melding" class="meet-melding" hidden></div>
+        <div class="meet-tools" id="meet-tools"></div>
+        <div class="meet-canvas" id="meet-canvas">
+          <svg id="meet-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+          <div class="meet-leeg" id="meet-leeg"><b>Nog geen plattegrond</b><span>Kies hierboven “＋ Plattegrond toevoegen”. PDF-bouwtekeningen werken het best; elke pagina wordt een verdieping.</span></div>
+          <div class="meet-hint" id="meet-hint" hidden></div>
+        </div>
+      </div>
+      <div class="bag-grid">
+        <div class="kaart"><h2>Verdieping en schaal</h2><div id="meet-blad-info"></div></div>
+        <div class="kaart"><h2>Geselecteerde ruimte</h2><div id="meet-ruimte"></div></div>
+      </div>
+      <div class="kaart">
+        <h2>Ruimtestaat</h2>
+        <div id="meet-lijst"></div>
+        <div class="acties" id="meet-acties"></div>
+      </div>
+    </div>
   </section>
 
   <section id="tab-bag" role="tabpanel" hidden>
@@ -883,7 +956,7 @@ function dakvlakken(g){
     v.A+=t.A;v.tris.push(t.i);const o=t.i*9;v.zmin=Math.min(v.zmin,T[o+2],T[o+5],T[o+8]);v.zmax=Math.max(v.zmax,T[o+2],T[o+5],T[o+8])});
   return vl.filter(v=>v.A>=1.5).map(v=>{const helling=Math.acos(Math.min(1,v.nz))*180/Math.PI,plat=helling<5;
     const az=((Math.atan2(v.nx,v.ny)*180/Math.PI)+360)%360;
-    return{helling,plat,az:plat?null:az,dir:plat?null:dirOf(az),opp:v.A,opp2d:v.A*v.nz,hoogte:v.zmax-g.zmin,tris:v.tris}})
+    return{helling,plat,az:plat?null:az,dir:plat?null:dirOf(az),opp:v.A,opp2d:v.A*v.nz,hoogte:v.zmax-g.zmin,goot:v.zmin-g.zmin,tris:v.tris}})
    .sort((p,q)=>q.opp-p.opp);
 }
 let hoogteRoute=null;
@@ -896,13 +969,28 @@ async function laadHoogtes(t,x,y,r){
       try{d=await viaTegels(x,y,r);hoogteRoute='tegels'}catch(e3){console.warn('3D BAG tegels',e3);fout=e3}}}
   try{geo=(await pdok).geom}catch(e){geo=null}
   if(t!==tok)return;
-  S.blds.forEach(b=>{b.h=d&&d[b.id]||null;b.geo=geo&&geo[b.id]||null;b.vlakken=null});
+  S.blds.forEach(b=>{b.h=d&&d[b.id]||null;b.geo=geo&&geo[b.id]||null;b.vlakken=null;b.gevels=null});
   renderAll(false);build3d(true);changed();
   const n=S.blds.filter(b=>b.h).length,mis=S.blds.length-n,n3=S.blds.filter(b=>b.geo).length;
   if(fout){status('3D BAG niet bereikbaar — hoogtes onbekend. Oriëntatie werkt wel.','err');return}
   status(`Hoogtes uit 3D BAG: ${n} panden${mis?`, ${mis} zonder 3D BAG-hoogte (bv. recente nieuwbouw)`:''}.`+(n3?` 3D-dakmodel (LoD2.2) voor ${n3} panden.`:'')+(hoogteRoute==='pdok'?' Bron: 3D BAG-reconstructie via PDOK 3D Basisvoorziening.':hoogteRoute==='tegels'?' Via de 3D BAG-tegels: geen nok en maaiveld beschikbaar.':''),mis&&!n?'err':'ok');
 }
 const vlakkenVan=b=>{if(!b||!b.geo)return[];if(!b.vlakken)b.vlakken=dakvlakken(b.geo);return b.vlakken};
+/* gevelvlakken uit het 3D-model: wanddriehoeken per oriëntatie (bruto, incl. ramen), gedeelde muren apart */
+function gevelvlakken(b){
+  if(!b||!b.geo)return null;if(b.gevels)return b.gevels;
+  const T=b.geo.tri,uit={},buren=S.blds.filter(o=>o.id!==b.id&&o.bb);let gedeeld=0;
+  const raakt=p=>buren.some(o=>p[0]>=o.bb[0]-.6&&p[0]<=o.bb[2]+.6&&p[1]>=o.bb[1]-.6&&p[1]<=o.bb[3]+.6&&distRing(p,o.ring)<0.45);
+  for(let i=0;i<b.geo.n;i++){const o=i*9,ux=T[o+3]-T[o],uy=T[o+4]-T[o+1],uz=T[o+5]-T[o+2],vx=T[o+6]-T[o],vy=T[o+7]-T[o+1],vz=T[o+8]-T[o+2];
+    let nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;const l=Math.hypot(nx,ny,nz);if(l<1e-6)continue;const A=l/2;nx/=l;ny/=l;nz/=l;
+    if(Math.abs(nz)>=0.17)continue;                       // geen wand
+    const h=Math.hypot(nx,ny);nx/=h;ny/=h;
+    const cx=(T[o]+T[o+3]+T[o+6])/3,cy=(T[o+1]+T[o+4]+T[o+7])/3;
+    if(inside([cx+nx*0.3,cy+ny*0.3],b.ring)){nx=-nx;ny=-ny}   // normaal naar buiten
+    if(raakt([cx,cy])){gedeeld+=A;continue}
+    const az=((Math.atan2(nx,ny)*180/Math.PI)+360)%360,d=dirOf(az);uit[d]=(uit[d]||0)+A}
+  b.gevels={per:uit,gedeeld,totaal:Object.values(uit).reduce((s,v)=>s+v,0)};return b.gevels;
+}
 const adrTxt=p=>`${p.openbare_ruimte||''} ${p.huisnummer||''}${p.huisletter||''}${p.toevoeging?'-'+p.toevoeging:''}`.trim();
 
 let tok=0;
@@ -1072,16 +1160,17 @@ function renderRes(){
     ${gr?`<div class="bag-let">Let op: ligt binnen 3° van de grens ${gr.join(' / ')}. Controleer ter plaatse.</div>`:''}</div></div>`;
 }
 function renderGroepen(){
-  const el=$('bag-groepen');const gr=groepen();
+  const el=$('bag-groepen');const gr=groepen(),gv=gevelvlakken(selB());
   if(!gr.length){el.innerHTML='<p class="klein">—</p>';return}
   const mx=Math.max(...gr.map(g=>g.len));
   el.innerHTML=gr.map(g=>{const bel=g.dir==='BEL',c=bel?'#8a8f8c':DCOL[g.dir];
     return`<div class="bag-groep${S.hlDir===g.dir?' on':''}" data-d="${g.dir}">
       <span class="bag-chip" style="border-color:${c};color:${c}${bel?';border-style:dashed':''}">${bel?'– –':g.dir}</span>
       <div><b>${bel?'Gedeelde muur':fmt(g.len)+' m'}</b> <span class="klein">${bel?fmt(g.len)+' m · telt niet mee':''}</span></div>
-      <span class="klein">${g.delen.length} ${g.delen.length===1?'deel':'delen'}${bel?'':' · '+g.azTxt}</span>
+      <span class="klein">${g.delen.length} ${g.delen.length===1?'deel':'delen'}${bel?'':' · '+g.azTxt}${gv&&!bel&&gv.per[g.dir]?` · <b>${fmt(gv.per[g.dir],1)} m² gevel</b>`:''}${gv&&bel&&gv.gedeeld?` · ${fmt(gv.gedeeld,1)} m²`:''}</span>
       <div class="bar"><i style="width:${g.len/mx*100}%;background:${c}"></i></div></div>`}).join('');
   el.querySelectorAll('.bag-groep').forEach(d=>d.onclick=()=>kiesGroep(d.dataset.d));
+  if(gv){const los=Object.keys(gv.per).filter(d=>!gr.some(g=>g.dir===d)&&gv.per[d]>=1);el.insertAdjacentHTML('beforeend',`<p class="klein" style="margin:8px 0 0">Geveloppervlak (bruto, incl. ramen en deuren) uit het 3D-model: <b>${fmt(gv.totaal,1)} m²</b> buitengevel${gv.gedeeld?`, ${fmt(gv.gedeeld,1)} m² gedeelde muur`:''}${los.length?`; kleine delen ${los.map(d=>d+' '+fmt(gv.per[d],1)+' m²').join(', ')}`:''}.</p>`)}
 }
 function renderLegenda(){
   const el=$('bag-legenda');if(!el)return;
@@ -1109,9 +1198,9 @@ function renderDak(){
   const vl=vlakkenVan(b);if(!vl.length){el.innerHTML='<p class="klein">Geen dakvlakken herkend.</p>';return}
   const tot=vl.reduce((s,v)=>s+v.opp,0),hel=vl.filter(v=>!v.plat),pl=vl.filter(v=>v.plat);
   el.innerHTML=`<div class="bag-dakkpi"><div>Dakoppervlak<b>${fmt(tot,1)} m²</b></div><div>Hellend<b>${fmt(hel.reduce((s,v)=>s+v.opp,0),1)} m²</b></div><div>Plat<b>${fmt(pl.reduce((s,v)=>s+v.opp,0),1)} m²</b></div><div>Dakvlakken<b>${vl.length}</b></div></div>
-    <table><thead><tr><th>#</th><th>Oriëntatie</th><th>Helling</th><th>Oppervlak</th><th>Hoogte</th></tr></thead><tbody>${vl.map((v,i)=>`<tr><td><b>${i+1}</b></td>
+    <table><thead><tr><th>#</th><th>Oriëntatie</th><th>Helling</th><th>Oppervlak</th><th>Goot</th><th>Nok/top</th></tr></thead><tbody>${vl.map((v,i)=>`<tr><td><b>${i+1}</b></td>
       <td>${v.plat?'<span class="bag-pill" style="background:#9aa59f">plat</span>':`<span class="bag-pill" style="background:${DCOL[v.dir]}">${v.dir}</span> <span class="klein">${Math.round(v.az)}°</span>`}</td>
-      <td>${fmt(v.helling,0)}°</td><td>${fmt(v.opp,1)} m²</td><td>${fmt(v.hoogte)} m</td></tr>`).join('')}</tbody></table>
+      <td>${fmt(v.helling,0)}°</td><td>${fmt(v.opp,1)} m²</td><td>${v.plat?'–':fmt(v.goot)+' m'}</td><td>${fmt(v.hoogte)} m</td></tr>`).join('')}</tbody></table>
     <p class="klein">Uit het 3D-model (LoD2.2, 3D BAG-reconstructie via PDOK). Oppervlak = werkelijke (schuine) oppervlakte; dakkapellen en kleine uitbouwen kunnen aparte vlakken zijn. Indicatief: controleer ter plaatse.</p>`;
 }
 function buren(n){const b=selB();const c=centroid(b.ring);
@@ -1198,8 +1287,9 @@ function samenvatting(){
   const L2=[`Pand analyse (BAG / 3D BAG) — ${addrOf(b)}`,`Pand-ID ${b.id} · bouwjaar ${b.bouwjaar||'–'}${v.oppervlakte?` · VBO ${v.oppervlakte} m²`:''}${v.gebruiksdoel?` · ${v.gebruiksdoel}`:''}`,
     `Hoogte 70%: ${fmt(h.h70)} m · nok: ${fmt(h.hmax)} m · laagste dakdeel: ${fmt(h.hmin)} m · bouwlagen: ${h.lagen??'–'}${h.lagenEst?' (schatting)':''} · ${h.dak}`,'','Oriëntatie gevels:'];
   const es=S.edges[S.eSel];if(es)L2.splice(L2.length-1,0,`Geselecteerde gevel: ${es.dir} (${Math.round(es.az)}°), ${fmt(es.len)} m${S.autoSel?' — meest zuidgerichte gevel':''}`,'');
-  groepen().forEach(g=>L2.push(g.dir==='BEL'?`Gedeelde muur: ${fmt(g.len)} m (${g.delen.length} delen, telt niet mee)`:`${g.dir}: ${fmt(g.len)} m (${g.delen.length} ${g.delen.length===1?'deel':'delen'}, ${g.azTxt})`));
-  const vlk=vlakkenVan(b);if(vlk.length){L2.push('','Dakvlakken (3D-model):');vlk.forEach((v,i)=>L2.push(`${i+1}. ${v.plat?'plat':v.dir+' ('+Math.round(v.az)+'°)'}, helling ${fmt(v.helling,0)}°, ${fmt(v.opp,1)} m²`))}
+  const gvs=gevelvlakken(b);
+  groepen().forEach(g=>L2.push(g.dir==='BEL'?`Gedeelde muur: ${fmt(g.len)} m (${g.delen.length} delen, telt niet mee)`:`${g.dir}: ${fmt(g.len)} m (${g.delen.length} ${g.delen.length===1?'deel':'delen'}, ${g.azTxt})${gvs&&gvs.per[g.dir]?`, gevel ${fmt(gvs.per[g.dir],1)} m² (3D)`:''}`));
+  const vlk=vlakkenVan(b);if(vlk.length){L2.push('','Dakvlakken (3D-model):');vlk.forEach((v,i)=>L2.push(`${i+1}. ${v.plat?'plat':v.dir+' ('+Math.round(v.az)+'°)'}, helling ${fmt(v.helling,0)}°, ${fmt(v.opp,1)} m²${v.plat?'':`, goot ${fmt(v.goot)} m`}, top ${fmt(v.hoogte)} m`))}
   L2.push('','Geveldelen:');
   visible().forEach(({e,i})=>L2.push(`${i+1}. ${role(i)}: ${e.dir} (${Math.round(e.az)}°), ${fmt(e.len)} m`));
   const t=totals();L2.push('','Gevellengte per oriëntatie (excl. belendend): '+(DIRS.filter(d=>t[d]).map(d=>`${d} ${fmt(t[d])} m`).join(' · ')||'–'));
@@ -1278,13 +1368,14 @@ async function pdfGegevens(){
     plan, roos, img3d:snapshot3d(),
     gevels:visible().map(({e,i})=>({nr:i+1,rol:role(i),len:fm(e.len),az:Math.round(e.az)+'°',dir:e.dir,kleur:role(i)==='Belendend'?'#aaaaaa':DCOL[e.dir]})),
     totalen:DIRS.filter(d=>t[d]).map(d=>({dir:d,len:fm(t[d]),kleur:DCOL[d]})),
-    groepen:groepen().map(g=>({dir:g.dir,bel:g.dir==='BEL',len:fm(g.len),delen:g.delen.length,az:g.azTxt,kleur:g.dir==='BEL'?'#8a8f8c':DCOL[g.dir]})),
+    groepen:(()=>{const gv=gevelvlakken(b);return groepen().map(g=>({dir:g.dir,bel:g.dir==='BEL',len:fm(g.len),delen:g.delen.length,az:g.azTxt,kleur:g.dir==='BEL'?'#8a8f8c':DCOL[g.dir],gevel:gv?(g.dir==='BEL'?(gv.gedeeld?fmt(gv.gedeeld,1)+' m²':'-'):(gv.per[g.dir]?fmt(gv.per[g.dir],1)+' m²':'-')):null}))})(),
+    gevelTotaal:(()=>{const gv=gevelvlakken(b);return gv?fmt(gv.totaal,1)+' m²':null})(),
     gekozen:(()=>{const e=S.edges[S.eSel];if(!e)return null;return{dir:e.dir,az:Math.round(e.az),len:fm(e.len),nr:S.eSel+1,rol:role(S.eSel),auto:S.autoSel,bel:role(S.eSel)==='Belendend',grens:grensInfo(e.az),kleur:role(S.eSel)==='Belendend'?'#8a8f8c':DCOL[e.dir]}})(),
     hoogte:{hmax:h.hmax,h70:h.h70,hmin:h.hmin,top:h.top},
     pandgegevens:[...metaRows(b).filter(r=>r[0]!=='Adres'&&r[0]!=='Pand-ID'),...(h.h50!=null?[['Hoogte 50%',fm(h.h50)]]:[]),['Laagste dakdeel',fm(h.hmin)],...(h.route==='tegels'?[]:[['Maaiveld',fmt(h.mv,2)+' m NAP']])],
     buren:buren(8).map(o=>{const q=heights(o);return{adres:(o.adressen[0]||'pand …'+o.id.slice(-6))+(o.adressen.length>1?` (+${o.adressen.length-1})`:''),bj:String(o.bouwjaar||''),h70:fm(q.h70),nok:fm(q.hmax),zelf:o.id===b.id}}),
     lagenGeschat:h.lagenEst, route:hoogteRoute,
-    dakvlakken:vlakkenVan(b).map((v,i)=>({nr:i+1,dir:v.plat?'plat':v.dir,az:v.plat?'-':Math.round(v.az)+'°',helling:fmt(v.helling,0)+'°',opp:fmt(v.opp,1)+' m²',hoogte:fm(v.hoogte),kleur:v.plat?'#9aa59f':DCOL[v.dir]})),
+    dakvlakken:vlakkenVan(b).map((v,i)=>({nr:i+1,dir:v.plat?'plat':v.dir,az:v.plat?'-':Math.round(v.az)+'°',helling:fmt(v.helling,0)+'°',opp:fmt(v.opp,1)+' m²',hoogte:fm(v.hoogte),goot:v.plat?'-':fm(v.goot),kleur:v.plat?'#9aa59f':DCOL[v.dir]})),
     dakTotaal:vlakkenVan(b).reduce((s,v)=>s+v.opp,0)
   };
 }
@@ -1320,6 +1411,371 @@ return {
   samenvatting,
   pdfGegevens,
   _S:S
+};
+})();
+
+</script>
+<script>
+/* ============ PLATTEGROND OPMETEN — vloer-, wand- en plafondoppervlak per ruimte ============ */
+window.MEET = (function(){
+"use strict";
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const num = v => { if(v==null) return NaN; const t=String(v).trim().replace(',', '.'); return t===''?NaN:Number(t); };
+const fmt = (n,d=2) => isFinite(n) ? n.toLocaleString('nl-NL',{minimumFractionDigits:d,maximumFractionDigits:d}) : '–';
+const uid = () => Math.random().toString(36).slice(2,9);
+const NS = 'http://www.w3.org/2000/svg';
+const KLEUREN = ['#3CB54A','#2f8fbf','#e3a21a','#7d4ea3','#e0662a','#1f4e9c','#c0392b','#3aa776','#9cc23a','#d55181'];
+
+/* ---------- data ---------- */
+let D = leeg();              // {hoogte, bladen:[{id,naam,img,w,h,schaal(m/px),ruimtes:[...]}]}
+let bladId = null, selId = null, modus = 'select', tekenPunten = [], schaalPunten = [], haaks = true;
+let vb = null;               // viewBox [x,y,w,h]
+let sleutel = '';
+function leeg(){ return {hoogte:'2,60', bladen:[]}; }
+const blad = () => D.bladen.find(b => b.id === bladId) || null;
+const ruimte = () => { const b = blad(); return b ? b.ruimtes.find(r => r.id === selId) || null : null; };
+
+/* ---------- opslag: IndexedDB per project (afbeeldingen zijn te groot voor localStorage) ---------- */
+let dbP = null;
+function db(){ if(!dbP) dbP = new Promise((res, rej) => { try{ const r = indexedDB.open('ee-opmeten', 1); r.onupgradeneeded = () => r.result.createObjectStore('p'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }catch(e){ rej(e); } }); return dbP; }
+async function idbGet(k){ try{ const d = await db(); return await new Promise((res, rej) => { const t = d.transaction('p').objectStore('p').get(k); t.onsuccess = () => res(t.result); t.onerror = () => rej(t.error); }); }catch(e){ return null; } }
+async function idbPut(k, v){ try{ const d = await db(); await new Promise((res, rej) => { const t = d.transaction('p','readwrite'); t.objectStore('p').put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); }); return true; }catch(e){ return false; } }
+let saveT = null;
+function bewaar(){ clearTimeout(saveT); saveT = setTimeout(async () => { const ok = await idbPut(sleutel, D); if(!ok) melding('Opslaan in deze browser lukte niet (opslag vol of geblokkeerd).', 'fout'); }, 400); try{ window.meetGewijzigd && window.meetGewijzigd(); }catch(e){} }
+async function laadProject(k){
+  sleutel = 'meet:' + (k || '');
+  const d = await idbGet(sleutel);
+  D = (d && Array.isArray(d.bladen)) ? d : leeg();
+  bladId = D.bladen[0] ? D.bladen[0].id : null; selId = null; modus = 'select'; tekenPunten = []; schaalPunten = []; vb = null;
+  render(); try{ window.meetGewijzigd && window.meetGewijzigd(); }catch(e){}
+}
+
+/* ---------- geometrie (in pixels van de plattegrond; schaal = meter per pixel) ---------- */
+function oppPx(p){ let a = 0; for(let i = 0; i < p.length; i++){ const q = p[(i+1) % p.length]; a += p[i][0]*q[1] - q[0]*p[i][1]; } return Math.abs(a) / 2; }
+function omtrekPx(p){ let s = 0; for(let i = 0; i < p.length; i++){ const q = p[(i+1) % p.length]; s += Math.hypot(q[0]-p[i][0], q[1]-p[i][1]); } return s; }
+function zwaartepunt(p){ let a = 0, cx = 0, cy = 0; for(let i = 0; i < p.length; i++){ const q = p[(i+1) % p.length], f = p[i][0]*q[1] - q[0]*p[i][1]; a += f; cx += (p[i][0]+q[0])*f; cy += (p[i][1]+q[1])*f; } return a ? [cx/(3*a), cy/(3*a)] : p[0]; }
+function binnen(pt, ring){ let c = false; for(let i = 0, j = ring.length-1; i < ring.length; j = i++){ const a = ring[i], b = ring[j]; if(((a[1]>pt[1]) !== (b[1]>pt[1])) && (pt[0] < (b[0]-a[0])*(pt[1]-a[1])/(b[1]-a[1]) + a[0])) c = !c; } return c; }
+function zelfKruisend(p){
+  const x = (a,b,c,d) => { const o = (p,q,r) => Math.sign((q[0]-p[0])*(r[1]-p[1]) - (q[1]-p[1])*(r[0]-p[0])); return o(a,b,c) !== o(a,b,d) && o(c,d,a) !== o(c,d,b); };
+  const n = p.length; for(let i = 0; i < n; i++) for(let j = i+2; j < n; j++){ if(i === 0 && j === n-1) continue; if(x(p[i], p[(i+1)%n], p[j], p[(j+1)%n])) return true; } return false;
+}
+/* uitkomsten per ruimte in m / m² */
+function bereken(r, b){
+  const s = b && b.schaal;
+  const h = isFinite(num(r.hoogte)) && num(r.hoogte) > 0 ? num(r.hoogte) : num(D.hoogte);
+  if(!s || r.punten.length < 3) return {ok:false, h};
+  const vloer = oppPx(r.punten) * s * s, omtrek = omtrekPx(r.punten) * s;
+  const wandBruto = isFinite(h) ? omtrek * h : NaN;
+  let open = 0; (r.openingen || []).forEach(o => { const bb = num(o.b), hh = num(o.h), n = isFinite(num(o.n)) ? num(o.n) : 1; if(bb > 0 && hh > 0) open += bb * hh * n; });
+  const wanden = r.punten.map((p, i) => { const q = r.punten[(i+1) % r.punten.length]; return Math.hypot(q[0]-p[0], q[1]-p[1]) * s; });
+  return {ok:true, h, vloer, omtrek, wandBruto, open, wandNetto:isFinite(wandBruto) ? Math.max(0, wandBruto - open) : NaN, plafond:vloer, wanden};
+}
+function totalen(){
+  const per = D.bladen.map(b => { const rs = b.ruimtes.map(r => ({r, u:bereken(r, b)})).filter(x => x.u.ok);
+    const som = k => rs.reduce((s, x) => s + (isFinite(x.u[k]) ? x.u[k] : 0), 0);
+    return {b, rs, vloer:som('vloer'), ag:rs.filter(x => x.r.ag !== false).reduce((s, x) => s + x.u.vloer, 0), wandNetto:som('wandNetto'), wandBruto:som('wandBruto'), open:som('open'), plafond:som('plafond')}; });
+  const som = k => per.reduce((s, x) => s + x[k], 0);
+  return {per, vloer:som('vloer'), ag:som('ag'), wandNetto:som('wandNetto'), wandBruto:som('wandBruto'), open:som('open'), plafond:som('plafond'), n:per.reduce((s, x) => s + x.rs.length, 0)};
+}
+
+/* ---------- uploaden: afbeelding of PDF (pdf.js pas laden als het nodig is) ---------- */
+let pdfjsP = null;
+function laadPdfjs(){
+  if(window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if(!pdfjsP) pdfjsP = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload = () => { try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; res(window.pdfjsLib); }catch(e){ rej(e); } };
+    s.onerror = () => { pdfjsP = null; rej(new Error('PDF-lezer niet geladen (geen internet?)')); }; document.head.appendChild(s); });
+  return pdfjsP;
+}
+const MAXPX = 3000;
+function canvasNaarJpeg(c){ return c.toDataURL('image/jpeg', 0.86); }
+function verklein(img){ const k = Math.min(1, MAXPX / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height)); const c = document.createElement('canvas');
+  c.width = Math.round((img.naturalWidth || img.width) * k); c.height = Math.round((img.naturalHeight || img.height) * k); const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height); return c; }
+async function bestandNaarBladen(file){
+  const uit = [];
+  if(/pdf$/i.test(file.type) || /\.pdf$/i.test(file.name)){
+    const lib = await laadPdfjs(); const doc = await lib.getDocument({data:await file.arrayBuffer()}).promise;
+    const n = Math.min(doc.numPages, 8);
+    for(let i = 1; i <= n; i++){ const pg = await doc.getPage(i); const v1 = pg.getViewport({scale:1}); const k = Math.min(4, MAXPX / Math.max(v1.width, v1.height));
+      const v = pg.getViewport({scale:k}); const c = document.createElement('canvas'); c.width = Math.round(v.width); c.height = Math.round(v.height);
+      const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); await pg.render({canvasContext:x, viewport:v}).promise;
+      uit.push({img:canvasNaarJpeg(c), w:c.width, h:c.height, naam:file.name.replace(/\.[^.]+$/, '') + (n > 1 ? ' p' + i : '')}); }
+    if(doc.numPages > 8) melding('Alleen de eerste 8 pagina\'s van de PDF zijn ingelezen.', 'let');
+  } else if(/^image\//.test(file.type)){
+    const url = URL.createObjectURL(file); const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('Afbeelding niet te lezen')); im.src = url; });
+    const c = verklein(img); URL.revokeObjectURL(url); uit.push({img:canvasNaarJpeg(c), w:c.width, h:c.height, naam:file.name.replace(/\.[^.]+$/, '')});
+  } else throw new Error('Kies een PDF of een afbeelding (JPG/PNG).');
+  return uit;
+}
+const VERD = ['Begane grond','1e verdieping','2e verdieping','Zolder','Kelder','Souterrain'];
+async function upload(files){
+  melding('Plattegrond inlezen…');
+  try{
+    for(const f of files){ const bl = await bestandNaarBladen(f);
+      bl.forEach(x => { const b = {id:uid(), naam:VERD[D.bladen.length] || x.naam, bron:x.naam, img:x.img, w:x.w, h:x.h, schaal:null, ruimtes:[]}; D.bladen.push(b); bladId = b.id; }); }
+    selId = null; vb = null; modus = 'schaal'; schaalPunten = []; bewaar(); render();
+    melding('Plattegrond ingelezen. Stap 1: zet de schaal — klik twee punten met een bekende maat (bijv. een maatlijn).', 'ok');
+  }catch(e){ melding('Inlezen mislukt: ' + (e.message || e), 'fout'); }
+}
+
+/* ---------- tekenvlak ---------- */
+let svg = null, wrap = null;
+function scherm2px(ev){ const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; const m = svg.getScreenCTM(); if(!m) return [0, 0]; const q = pt.matrixTransform(m.inverse()); return [q.x, q.y]; }
+function pxPerScherm(){ const m = svg.getScreenCTM(); return m ? 1 / m.a : 1; }
+function zetVb(){ if(!vb) return; svg.setAttribute('viewBox', vb.map(v => v.toFixed(2)).join(' ')); }
+function passend(){ const b = blad(); if(!b) return; const r = wrap.getBoundingClientRect(), ar = r.width / Math.max(1, r.height);
+  let w = b.w * 1.04, h = b.h * 1.04; if(w / h > ar) h = w / ar; else w = h * ar; vb = [b.w/2 - w/2, b.h/2 - h/2, w, h]; zetVb(); tekenOverlay(); }
+function zoom(f, cx, cy){ if(!vb) return; const b = blad(); if(!b) return; if(cx == null){ cx = vb[0] + vb[2]/2; cy = vb[1] + vb[3]/2; }
+  const nw = Math.min(Math.max(vb[2] * f, 40), Math.max(b.w, b.h) * 4); const k = nw / vb[2];
+  vb = [cx - (cx - vb[0]) * k, cy - (cy - vb[1]) * k, vb[2] * k, vb[3] * k]; zetVb(); tekenOverlay(); }
+function snap(p, ev){
+  const tol = 12 * pxPerScherm(), b = blad();
+  // vangen op bestaande hoekpunten (gedeelde wanden)
+  let best = null, bd = tol;
+  b.ruimtes.forEach(r => r.punten.forEach(q => { const d = Math.hypot(q[0]-p[0], q[1]-p[1]); if(d < bd){ bd = d; best = q; } }));
+  tekenPunten.forEach(q => { const d = Math.hypot(q[0]-p[0], q[1]-p[1]); if(d < bd){ bd = d; best = q; } });
+  if(best) return [best[0], best[1]];
+  // haaks: horizontaal/verticaal t.o.v. het vorige punt (Shift = vrij)
+  if(haaks && !(ev && ev.shiftKey) && tekenPunten.length){ const l = tekenPunten[tekenPunten.length-1], dx = p[0]-l[0], dy = p[1]-l[1], a = Math.abs(Math.atan2(dy, dx) * 180 / Math.PI);
+    if(a < 10 || a > 170) return [p[0], l[1]]; if(Math.abs(a - 90) < 10) return [l[0], p[1]]; }
+  return p;
+}
+let sleep = null, wijzer = new Map(), pinch = null, muisPx = null;
+function bindCanvas(){
+  wrap = $('meet-canvas'); svg = $('meet-svg');
+  wrap.addEventListener('wheel', e => { if(!blad()) return; e.preventDefault(); const p = scherm2px(e); zoom(e.deltaY > 0 ? 1.18 : 1/1.18, p[0], p[1]); }, {passive:false});
+  svg.addEventListener('pointerdown', e => { if(!blad()) return; svg.setPointerCapture(e.pointerId); wijzer.set(e.pointerId, [e.clientX, e.clientY]);
+    if(wijzer.size === 2){ const [a, b] = [...wijzer.values()]; pinch = {d:Math.hypot(a[0]-b[0], a[1]-b[1]), vb:vb.slice()}; sleep = null; return; }
+    const hp = e.target.closest('[data-hoek]');
+    sleep = {x:e.clientX, y:e.clientY, vb:vb.slice(), bewogen:false, hoek:hp && modus === 'select' ? +hp.dataset.hoek : null, p0:scherm2px(e)}; });
+  svg.addEventListener('pointermove', e => { if(!blad()) return;
+    if(wijzer.has(e.pointerId)) wijzer.set(e.pointerId, [e.clientX, e.clientY]);
+    if(pinch && wijzer.size === 2){ const [a, b] = [...wijzer.values()], d = Math.hypot(a[0]-b[0], a[1]-b[1]); const k = pinch.d / Math.max(1, d);
+      const cx = pinch.vb[0] + pinch.vb[2]/2, cy = pinch.vb[1] + pinch.vb[3]/2; vb = [cx - pinch.vb[2]*k/2, cy - pinch.vb[3]*k/2, pinch.vb[2]*k, pinch.vb[3]*k]; zetVb(); tekenOverlay(); return; }
+    muisPx = scherm2px(e);
+    if(sleep){ const dx = e.clientX - sleep.x, dy = e.clientY - sleep.y; if(Math.hypot(dx, dy) > 5) sleep.bewogen = true;
+      if(sleep.hoek != null){ const r = ruimte(); if(r){ r.punten[sleep.hoek] = snapZonder(scherm2px(e), r, sleep.hoek); tekenOverlay(); renderZijpaneel(true); } return; }
+      if(sleep.bewogen){ const s = pxPerScherm(); vb = [sleep.vb[0] - dx*s, sleep.vb[1] - dy*s, vb[2], vb[3]]; zetVb(); } }
+    if(modus === 'teken' || modus === 'schaal') tekenOverlay(); });
+  const einde = e => { wijzer.delete(e.pointerId); if(pinch){ if(wijzer.size < 2) pinch = null; return; }
+    const s = sleep; sleep = null; if(!s || !blad()) return;
+    if(s.hoek != null){ bewaar(); renderLijst(); return; }
+    if(s.bewogen) return;
+    klik(scherm2px(e), e); };
+  svg.addEventListener('pointerup', einde); svg.addEventListener('pointercancel', e => { wijzer.delete(e.pointerId); pinch = null; sleep = null; });
+  svg.addEventListener('dblclick', e => { if(modus === 'teken'){ e.preventDefault(); sluitRuimte(); } });
+  svg.addEventListener('pointerleave', () => { muisPx = null; if(modus === 'teken' || modus === 'schaal') tekenOverlay(); });
+  document.addEventListener('keydown', e => { const t = $('tab-meet'); if(!t || t.hidden) return; const tag = (e.target.tagName || '').toLowerCase(); if(tag === 'input' || tag === 'select' || tag === 'textarea') return;
+    if(e.key === 'Escape'){ tekenPunten = []; schaalPunten = []; zetModus('select'); }
+    else if(e.key === 'Enter' && modus === 'teken'){ e.preventDefault(); sluitRuimte(); }
+    else if(e.key === 'Backspace' && modus === 'teken' && tekenPunten.length){ e.preventDefault(); tekenPunten.pop(); tekenOverlay(); }
+    else if((e.key === 'Delete') && modus === 'select' && ruimte()){ verwijderRuimte(); } });
+  new ResizeObserver(() => { if(blad() && !vb) passend(); }).observe(wrap);
+}
+function snapZonder(p, r, i){ const tol = 12 * pxPerScherm(), b = blad(); let best = null, bd = tol;
+  b.ruimtes.forEach(x => x.punten.forEach((q, j) => { if(x === r && j === i) return; const d = Math.hypot(q[0]-p[0], q[1]-p[1]); if(d < bd){ bd = d; best = q; } }));
+  return best ? [best[0], best[1]] : p; }
+function klik(p, ev){
+  const b = blad();
+  if(modus === 'schaal'){ schaalPunten.push(p); if(schaalPunten.length > 2) schaalPunten = [p]; tekenOverlay(); renderBlad(); if(schaalPunten.length === 2){ const i = $('meet-schaal-m'); if(i){ i.focus(); i.select(); } } return; }
+  if(modus === 'teken'){
+    if(!b.schaal){ melding('Zet eerst de schaal (knop 📏 Schaal).', 'let'); return; }
+    const q = snap(p, ev);
+    if(tekenPunten.length >= 3 && Math.hypot(q[0]-tekenPunten[0][0], q[1]-tekenPunten[0][1]) < 12 * pxPerScherm()){ sluitRuimte(); return; }
+    tekenPunten.push(q); tekenOverlay(); hint(); return;
+  }
+  // selecteren: bovenste (kleinste) ruimte onder de klik
+  const raak = b.ruimtes.filter(r => binnen(p, r.punten)).sort((x, y) => oppPx(x.punten) - oppPx(y.punten))[0];
+  selId = raak ? raak.id : null; render();
+}
+function sluitRuimte(){
+  const b = blad(); if(!b) return;
+  if(tekenPunten.length < 3){ melding('Een ruimte heeft minstens 3 hoekpunten.', 'let'); return; }
+  if(zelfKruisend(tekenPunten)){ melding('De lijnen kruisen elkaar. Teken de hoekpunten in volgorde rondom de ruimte.', 'fout'); return; }
+  const r = {id:uid(), naam:'Ruimte ' + (b.ruimtes.length + 1), punten:tekenPunten.slice(), hoogte:'', ag:true, openingen:[], kleur:KLEUREN[b.ruimtes.length % KLEUREN.length]};
+  b.ruimtes.push(r); selId = r.id; tekenPunten = []; bewaar(); render();
+  melding('Ruimte toegevoegd. Geef hem een naam en vul eventueel ramen/deuren in. Teken de volgende ruimte of kies ✋ Selecteren.', 'ok');
+  const n = $('meet-r-naam'); if(n){ n.focus(); n.select(); }
+}
+function verwijderRuimte(){ const b = blad(), r = ruimte(); if(!b || !r) return; if(!confirm('Ruimte “' + r.naam + '” verwijderen?')) return; b.ruimtes = b.ruimtes.filter(x => x !== r); selId = null; bewaar(); render(); }
+
+function el(tag, at, par){ const e = document.createElementNS(NS, tag); for(const k in at) e.setAttribute(k, at[k]); if(par) par.appendChild(e); return e; }
+function tekenOverlay(){
+  const b = blad(); if(!svg) return;
+  svg.innerHTML = ''; if(!b){ return; }
+  const s = pxPerScherm(), lw = 2 * s;
+  el('image', {href:b.img, x:0, y:0, width:b.w, height:b.h, preserveAspectRatio:'none'}, svg);
+  const g = el('g', {}, svg);
+  b.ruimtes.forEach(r => { const sel = r.id === selId, u = bereken(r, b);
+    el('polygon', {points:r.punten.map(p => p.join(',')).join(' '), fill:r.kleur, 'fill-opacity':sel ? .32 : .2, stroke:r.kleur, 'stroke-width':(sel ? 3 : 2) * s, 'stroke-linejoin':'round', 'data-r':r.id}, g);
+    const c = zwaartepunt(r.punten), fs = 13 * s;
+    const t = el('text', {x:c[0], y:c[1], 'text-anchor':'middle', 'font-size':fs, 'font-weight':700, fill:'#0B3D2E', stroke:'#fff', 'stroke-width':3*s, 'paint-order':'stroke', style:'pointer-events:none;font-family:Segoe UI,Arial,sans-serif'}, g);
+    t.textContent = r.naam; const t2 = el('text', {x:c[0], y:c[1] + fs*1.15, 'text-anchor':'middle', 'font-size':fs*.92, fill:'#0B3D2E', stroke:'#fff', 'stroke-width':3*s, 'paint-order':'stroke', style:'pointer-events:none;font-family:Segoe UI,Arial,sans-serif'}, g);
+    t2.textContent = u.ok ? fmt(u.vloer) + ' m²' : '';
+    if(sel){ // wandmaten en versleepbare hoeken
+      r.punten.forEach((p, i) => { const q = r.punten[(i+1) % r.punten.length], m = [(p[0]+q[0])/2, (p[1]+q[1])/2];
+        if(u.ok){ const tl = el('text', {x:m[0], y:m[1] - 5*s, 'text-anchor':'middle', 'font-size':11*s, fill:'#1d2b25', stroke:'#fff', 'stroke-width':3*s, 'paint-order':'stroke', style:'pointer-events:none;font-family:Consolas,monospace'}, g); tl.textContent = fmt(u.wanden[i]) + ' m'; } });
+      if(modus === 'select') r.punten.forEach((p, i) => el('circle', {cx:p[0], cy:p[1], r:6*s, fill:'#fff', stroke:r.kleur, 'stroke-width':2.5*s, 'data-hoek':i, style:'cursor:grab'}, g));
+    } });
+  // in tekening
+  if(modus === 'teken' && tekenPunten.length){
+    const pts = tekenPunten.slice(); const voorbeeld = muisPx ? snap(muisPx, null) : null; if(voorbeeld) pts.push(voorbeeld);
+    el('polyline', {points:pts.map(p => p.join(',')).join(' '), fill:'rgba(60,181,74,.12)', stroke:'#E52421', 'stroke-width':lw, 'stroke-dasharray':(6*s)+' '+(4*s)}, svg);
+    tekenPunten.forEach((p, i) => el('circle', {cx:p[0], cy:p[1], r:(i === 0 ? 7 : 4.5)*s, fill:i === 0 ? '#fff' : '#E52421', stroke:'#E52421', 'stroke-width':2*s}, svg));
+    if(voorbeeld && b.schaal){ const l = tekenPunten[tekenPunten.length-1], d = Math.hypot(voorbeeld[0]-l[0], voorbeeld[1]-l[1]) * b.schaal;
+      const tx = el('text', {x:voorbeeld[0] + 10*s, y:voorbeeld[1] - 10*s, 'font-size':12*s, 'font-weight':700, fill:'#E52421', stroke:'#fff', 'stroke-width':3*s, 'paint-order':'stroke', style:'font-family:Consolas,monospace;pointer-events:none'}, svg); tx.textContent = fmt(d) + ' m'; }
+  }
+  if(modus === 'schaal'){ const pts = schaalPunten.slice(); if(pts.length === 1 && muisPx) pts.push(muisPx);
+    if(pts.length === 2) el('line', {x1:pts[0][0], y1:pts[0][1], x2:pts[1][0], y2:pts[1][1], stroke:'#1f4e9c', 'stroke-width':2.5*s}, svg);
+    pts.forEach(p => el('circle', {cx:p[0], cy:p[1], r:5*s, fill:'#1f4e9c'}, svg)); }
+}
+function hint(){ const h = $('meet-hint'); if(!h) return;
+  h.textContent = !blad() ? '' : modus === 'schaal' ? (schaalPunten.length < 2 ? 'Schaal: klik op het begin en het eind van een bekende maat.' : 'Vul rechts de werkelijke lengte in en kies Toepassen.')
+    : modus === 'teken' ? (tekenPunten.length ? 'Klik de volgende hoek · klik op het eerste punt, dubbelklik of Enter = sluiten · Backspace = punt terug · Shift = niet haaks' : 'Klik de hoeken van de ruimte rondom (binnenkant wand).')
+    : 'Klik een ruimte om te selecteren · sleep een hoekpunt om aan te passen · sleep het vlak om te schuiven · scroll = zoom';
+  h.hidden = !h.textContent; }
+function zetModus(m){ modus = m; if(m !== 'teken') tekenPunten = []; if(m !== 'schaal') schaalPunten = []; render(); }
+
+/* ---------- panelen ---------- */
+let mT = null;
+function melding(t, soort){ const e = $('meet-melding'); if(!e) return; if(!t){ e.hidden = true; return; } e.className = 'meet-melding ' + (soort || ''); e.textContent = t; e.hidden = false; clearTimeout(mT); if(soort === 'ok') mT = setTimeout(() => e.hidden = true, 7000); }
+function renderBladen(){
+  $('meet-bladen').innerHTML = D.bladen.map(b => `<button type="button" class="meet-blad${b.id === bladId ? ' on' : ''}" data-blad="${b.id}">${esc(b.naam)} <span class="klein">${b.ruimtes.length}</span></button>`).join('') +
+    `<label class="meet-blad meet-nieuw">＋ Plattegrond toevoegen<input type="file" id="meet-file" accept="application/pdf,image/*" multiple hidden></label>`;
+  document.querySelectorAll('[data-blad]').forEach(x => x.onclick = () => { bladId = x.dataset.blad; selId = null; vb = null; zetModus('select'); });
+  $('meet-file').onchange = e => { const f = [...e.target.files]; e.target.value = ''; if(f.length) upload(f); };
+}
+function renderTools(){
+  const b = blad(); const dis = b ? '' : ' disabled';
+  $('meet-tools').innerHTML = `<div class="seg"><button type="button" data-m="select" class="${modus === 'select' ? 'on' : ''}"${dis}>✋ Selecteren</button><button type="button" data-m="schaal" class="${modus === 'schaal' ? 'on' : ''}"${dis}>📏 Schaal</button><button type="button" data-m="teken" class="${modus === 'teken' ? 'on' : ''}"${dis}>⬠ Ruimte tekenen</button></div>
+    <label class="meet-chk"><input type="checkbox" id="meet-haaks" ${haaks ? 'checked' : ''}> haaks</label>
+    ${modus === 'teken' ? `<button type="button" class="actie licht klein-knop" id="meet-terug"${tekenPunten.length ? '' : ' disabled'}>↶ Punt terug</button><button type="button" class="actie klein-knop" id="meet-sluit"${tekenPunten.length >= 3 ? '' : ' disabled'}>✓ Ruimte sluiten</button>` : ''}
+    <span style="flex:1"></span><button type="button" class="actie licht klein-knop" id="meet-zin"${dis}>＋</button><button type="button" class="actie licht klein-knop" id="meet-zuit"${dis}>－</button><button type="button" class="actie licht klein-knop" id="meet-pas"${dis}>Passend</button>`;
+  document.querySelectorAll('#meet-tools [data-m]').forEach(x => x.onclick = () => zetModus(x.dataset.m));
+  $('meet-haaks').onchange = e => { haaks = e.target.checked; };
+  if($('meet-terug')) $('meet-terug').onclick = () => { tekenPunten.pop(); render(); };
+  if($('meet-sluit')) $('meet-sluit').onclick = sluitRuimte;
+  $('meet-zin').onclick = () => zoom(1/1.4); $('meet-zuit').onclick = () => zoom(1.4); $('meet-pas').onclick = passend;
+}
+function renderBlad(){
+  const el_ = $('meet-blad-info'), b = blad();
+  if(!b){ el_.innerHTML = '<p class="klein">Upload eerst een plattegrond (PDF of foto/scan). Liefst een bouwtekening op schaal met een maatvoering; elke pagina wordt een eigen verdieping.</p>'; return; }
+  const sp = schaalPunten.length === 2 ? Math.hypot(schaalPunten[1][0]-schaalPunten[0][0], schaalPunten[1][1]-schaalPunten[0][1]) : 0;
+  el_.innerHTML = `<label class="meet-veld">Naam verdieping<input type="text" id="meet-b-naam" value="${esc(b.naam)}" list="meet-verd"></label>
+    <datalist id="meet-verd">${VERD.map(v => `<option value="${v}">`).join('')}</datalist>
+    <div class="meet-schaal ${b.schaal ? 'ok' : 'let'}">${b.schaal ? `✅ Schaal gezet: 1 m = ${fmt(1 / b.schaal, 1)} px` : '⚠️ Nog geen schaal. Kies 📏 Schaal en klik twee punten van een bekende maat.'}</div>
+    ${modus === 'schaal' ? (sp ? `<div class="meet-rij"><label class="meet-veld">Werkelijke lengte A–B (m)<input type="text" inputmode="decimal" id="meet-schaal-m" placeholder="bijv. 5,40"></label><button type="button" class="actie klein-knop" id="meet-schaal-ok">Toepassen</button></div>` : '<p class="klein">Klik in de tekening op het begin en het eind van een bekende maat (maatlijn, gevelbreedte uit BAG, deurbreedte 0,93 m…). Hoe langer de maat, hoe nauwkeuriger.</p>') : ''}
+    <label class="meet-veld">Standaard wandhoogte (m)<input type="text" inputmode="decimal" id="meet-hoogte" value="${esc(D.hoogte)}"></label>
+    <div class="acties"><button type="button" class="actie licht klein-knop" id="meet-b-del">Verdieping verwijderen</button></div>`;
+  $('meet-b-naam').oninput = e => { b.naam = e.target.value; bewaar(); renderBladen(); renderLijst(); };
+  $('meet-hoogte').oninput = e => { D.hoogte = e.target.value; bewaar(); tekenOverlay(); renderZijpaneel(true); renderLijst(); };
+  $('meet-b-del').onclick = () => { if(!confirm('Verdieping “' + b.naam + '” met ' + b.ruimtes.length + ' ruimte(n) verwijderen?')) return; D.bladen = D.bladen.filter(x => x !== b); bladId = D.bladen[0] ? D.bladen[0].id : null; selId = null; vb = null; bewaar(); render(); };
+  if($('meet-schaal-ok')){ const toepassen = () => { const m = num($('meet-schaal-m').value); if(!(m > 0)){ melding('Vul een lengte in meters in, bijv. 5,40.', 'fout'); return; }
+      const oud = b.schaal; b.schaal = m / sp; schaalPunten = []; bewaar(); zetModus(b.ruimtes.length ? 'select' : 'teken');
+      melding(oud ? 'Schaal aangepast; alle ruimtes zijn opnieuw berekend.' : 'Schaal gezet. Stap 2: teken de ruimtes — klik de hoeken rondom, aan de binnenkant van de wanden.', 'ok'); };
+    $('meet-schaal-ok').onclick = toepassen; $('meet-schaal-m').onkeydown = e => { if(e.key === 'Enter') toepassen(); }; }
+}
+function renderZijpaneel(alleenMaten){
+  const el_ = $('meet-ruimte'), b = blad(), r = ruimte();
+  if(!r){ el_.innerHTML = '<p class="klein">Selecteer een ruimte in de tekening of teken een nieuwe met ⬠ Ruimte tekenen.</p>'; return; }
+  const u = bereken(r, b);
+  const maten = `<div class="meet-kpi"><div>Vloer<b>${u.ok ? fmt(u.vloer) : '–'} m²</b></div><div>Omtrek<b>${u.ok ? fmt(u.omtrek) : '–'} m</b></div><div>Wanden netto<b>${u.ok ? fmt(u.wandNetto) : '–'} m²</b></div><div>Plafond<b>${u.ok ? fmt(u.plafond) : '–'} m²</b></div></div>
+    <p class="klein">Wanden bruto ${u.ok ? fmt(u.wandBruto) : '–'} m² (omtrek × ${fmt(u.h)} m) − ramen/deuren ${fmt(u.open)} m². Wandlengtes: ${u.ok ? u.wanden.map(w => fmt(w)).join(' · ') + ' m' : '–'}</p>`;
+  if(alleenMaten && $('meet-maten')){ $('meet-maten').innerHTML = maten; return; }
+  el_.innerHTML = `<div class="meet-rij"><label class="meet-veld" style="flex:2">Naam ruimte<input type="text" id="meet-r-naam" value="${esc(r.naam)}" list="meet-namen"></label>
+      <label class="meet-veld" style="flex:1">Wandhoogte (m)<input type="text" inputmode="decimal" id="meet-r-h" value="${esc(r.hoogte)}" placeholder="${esc(D.hoogte)}"></label></div>
+    <datalist id="meet-namen">${['Woonkamer','Keuken','Woonkeuken','Slaapkamer','Badkamer','Toilet','Hal','Entree','Overloop','Trapopgang','Berging','Bijkeuken','Wasruimte','Zolder','Werkkamer','Meterkast','Garage','Serre','Kelder'].map(v => `<option value="${v}">`).join('')}</datalist>
+    <label class="meet-chk"><input type="checkbox" id="meet-r-ag" ${r.ag !== false ? 'checked' : ''}> telt mee voor de gebruiksoppervlakte (Ag)</label>
+    <div id="meet-maten">${maten}</div>
+    <h3 class="meet-h3">Ramen en deuren in de wanden</h3>
+    <table class="meet-open"><thead><tr><th>Soort</th><th>Breedte (m)</th><th>Hoogte (m)</th><th>Aantal</th><th></th></tr></thead><tbody>${(r.openingen || []).map((o, i) => `<tr>
+      <td><select data-o="${i}" data-k="soort"><option${o.soort === 'Raam' ? ' selected' : ''}>Raam</option><option${o.soort === 'Deur' ? ' selected' : ''}>Deur</option><option${o.soort === 'Kozijn' ? ' selected' : ''}>Kozijn</option></select></td>
+      <td><input inputmode="decimal" data-o="${i}" data-k="b" value="${esc(o.b)}"></td><td><input inputmode="decimal" data-o="${i}" data-k="h" value="${esc(o.h)}"></td><td><input inputmode="numeric" data-o="${i}" data-k="n" value="${esc(o.n)}"></td>
+      <td><button type="button" class="x" data-odel="${i}" title="Verwijderen">✕</button></td></tr>`).join('')}</tbody></table>
+    <div class="acties"><button type="button" class="actie licht klein-knop" id="meet-o-add">＋ Raam/deur</button><button type="button" class="actie licht klein-knop" id="meet-o-deur">＋ Binnendeur 0,93 × 2,32</button><span style="flex:1"></span><button type="button" class="actie licht klein-knop" id="meet-r-del">Ruimte verwijderen</button></div>`;
+  $('meet-r-naam').oninput = e => { r.naam = e.target.value; bewaar(); tekenOverlay(); renderLijst(); };
+  $('meet-r-h').oninput = e => { r.hoogte = e.target.value; bewaar(); renderZijpaneel(true); renderLijst(); };
+  $('meet-r-ag').onchange = e => { r.ag = e.target.checked; bewaar(); renderLijst(); };
+  el_.querySelectorAll('[data-o]').forEach(x => x.oninput = x.onchange = () => { r.openingen[+x.dataset.o][x.dataset.k] = x.value; bewaar(); renderZijpaneel(true); renderLijst(); });
+  el_.querySelectorAll('[data-odel]').forEach(x => x.onclick = () => { r.openingen.splice(+x.dataset.odel, 1); bewaar(); renderZijpaneel(); renderLijst(); });
+  $('meet-o-add').onclick = () => { (r.openingen = r.openingen || []).push({soort:'Raam', b:'', h:'', n:'1'}); bewaar(); renderZijpaneel(); };
+  $('meet-o-deur').onclick = () => { (r.openingen = r.openingen || []).push({soort:'Deur', b:'0,93', h:'2,32', n:'1'}); bewaar(); renderZijpaneel(); renderLijst(); };
+  $('meet-r-del').onclick = verwijderRuimte;
+}
+function renderLijst(){
+  const el_ = $('meet-lijst'), T = totalen();
+  if(!T.n){ el_.innerHTML = '<p class="klein">Nog geen ruimtes ingetekend.</p>'; $('meet-acties').innerHTML = ''; return; }
+  let h = '<div class="meet-tot"><div>Ruimtes<b>' + T.n + '</b></div><div>Vloer totaal<b>' + fmt(T.vloer) + ' m²</b></div><div>Ag (indicatie)<b>' + fmt(T.ag) + ' m²</b></div><div>Wanden netto<b>' + fmt(T.wandNetto) + ' m²</b></div><div>Plafonds<b>' + fmt(T.plafond) + ' m²</b></div></div>';
+  h += '<div class="tbl-wrap"><table class="meet-staat"><thead><tr><th>Ruimte</th><th>Vloer m²</th><th>Omtrek m</th><th>Hoogte m</th><th>Wanden bruto m²</th><th>Ramen/deuren m²</th><th>Wanden netto m²</th><th>Plafond m²</th><th>Ag</th></tr></thead><tbody>';
+  T.per.forEach(p => { if(!p.rs.length) return; h += '<tr class="sec"><td colspan="9">' + esc(p.b.naam) + '</td></tr>';
+    p.rs.forEach(({r, u}) => { h += `<tr data-sel="${p.b.id}|${r.id}"><td><span class="meet-dot" style="background:${r.kleur}"></span>${esc(r.naam)}</td><td>${fmt(u.vloer)}</td><td>${fmt(u.omtrek)}</td><td>${fmt(u.h)}</td><td>${fmt(u.wandBruto)}</td><td>${fmt(u.open)}</td><td>${fmt(u.wandNetto)}</td><td>${fmt(u.plafond)}</td><td>${r.ag !== false ? '✓' : '–'}</td></tr>`; });
+    h += `<tr class="sub"><td>Subtotaal ${esc(p.b.naam)}</td><td>${fmt(p.vloer)}</td><td></td><td></td><td>${fmt(p.wandBruto)}</td><td>${fmt(p.open)}</td><td>${fmt(p.wandNetto)}</td><td>${fmt(p.plafond)}</td><td>${fmt(p.ag)}</td></tr>`; });
+  h += `</tbody><tfoot><tr><td>Totaal</td><td>${fmt(T.vloer)}</td><td></td><td></td><td>${fmt(T.wandBruto)}</td><td>${fmt(T.open)}</td><td>${fmt(T.wandNetto)}</td><td>${fmt(T.plafond)}</td><td>${fmt(T.ag)}</td></tr></tfoot></table></div>`;
+  h += '<p class="klein">Indicatief: netto binnenmaten zoals ingetekend. Ag volgens NEN 2580 / ISSO 82.1: delen met een netto hoogte < 1,5 m, schachten en vides groter dan 4 m² tellen niet mee — vink die ruimtes uit of teken ze apart. Controleer de schaal met een tweede bekende maat.</p>';
+  el_.innerHTML = h;
+  el_.querySelectorAll('[data-sel]').forEach(tr => tr.onclick = () => { const [bi, ri] = tr.dataset.sel.split('|'); if(bladId !== bi){ bladId = bi; vb = null; } selId = ri; zetModus('select'); $('meet-canvas').scrollIntoView({behavior:'smooth', block:'center'}); });
+  $('meet-acties').innerHTML = '<button type="button" class="actie licht" id="meet-csv">Ruimtestaat downloaden (Excel/CSV)</button><button type="button" class="actie licht" id="meet-kopie">Kopieer ruimtestaat</button>';
+  $('meet-csv').onclick = downloadCsv; $('meet-kopie').onclick = async () => { try{ await navigator.clipboard.writeText(tekst()); melding('Ruimtestaat gekopieerd.', 'ok'); }catch(e){ melding('Kopiëren lukte niet.', 'fout'); } };
+}
+function render(){
+  if(!$('meet')) return;
+  renderBladen(); renderTools(); renderBlad(); renderZijpaneel(); renderLijst();
+  const b = blad(); $('meet-leeg').hidden = !!b; svg.style.display = b ? '' : 'none';
+  svg.style.cursor = modus === 'select' ? 'default' : 'crosshair';
+  if(b && !vb) requestAnimationFrame(passend); else tekenOverlay();
+  hint();
+}
+
+/* ---------- export ---------- */
+function rijen(){ const R = []; totalen().per.forEach(p => p.rs.forEach(({r, u}) => R.push({verd:p.b.naam, naam:r.naam, ...u, ag:r.ag !== false}))); return R; }
+function tekst(){ const T = totalen(); if(!T.n) return '';
+  const L = ['Opmeting plattegrond (indicatief)', 'Verdieping\tRuimte\tVloer m²\tOmtrek m\tHoogte m\tWanden bruto m²\tRamen/deuren m²\tWanden netto m²\tPlafond m²\tAg'];
+  rijen().forEach(x => L.push([x.verd, x.naam, fmt(x.vloer), fmt(x.omtrek), fmt(x.h), fmt(x.wandBruto), fmt(x.open), fmt(x.wandNetto), fmt(x.plafond), x.ag ? 'ja' : 'nee'].join('\t')));
+  L.push(['Totaal', '', fmt(T.vloer), '', '', fmt(T.wandBruto), fmt(T.open), fmt(T.wandNetto), fmt(T.plafond), fmt(T.ag)].join('\t'));
+  return L.join('\n'); }
+function downloadCsv(){ const T = totalen(); const q = v => '"' + String(v).replace(/"/g, '""') + '"';
+  const L = [['Verdieping','Ruimte','Vloer m2','Omtrek m','Hoogte m','Wanden bruto m2','Ramen/deuren m2','Wanden netto m2','Plafond m2','Telt mee Ag'].map(q).join(';')];
+  rijen().forEach(x => L.push([x.verd, x.naam, fmt(x.vloer), fmt(x.omtrek), fmt(x.h), fmt(x.wandBruto), fmt(x.open), fmt(x.wandNetto), fmt(x.plafond), x.ag ? 'ja' : 'nee'].map(q).join(';')));
+  L.push(['Totaal','', fmt(T.vloer), '', '', fmt(T.wandBruto), fmt(T.open), fmt(T.wandNetto), fmt(T.plafond), 'Ag ' + fmt(T.ag)].map(q).join(';'));
+  const blob = new Blob(['﻿' + L.join('\r\n')], {type:'text/csv;charset=utf-8'}); const a = document.createElement('a');
+  const pr = (window.bsProject && window.bsProject() || '').replace(/[\\/:*?"<>|]/g, '').slice(0, 80);
+  a.href = URL.createObjectURL(blob); a.download = 'Ruimtestaat' + (pr ? ' - ' + pr : '') + '.csv'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 800); }
+/* plattegrond met ingetekende ruimtes als afbeelding voor de PDF */
+async function bladAfbeelding(b, maxW = 1800){
+  const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = b.img; });
+  const xs = b.ruimtes.flatMap(r => r.punten.map(p => p[0])), ys = b.ruimtes.flatMap(r => r.punten.map(p => p[1]));
+  // uitsnede rond de ingetekende ruimtes (met marge), anders het hele blad
+  let x0 = 0, y0 = 0, x1 = b.w, y1 = b.h;
+  if(xs.length){ const m = Math.max(40, 0.08 * Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)));
+    x0 = Math.max(0, Math.min(...xs) - m); y0 = Math.max(0, Math.min(...ys) - m); x1 = Math.min(b.w, Math.max(...xs) + m); y1 = Math.min(b.h, Math.max(...ys) + m); }
+  const k = Math.min(1, maxW / (x1 - x0)); const c = document.createElement('canvas'); c.width = Math.round((x1 - x0) * k); c.height = Math.round((y1 - y0) * k);
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, x0, y0, x1 - x0, y1 - y0, 0, 0, c.width, c.height);
+  const P = p => [(p[0] - x0) * k, (p[1] - y0) * k], s = Math.max(1, c.width / 900);
+  b.ruimtes.forEach(r => { x.beginPath(); r.punten.forEach((p, i) => { const q = P(p); i ? x.lineTo(q[0], q[1]) : x.moveTo(q[0], q[1]); }); x.closePath();
+    x.globalAlpha = .22; x.fillStyle = r.kleur; x.fill(); x.globalAlpha = 1; x.lineWidth = 2.5 * s; x.strokeStyle = r.kleur; x.stroke(); });
+  b.ruimtes.forEach(r => { const u = bereken(r, b), c2 = P(zwaartepunt(r.punten)); x.textAlign = 'center'; x.lineJoin = 'round'; x.strokeStyle = '#fff'; x.lineWidth = 4 * s; x.fillStyle = '#0B3D2E';
+    x.font = `bold ${Math.round(14 * s)}px Arial`; x.strokeText(r.naam, c2[0], c2[1]); x.fillText(r.naam, c2[0], c2[1]);
+    if(u.ok){ x.font = `${Math.round(13 * s)}px Arial`; const t = fmt(u.vloer) + ' m²'; x.strokeText(t, c2[0], c2[1] + 16 * s); x.fillText(t, c2[0], c2[1] + 16 * s); } });
+  return {data:c.toDataURL('image/jpeg', .85), w:c.width, h:c.height};
+}
+async function pdfGegevens(){
+  const T = totalen(); if(!T.n) return null;
+  const bladen = [];
+  for(const p of T.per){ if(!p.rs.length) continue; let afb = null; try{ afb = await bladAfbeelding(p.b); }catch(e){}
+    bladen.push({naam:p.b.naam, afb, rijen:p.rs.map(({r, u}) => ({naam:r.naam, kleur:r.kleur, vloer:fmt(u.vloer), omtrek:fmt(u.omtrek), h:fmt(u.h), wandBruto:fmt(u.wandBruto), open:fmt(u.open), wandNetto:fmt(u.wandNetto), plafond:fmt(u.plafond), ag:r.ag !== false})),
+      sub:{vloer:fmt(p.vloer), wandBruto:fmt(p.wandBruto), open:fmt(p.open), wandNetto:fmt(p.wandNetto), plafond:fmt(p.plafond), ag:fmt(p.ag)}}); }
+  return {bladen, tot:{n:T.n, vloer:fmt(T.vloer), ag:fmt(T.ag), wandBruto:fmt(T.wandBruto), open:fmt(T.open), wandNetto:fmt(T.wandNetto), plafond:fmt(T.plafond)}};
+}
+
+bindCanvas();
+return {
+  laadProject,
+  toon(){ if(blad()){ vb = null; requestAnimationFrame(passend); } },
+  heeftData:() => totalen().n > 0,
+  samenvatting:tekst,
+  pdfGegevens,
+  _D:() => D, _test:{oppPx, omtrekPx, bereken, zelfKruisend}
 };
 })();
 
@@ -1598,6 +2054,9 @@ function vastleggen(){
 
 let pandInPdf = true;
 const pandMee = () => !!(window.BAG && BAG.heeftPand() && pandInPdf);
+let meetInPdf = true;
+const meetMee = () => !!(window.MEET && MEET.heeftData() && meetInPdf);
+const ietsInPdf = () => log.length || pandMee() || meetMee();
 /* kleuren per uitkomst (thermogram, zoals in de beslisschema's) */
 const VKLEUR = {tz:'#B83E0F', avr:'#946000', overig:'#56636D', niet:'#1B5A9E', aor:'#1B5A9E', sv:'#0F6F86', aos:'#0F6F86', zone:'#0B3D2E', res:'#0B3D2E'};
 const VLABEL = {tz:'Binnen thermische zone', niet:'Buiten thermische zone', overig:'Overige ruimte', sv:'Sterk geventileerd', avr:'AVR', aor:'AOR', aos:'AOS', zone:'Klimatiseringszones', res:'Uitkomst'};
@@ -1609,11 +2068,14 @@ function naarNieuw(l){
     lines:rows.map(r=>r.t==='q'?'   • '+r.q+' → '+r.a:r.t==='end'?'   ⇒ '+r.txt:r.txt), tijd:l.tijd};
 }
 function renderPandregel(){
-  const el = $('pandregel');
-  if(!window.BAG || !BAG.heeftPand()){ el.innerHTML = ''; return; }
-  el.innerHTML = `<div class="pandregel"><span class="klein">🏠 <b>Pand analyse:</b> ${esc(BAG.adres())}</span>
+  const el = $('pandregel'); let h = '';
+  if(window.BAG && BAG.heeftPand()) h += `<div class="pandregel"><span class="klein">🏠 <b>Pand analyse:</b> ${esc(BAG.adres())}</span>
     <label><input type="checkbox" id="pandmee" ${pandInPdf?'checked':''}> meenemen in PDF en OneDrive</label></div>`;
-  $('pandmee').onchange = e => { pandInPdf = e.target.checked; renderLog(); };
+  if(window.MEET && MEET.heeftData()) h += `<div class="pandregel"><span class="klein">📐 <b>Opmeting plattegrond:</b> ruimtestaat</span>
+    <label><input type="checkbox" id="meetmee" ${meetInPdf?'checked':''}> meenemen in PDF en OneDrive</label></div>`;
+  el.innerHTML = h;
+  if($('pandmee')) $('pandmee').onchange = e => { pandInPdf = e.target.checked; renderLog(); };
+  if($('meetmee')) $('meetmee').onchange = e => { meetInPdf = e.target.checked; renderLog(); };
 }
 function renderLog(){
   if(!log.length) $('log').innerHTML = '<p class="leeg">Nog geen ruimte in het verslag. Doorloop een beslisschema en kies bij de uitkomst “Toevoegen aan verslag”.</p>';
@@ -1624,7 +2086,7 @@ function renderLog(){
     document.querySelectorAll('.logitem .x').forEach(b => b.onclick = () => { log.splice(+b.dataset.i,1); bewaarLokaal(); renderLog(); window.vbsRender && vbsRender(); });
   }
   renderPandregel();
-  if(!log.length && !pandMee()){ $('logacties').innerHTML=''; return; }
+  if(!ietsInPdf()){ $('logacties').innerHTML=''; return; }
   $('logacties').innerHTML = `<button class="actie" id="bod">☁️ Opslaan in OneDrive</button><button class="actie licht" id="bpdf">📄 PDF downloaden</button><button class="actie licht" id="bdl">Download .txt</button><button class="actie licht" id="bkopie">Kopieer tekst</button>${log.length?'<button class="actie licht" id="bwis">Verslag leegmaken</button>':''}`;
   $('bpdf').onclick = downloadPdf;
   $('bod').onclick = opslaanInOneDrive;
@@ -1645,6 +2107,7 @@ function maakTxtNieuw(){
   log.forEach((e,i) => { t += `\n${i+1}. ${e.ruimte}\n   SOORT RUIMTE: ${e.soort||'–'}\n   UITKOMST:     ${e.title}\n   Route:\n` + (e.lines||[]).map(l=>'   '+l).join('\n') + '\n'; });
   if(log.length) t += '\nBron: ISSO-publicatie 82.1, 7e druk.\n';
   if(pandMee()) t += `\n\n${'-'.repeat(60)}\n${BAG.samenvatting()}\n`;
+  if(meetMee()) t += `\n\n${'-'.repeat(60)}\n${MEET.samenvatting()}\n`;
   return t;
 }
 
@@ -1673,7 +2136,7 @@ function maakRapport(){
 
 
 /* ============ PDF (jsPDF) ============ */
-const pdfTekst = t => String(t||'').replace(/≥/g,'>=').replace(/≤/g,'<=').replace(/→/g,'->').replace(/≈/g,'ca. ').replace(/[^\x00-\xFF‘’“”–—•…€]/g,'');
+const pdfTekst = t => String(t||'').replace(/²/g,'2').replace(/≥/g,'>=').replace(/≤/g,'<=').replace(/→/g,'->').replace(/≈/g,'ca. ').replace(/[^\x00-\xFF‘’“”–—•…€]/g,'');
 const HEX = h => [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
 const PW = 210, PM = 15, PBR = PW-2*PM, PONDER = 297-22;
 
@@ -1813,10 +2276,10 @@ function pandPaginas(doc, pd){
   if(y + 30 > PONDER){ doc.addPage(); y = 18; }
   y = pdfSectie(doc, 'Gevelrichtingen per oriëntatie', PM, y, PBR);
   doc.autoTable({...tabStijl, startY: y, margin:{left:PM, right:PM, bottom:24},
-    head:[['Oriëntatie','Gevellengte','Geveldelen','Azimut']],
-    body: pd.groepen.map(r => [r.bel ? 'Gedeelde muur' : r.dir, pdfTekst(r.len) + (r.bel ? ' (telt niet mee)' : ''), String(r.delen), r.bel ? '-' : pdfTekst(r.az)]),
+    head:[['Oriëntatie','Gevellengte','Geveldelen','Azimut'].concat(pd.gevelTotaal ? ['Geveloppervlak (3D, bruto)'] : [])],
+    body: pd.groepen.map(r => [r.bel ? 'Gedeelde muur' : r.dir, pdfTekst(r.len) + (r.bel ? ' (telt niet mee)' : ''), String(r.delen), r.bel ? '-' : pdfTekst(r.az)].concat(pd.gevelTotaal ? [pdfTekst(r.gevel || '-')] : [])),
     styles:{...tabStijl.styles, fontSize:9, cellPadding:2},
-    columnStyles:{0:{cellWidth:34, fontStyle:'bold'}, 1:{halign:'right'}, 2:{halign:'center', cellWidth:30}, 3:{halign:'right', cellWidth:36}},
+    columnStyles:{0:{cellWidth:34, fontStyle:'bold'}, 1:{halign:'right'}, 2:{halign:'center', cellWidth:26}, 3:{halign:'right', cellWidth:30}, 4:{halign:'right', cellWidth:40}},
     didParseCell: c => { if(c.section!=='body') return; const r = pd.groepen[c.row.index];
       if(r.bel){ c.cell.styles.textColor = [138,143,140]; c.cell.styles.fontStyle = c.column.index===0 ? 'bolditalic' : 'italic'; }
       if(c.column.index===0 && !r.bel){ c.cell.styles.textColor = HEX(r.kleur); } },
@@ -1875,11 +2338,11 @@ function pandPaginas(doc, pd){
   y = Math.max(yl, yp) + 6;
   if(y + 30 > PONDER){ doc.addPage(); y = 18; }
   if(pd.dakvlakken && pd.dakvlakken.length){
-    y = pdfSectie(doc, 'Dakvlakken (3D-model)  ·  totaal ' + pdfTekst(pd.dakTotaal.toLocaleString('nl-NL',{minimumFractionDigits:1,maximumFractionDigits:1})) + ' m²', PM, y, PBR);
+    y = pdfSectie(doc, 'Dakvlakken (3D-model)  ·  totaal ' + pdfTekst(pd.dakTotaal.toLocaleString('nl-NL',{minimumFractionDigits:1,maximumFractionDigits:1})) + ' m2', PM, y, PBR);
     doc.autoTable({...tabStijl, startY: y, margin:{left:PM, right:PM, bottom:24},
-      head:[['#','Oriëntatie','Azimut','Helling','Oppervlak','Hoogte']],
-      body: pd.dakvlakken.map(v => [String(v.nr), v.dir, pdfTekst(v.az), pdfTekst(v.helling), pdfTekst(v.opp), pdfTekst(v.hoogte)]),
-      columnStyles:{0:{cellWidth:9, fontStyle:'bold'}, 1:{fontStyle:'bold'}, 2:{halign:'right'}, 3:{halign:'right'}, 4:{halign:'right'}, 5:{halign:'right'}},
+      head:[['#','Oriëntatie','Azimut','Helling','Oppervlak','Goot','Nok/top']],
+      body: pd.dakvlakken.map(v => [String(v.nr), v.dir, pdfTekst(v.az), pdfTekst(v.helling), pdfTekst(v.opp), pdfTekst(v.goot), pdfTekst(v.hoogte)]),
+      columnStyles:{0:{cellWidth:9, fontStyle:'bold'}, 1:{fontStyle:'bold'}, 2:{halign:'right'}, 3:{halign:'right'}, 4:{halign:'right'}, 5:{halign:'right'}, 6:{halign:'right'}},
       didParseCell: c => { if(c.section==='body' && c.column.index===1) c.cell.styles.textColor = HEX(pd.dakvlakken[c.row.index].kleur); }
     });
     y = doc.lastAutoTable.finalY + 7;
@@ -1896,9 +2359,40 @@ function pandPaginas(doc, pd){
   pdfDisclaimer(doc, y, 'Hoogtes t.o.v. maaiveld en indicatief, uit de 3D BAG (TU Delft / 3DGI, gereconstrueerd uit de AHN-puntenwolk)' + (pd.route==='pdok' ? ', via de 3D Tiles van de Kadaster 3D Basisvoorziening (PDOK); nok = hoogste nok of dakpunt' : pd.route==='tegels' ? ', via de LoD1.3-tegels (nok en maaiveld daarin niet beschikbaar)' : '') + '. Recente nieuwbouw of verbouw kan afwijken.' + (pd.lagenGeschat ? ' Bouwlagen zijn geschat (ca. 3 m per laag).' : '') + ' BAG-gegevens: Kadaster via PDOK.');
 }
 
+function meetPaginas(doc, md){
+  const datum = new Date().toLocaleDateString('nl-NL');
+  const meta = [['PROJECTNUMMER',$('projnr').value||'-'],['ADRES / COMPLEX',$('project').value||'-'],['EP-ADVISEUR',$('adviseur').value||'-'],['DATUM',datum]];
+  const stijl = {theme:'grid', styles:{font:'helvetica', fontSize:8.2, cellPadding:1.5, lineColor:[214,226,216], lineWidth:0.2, textColor:[29,42,34], halign:'right'},
+    headStyles:{fillColor:HEX('#e7f3e8'), textColor:HEX('#0B3D2E'), fontStyle:'bold', halign:'right'}};
+  const kop = ['Ruimte','Vloer m2','Omtrek m','Hoogte m','Wand bruto m2','Ramen/deuren m2','Wand netto m2','Plafond m2','Ag'];
+  md.bladen.forEach((b, bi) => {
+    if(bi) doc.addPage();
+    let y = pdfKop(doc, 'Opmeting plattegrond — ' + b.naam, 'Ruimtestaat (indicatief)');
+    y = pdfMeta(doc, y, meta);
+    if(b.afb){ const maxH = 105; let w = PBR, h = w * b.afb.h / b.afb.w; if(h > maxH){ h = maxH; w = h * b.afb.w / b.afb.h; }
+      doc.addImage(b.afb.data, 'JPEG', PM + (PBR - w) / 2, y, w, h); doc.setDrawColor(...HEX('#dfe7e2')); doc.setLineWidth(0.2); doc.rect(PM + (PBR - w) / 2, y, w, h, 'S'); y += h + 6; }
+    y = pdfSectie(doc, 'Ruimtes ' + b.naam, PM, y, PBR);
+    doc.autoTable({...stijl, startY:y, margin:{left:PM, right:PM, bottom:24}, head:[kop],
+      body: b.rijen.map(r => [pdfTekst(r.naam), r.vloer, r.omtrek, r.h, r.wandBruto, r.open, r.wandNetto, r.plafond, r.ag ? 'ja' : 'nee']).concat([['Subtotaal', b.sub.vloer, '', '', b.sub.wandBruto, b.sub.open, b.sub.wandNetto, b.sub.plafond, b.sub.ag]]),
+      columnStyles:{0:{halign:'left', cellWidth:38}},
+      didParseCell: c => { if(c.section==='head' && c.column.index===0) c.cell.styles.halign = 'left'; if(c.section==='body' && c.row.index === b.rijen.length){ c.cell.styles.fontStyle = 'bold'; c.cell.styles.fillColor = HEX('#f1f5f2'); } },
+      didDrawCell: c => { if(c.section==='body' && c.column.index===0 && c.row.index < b.rijen.length){ doc.setFillColor(...HEX(b.rijen[c.row.index].kleur)); doc.rect(c.cell.x, c.cell.y, 1.3, c.cell.height, 'F'); } }
+    });
+    y = doc.lastAutoTable.finalY + 6;
+    if(bi === md.bladen.length - 1){
+      if(y + 34 > PONDER){ doc.addPage(); y = 18; }
+      y = pdfSectie(doc, 'Totaal alle verdiepingen', PM, y, PBR);
+      doc.autoTable({...stijl, startY:y, margin:{left:PM, right:PM, bottom:24},
+        head:[['Ruimtes','Vloer m2','Ag (indicatie) m2','Wand bruto m2','Ramen/deuren m2','Wand netto m2','Plafond m2']],
+        body:[[String(md.tot.n), md.tot.vloer, md.tot.ag, md.tot.wandBruto, md.tot.open, md.tot.wandNetto, md.tot.plafond]], styles:{...stijl.styles, fontStyle:'bold', fontSize:9}});
+      y = doc.lastAutoTable.finalY + 6;
+      pdfDisclaimer(doc, y, 'Indicatieve opmeting op basis van de aangeleverde plattegrond en de ingestelde schaal (netto binnenmaten zoals ingetekend). Wandoppervlak = omtrek x wandhoogte, minus ingevoerde ramen en deuren. De gebruiksoppervlakte (Ag) is een indicatie: delen met een netto hoogte < 1,5 m, schachten en vides > 4 m2 tellen volgens NEN 2580 / ISSO 82.1 niet mee. Ter plaatse controleren.');
+    }
+  });
+}
 function pdfNaam(pd){
   let n = bestandsnaam().replace(/\.txt$/,'.pdf');
-  if(pd) n = n.replace("Beslisschema's ISSO 82.1", log.length ? "Beslisschema's en pand analyse" : 'Pand analyse');
+  if(pd || window.__meetPdf) n = n.replace("Beslisschema's ISSO 82.1", log.length ? "Dossier beslisschema's" : pd ? 'Pand analyse' : 'Opmeting');
   return n;
 }
 
@@ -1906,8 +2400,10 @@ function maakPdf(pd){
   if(!window.jspdf) return null;
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({unit:'mm', format:'a4'});
+  const md = window.__meetPdf || null;
   if(log.length) beslisPaginas(doc);
   if(pd){ if(log.length) doc.addPage(); pandPaginas(doc, pd); }
+  if(md){ if(log.length || pd) doc.addPage(); meetPaginas(doc, md); }
 
   // voettekst op elke pagina
   const n = doc.getNumberOfPages();
@@ -1925,8 +2421,10 @@ async function pandVoorPdf(){
   if(!pandMee()) return null;
   try{ return await BAG.pdfGegevens(); }catch(e){ console.error(e); return null; }
 }
+async function meetVoorPdf(){ window.__meetPdf = null; if(!meetMee()) return; try{ window.__meetPdf = await MEET.pdfGegevens(); }catch(e){ console.error(e); } }
 async function downloadPdf(){
-  if(!log.length && !pandMee()){ toonMelding('fout','Er is nog niets vastgelegd.'); return; }
+  await meetVoorPdf();
+  if(!log.length && !pandMee() && !window.__meetPdf){ toonMelding('fout','Er is nog niets vastgelegd.'); return; }
   if(!window.jspdf){ toonMelding('fout','PDF-bibliotheek niet geladen (geen internet?). Het afdrukvenster wordt geopend: kies daar "Opslaan als PDF".'); maakRapport(); return; }
   const pd = await pandVoorPdf();
   const doc = maakPdf(pd);
@@ -2041,7 +2539,7 @@ async function kiesProject(){
   if(m){ $('projnr').value = m[1].toUpperCase().replace(/\s/g,''); if(m[2]) $('project').value = m[2]; }
   else $('project').value = keuze.naam;
   VELDEN.forEach(v => { try{ localStorage.setItem('ee_bs_'+v, $(v).value); }catch(e){} });
-  leesLokaal(); renderLog(); balk(); window.vbsRender && vbsRender();
+  leesLokaal(); renderLog(); balk(); window.vbsRender && vbsRender(); MEET.laadProject(logSleutel());
 }
 
 async function doelMapId(){
@@ -2064,7 +2562,8 @@ async function upload(mapId, naam, inhoud, type){
   return (await r.json()).name;
 }
 async function opslaanInOneDrive(){
-  if(!log.length && !pandMee()){ toonMelding('fout','Er is nog niets vastgelegd.'); return; }
+  await meetVoorPdf();
+  if(!log.length && !pandMee() && !window.__meetPdf){ toonMelding('fout','Er is nog niets vastgelegd.'); return; }
   if(!msal){ toonMelding('fout','OneDrive is nog niet ingesteld (zie ⚙️ OneDrive-instellingen). Gebruik intussen Download.'); return; }
   try{
     if(!odProject){ await kiesProject(); if(!odProject) return; }
@@ -2095,17 +2594,18 @@ initMsal();
 /* ============ TABBLADEN + KOPPELING MET PAND ANALYSE ============ */
 function kiesTab(t){
   document.querySelectorAll('.hoofdtabs [data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab===t)));
-  $('tab-bs').hidden = t!=='bs'; $('tab-bag').hidden = t!=='bag';
-  document.body.classList.toggle('tab-bag', t==='bag');
+  $('tab-bs').hidden = t!=='bs'; $('tab-bag').hidden = t!=='bag'; $('tab-meet').hidden = t!=='meet';
+  document.body.classList.toggle('tab-bag', t==='bag' || t==='meet');
+  if(t==='meet') MEET.toon();
   try{ localStorage.setItem('ee_tab', t); }catch(e){}
   if(t==='bag') BAG.toon($('project').value.trim());
 }
 document.querySelectorAll('.hoofdtabs [data-tab]').forEach(b => b.onclick = () => kiesTab(b.dataset.tab));
 function topMelding(soort, tekst){ const el = $('top-melding'); el.className = 'top-melding ' + soort; el.textContent = tekst; el.hidden = false; clearTimeout(el._t); el._t = setTimeout(() => { el.hidden = true; }, 5000); }
 $('top-pdf').onclick = async () => {
-  if(!log.length && !pandMee()){ topMelding('fout', 'Nog niets om in de PDF te zetten: leg een beslisschema vast of zoek een pand op.'); return; }
+  if(!ietsInPdf()){ topMelding('fout', 'Nog niets om in de PDF te zetten: leg een beslisschema vast, zoek een pand op of teken een plattegrond in.'); return; }
   const k = $('top-pdf'); k.disabled = true; const oud = k.innerHTML; k.textContent = '⏳ PDF maken…';
-  try{ await downloadPdf(); topMelding('ok', 'PDF gedownload' + (log.length && pandMee() ? ': beslisschema\'s + pand analyse.' : pandMee() ? ': pand analyse.' : ': beslisschema\'s.')); }
+  try{ await downloadPdf(); topMelding('ok', 'PDF gedownload: ' + [log.length ? 'beslisschema\'s' : '', pandMee() ? 'pand analyse' : '', meetMee() ? 'opmeting' : ''].filter(Boolean).join(' + ') + '.'); }
   catch(e){ topMelding('fout', 'PDF maken mislukt: ' + (e.message||e)); }
   finally{ k.disabled = false; k.innerHTML = oud; }
 };
@@ -2116,7 +2616,10 @@ window.bagAdresGekozen = naam => {
   try{ localStorage.setItem('ee_bs_project', naam); }catch(e){}
   bewaarLokaal();
 };
-try{ if(localStorage.getItem('ee_tab')==='bag') kiesTab('bag'); }catch(e){}
+window.meetGewijzigd = () => renderLog();
+MEET.laadProject(logSleutel());
+['projnr','project'].forEach(v => $(v).addEventListener('change', () => MEET.laadProject(logSleutel())));
+try{ const t0 = localStorage.getItem('ee_tab'); if(t0==='bag' || t0==='meet') kiesTab(t0); }catch(e){}
 </script>
 <script>
 (function(){
