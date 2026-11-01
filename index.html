@@ -270,6 +270,8 @@ body.tab-bag .wrap{max-width:1180px}
 #bag .bag-label{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;background:#f4f8f5;border-radius:8px;padding:8px 10px;margin:0 0 10px;font-size:.82rem}
 #bag .bag-label b{color:var(--tekst)}#bag .bag-label span{color:var(--grijs);flex:1;min-width:120px}
 #bag .bag-label .actie{padding:5px 10px;font-size:.8rem;text-decoration:none}
+#bag .bag-lklasse{display:inline-block;min-width:44px;text-align:center;font-weight:800;font-size:1.05rem;padding:3px 9px;border-radius:4px 14px 14px 4px}
+#bag .bag-verl{background:#c0392b;color:#fff;border-radius:6px;padding:1px 6px;font-size:.72rem;font-weight:700}
 #vbs{
   --bg:#F2F4F3; --surface:#FFFFFF; --ink:#18232A; --muted:#5A6870; --line:#D5DCDE; --soft:#E9EEEE;
   --accent:#5B2D86; --accent-ink:#FFFFFF; --accent-soft:#EFE8F6;
@@ -1200,6 +1202,7 @@ function vboOf(b){if(!b.vbos.length)return null;{const vk=vboGekozen(b);if(vk)re
 function metaRows(b){const v=vboOf(b)||{};const rows=[['Adres',addrOf(b)],['Pand-ID',b.id],['Bouwjaar',b.bouwjaar||'–'],['Status BAG',b.status||'–']];
   if(v.oppervlakte)rows.push(['Gebruiksopp. VBO',v.oppervlakte+' m²']);
   if(v.gebruiksdoel)rows.push(['Gebruiksdoel',v.gebruiksdoel]);
+  {const k=v.identificatie||(v.huisnummer?vboZoek(v):null),c=k&&labelCache[k];if(c&&!c.then&&!c.fout)rows.push(['Bestaand energielabel',c.label?labelTekst(c.label)+(c.label.ep2!=null?` · EP2 ${fmt(c.label.ep2,1)} kWh/m²·jr`:''):'geen geregistreerd label (EP-Online)'])}
   rows.push(['Footprint pand',fmt(S.area,0)+' m²']);
   if(b.vbos.length>1)rows.push(['Verblijfsobjecten in pand',b.vbos.length]);
   rows.push(['Daktype',heights(b).dak]);if(heights(b).bron)rows.push(['Bron hoogte',bronLabel(heights(b).route)]);return rows}
@@ -1217,20 +1220,52 @@ function renderPand(){
   $('bag-meta').innerHTML=metaRows(b).map(r=>`<b>${esc(r[0])}</b><span>${esc(r[1])}</span>`).join('');
   renderVbo(b);
 }
-/* keuzelijst van alle woningen/verblijfsobjecten in het pand + bestaand energielabel opzoeken */
+/* bestaand energielabel uit EP-Online via de label-server (Cloudflare Worker) */
+const LABEL_API_STD='';
+const labelApi=()=>{try{return localStorage.getItem('ee_label_api')||LABEL_API_STD}catch(e){return LABEL_API_STD}};
+const LBLK={'A+++++':'#00843d','A++++':'#00843d','A+++':'#00843d','A++':'#00843d','A+':'#00843d','A':'#009036','B':'#55ab26','C':'#c8d100','D':'#ffed00','E':'#fbba00','F':'#eb6909','G':'#e2001a'};
+const labelCache={};
+const vboZoek=p=>`${p.postcode||''} ${p.huisnummer}${p.huisletter||''}${p.toevoeging?'-'+p.toevoeging:''}`.trim();
+async function haalLabel(p){
+  const api=labelApi();if(!api||!p)return null;const k=p.identificatie||vboZoek(p);
+  if(labelCache[k]&&labelCache[k].then)return labelCache[k];if(labelCache[k]!==undefined)return labelCache[k];
+  labelCache[k]=(async()=>{try{const c=new AbortController();setTimeout(()=>c.abort(),15000);
+    const r=await fetch(`${api}${api.includes('?')?'&':'?'}q=${encodeURIComponent(vboZoek(p))}&vbo=${encodeURIComponent(p.identificatie||'')}`,{signal:c.signal});
+    const j=await r.json();if(!r.ok)throw new Error(j.fout||r.status);return labelCache[k]={label:j.label,bron:j.bron}}
+    catch(e){return labelCache[k]={fout:String(e.message||e)}}})();
+  return labelCache[k];
+}
+function labelVan(p){const k=p&&(p.identificatie||vboZoek(p));const c=k&&labelCache[k];return c&&!c.then&&c.label?c.label:null}
+const labelTekst=l=>l?`${l.klasse||'?'}${l.geldigTot?` · geldig tot ${l.geldigTot}`:''}${l.registratiedatum?` · geregistreerd ${l.registratiedatum}`:''}${l.ingetrokken?' · INGETROKKEN':''}`:'geen geregistreerd label gevonden';
+function labelHtml(p,res){
+  const kop=`<b>Bestaand energielabel</b>`;
+  if(!labelApi())return`${kop}<span>${esc(vboZoek(p))}</span><a class="actie licht" href="https://www.ep-online.nl/" target="_blank" rel="noopener">Opzoeken in EP-Online ↗</a><button class="actie licht" type="button" id="bag-epcopy">Kopieer postcode + huisnr</button><button class="actie licht" type="button" id="bag-epset" title="Label automatisch ophalen">⚙️</button>`;
+  if(!res)return`${kop}<span>Label opzoeken in EP-Online…</span>`;
+  if(res.fout)return`${kop}<span>Opzoeken mislukt (${esc(res.fout)}).</span><button class="actie licht" type="button" id="bag-epretry">Opnieuw</button><a class="actie licht" href="https://www.ep-online.nl/" target="_blank" rel="noopener">EP-Online ↗</a>`;
+  const l=res.label;
+  if(!l)return`${kop}<span>Geen geregistreerd energielabel gevonden voor ${esc(vboZoek(p))}.</span>`;
+  const kl=String(l.klasse||'?').toUpperCase(),kc=LBLK[kl]||'#6b7a73',donker=/^(C|D|E)$/.test(kl);
+  const verlopen=(()=>{const m=/(\d{2})-(\d{2})-(\d{4})/.exec(l.geldigTot||'');return m&&new Date(+m[3],m[2]-1,+m[1])<new Date()})();
+  const det=[l.geldigTot&&`geldig tot <b>${esc(l.geldigTot)}</b>${verlopen?' <span class="bag-verl">verlopen</span>':''}`,l.registratiedatum&&`geregistreerd ${esc(l.registratiedatum)}`,
+    l.ep2!=null&&`EP2 ${fmt(l.ep2,1)} kWh/m²·jr`,l.energiebehoefte!=null&&`EP1 ${fmt(l.energiebehoefte,1)}`,l.hernieuwbaar!=null&&`hernieuwbaar ${fmt(l.hernieuwbaar,1)}%`,
+    l.ag!=null&&`Ag ${fmt(l.ag,1)} m²`,l.energieindex!=null&&`EI ${fmt(l.energieindex,2)}`,l.berekening&&esc(l.berekening),l.certificaathouder&&esc(l.certificaathouder),l.ingetrokken&&'<b style="color:#c0392b">ingetrokken</b>'].filter(Boolean).join(' · ');
+  return`${kop}<span class="bag-lklasse" style="background:${kc};color:${donker?'#1d2a22':'#fff'}">${esc(kl)}</span><span>${det}</span>`;
+}
+/* keuzelijst van alle woningen/verblijfsobjecten in het pand + bestaand energielabel */
 function renderVbo(b){
   const el=$('bag-vbo');if(!el)return;
   if(!b||!b.vbos.length){el.innerHTML='';return}
   const lijst=[...b.vbos].sort(vboSort),cur=vboOf(b);
-  const lbl=cur?`<div class="bag-label"><b>Bestaand energielabel</b><span>${esc(adrTxt(cur))}${cur.postcode?' · '+esc(cur.postcode):''}</span>
-      <a class="actie licht" href="https://www.ep-online.nl/" target="_blank" rel="noopener" id="bag-eplink">Opzoeken in EP-Online ↗</a>
-      <button class="actie licht" type="button" id="bag-epcopy">Kopieer postcode + huisnr</button></div>`:'';
+  const k=cur&&(cur.identificatie||vboZoek(cur)),c=k&&labelCache[k],res=c&&!c.then?c:null;
   el.innerHTML=(lijst.length>1?`<label class="bag-vbosel">Woning in dit pand (${lijst.length})
-      <select id="bag-vbosel">${lijst.map(v=>`<option value="${esc(v.p.identificatie||'')}"${cur&&v.p===cur?' selected':''}>${esc(adrTxt(v.p))}${v.p.oppervlakte?' · '+v.p.oppervlakte+' m²':''}${v.p.gebruiksdoel&&v.p.gebruiksdoel!=='woonfunctie'?' · '+esc(v.p.gebruiksdoel):''}</option>`).join('')}</select></label>`:'')+lbl;
+      <select id="bag-vbosel">${lijst.map(v=>{const lv=labelVan(v.p);return`<option value="${esc(v.p.identificatie||'')}"${cur&&v.p===cur?' selected':''}>${esc(adrTxt(v.p))}${v.p.oppervlakte?' · '+v.p.oppervlakte+' m²':''}${v.p.gebruiksdoel&&v.p.gebruiksdoel!=='woonfunctie'?' · '+esc(v.p.gebruiksdoel):''}${lv?' · label '+esc(lv.klasse):''}</option>`}).join('')}</select></label>`:'')+
+    (cur?`<div class="bag-label" id="bag-label">${labelHtml(cur,res)}</div>`:'');
   const s=$('bag-vbosel');if(s)s.onchange=()=>{const v=b.vbos.find(x=>x.p.identificatie===s.value);if(!v)return;S.vboId=s.value;S.addr=vboAdres(v.p);
     $('bag-q').value=S.addr;try{window.bagAdresGekozen&&window.bagAdresGekozen(S.addr)}catch(e){}renderPand();renderOpp();changed()};
-  const c=$('bag-epcopy');if(c)c.onclick=async()=>{const t=`${cur.postcode||''} ${cur.huisnummer}${cur.huisletter||''}${cur.toevoeging?'-'+cur.toevoeging:''}`.trim();
-    try{await navigator.clipboard.writeText(t);c.textContent='Gekopieerd: '+t}catch(e){c.textContent=t}setTimeout(()=>{if($('bag-epcopy'))$('bag-epcopy').textContent='Kopieer postcode + huisnr'},2500)};
+  const cp=$('bag-epcopy');if(cp)cp.onclick=async()=>{const t=vboZoek(cur);try{await navigator.clipboard.writeText(t);cp.textContent='Gekopieerd: '+t}catch(e){cp.textContent=t}setTimeout(()=>{if($('bag-epcopy'))$('bag-epcopy').textContent='Kopieer postcode + huisnr'},2500)};
+  const st=$('bag-epset');if(st)st.onclick=()=>{const u=prompt('Adres van de label-server (Cloudflare Worker), bv. https://ep-label.jouwnaam.workers.dev',labelApi()||'https://');if(u&&/^https:\/\//.test(u.trim())){try{localStorage.setItem('ee_label_api',u.trim())}catch(e){}renderVbo(b)}};
+  const rt=$('bag-epretry');if(rt)rt.onclick=()=>{delete labelCache[k];renderVbo(b)};
+  if(cur&&labelApi()&&!res){haalLabel(cur).then(()=>{if(selB()===b&&vboOf(b)===cur){renderVbo(b);changed()}})}
 }
 function renderTable(){
   const tb=$('bag-tb');const vis=visible();$('bag-ndelen').textContent=vis.length;if(!vis.length){tb.innerHTML='<tr><td colspan="5" class="klein">—</td></tr>';return}
