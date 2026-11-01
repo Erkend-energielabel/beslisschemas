@@ -308,6 +308,7 @@ body.tab-bag .wrap{max-width:1180px}
 .verw-coll .verw-rood{font-size:1.05rem;letter-spacing:.02em}
 .verw-sub{display:block;color:#c0392b;font-weight:700;margin-top:2px}
 #bag .bag-label .bag-lklasse{flex:0 0 auto;min-width:48px}
+#bag .bag-label .bag-buurtknop{order:9;padding:4px 10px;font-size:.78rem;flex:0 0 auto}
 #vbs{
   --bg:#F2F4F3; --surface:#FFFFFF; --ink:#18232A; --muted:#5A6870; --line:#D5DCDE; --soft:#E9EEEE;
   --accent:#5B2D86; --accent-ink:#FFFFFF; --accent-soft:#EFE8F6;
@@ -1356,7 +1357,7 @@ function labelHtml(p,res){
   const det=[l.geldigTot&&`geldig tot <b>${esc(l.geldigTot)}</b>${verlopen?' <span class="bag-verl">verlopen</span>':''}`,l.registratiedatum&&`geregistreerd ${esc(l.registratiedatum)}`,
     l.ep2!=null&&`EP2 ${fmt(l.ep2,1)} kWh/m²·jr`,l.energiebehoefte!=null&&`EP1 ${fmt(l.energiebehoefte,1)}`,l.hernieuwbaar!=null&&`hernieuwbaar ${fmt(l.hernieuwbaar,1)}%`,
     l.ag!=null&&`Ag ${fmt(l.ag,1)} m²`,l.energieindex!=null&&`EI ${fmt(l.energieindex,2)}`,l.berekening&&esc(l.berekening),l.certificaathouder&&esc(l.certificaathouder),l.ingetrokken&&'<b style="color:#c0392b">ingetrokken</b>'].filter(Boolean).join(' · ');
-  return`${kop}<span class="bag-lklasse" style="background:${kc};color:${donker?'#1d2a22':'#fff'}">${esc(kl)}</span><span>${det}</span>`;
+  return`${kop}<button class="actie licht bag-buurtknop" type="button" onclick="window.kiesTab&&kiesTab('buurt')">🏘️ Labels in de buurt</button><span class="bag-lklasse" style="background:${kc};color:${donker?'#1d2a22':'#fff'}">${esc(kl)}</span><span>${det}</span>`;
 }
 /* keuzelijst van alle woningen/verblijfsobjecten in het pand + bestaand energielabel */
 function renderVbo(b){
@@ -1669,8 +1670,10 @@ return {
   heeftPand:()=>!!selB(),
   zoek:q=>search(q),
   labelApi,
-  huidig:()=>{const b=selB();const v=b&&vboOf(b);if(v&&v.postcode)return{straat:v.openbare_ruimte,plaats:v.woonplaats,postcode:v.postcode};
-    const m=/^(.*?)\s+\d+\S*,\s*(\d{4}\s?[A-Z]{2})\s+(.+)$/.exec(S.addr||'');return m?{straat:m[1],postcode:m[2].replace(/\s/,''),plaats:m[3]}:null},
+  huidig:()=>{const b=selB();if(!b)return null;const v=vboOf(b);const vk=b.vbos.find(x=>x.p===v);
+    const rd=(vk&&vk.xy)||S.addrPt||centroid(b.ring),ll=rd2wgs(rd[0],rd[1]);
+    if(v&&v.postcode)return{straat:v.openbare_ruimte,plaats:v.woonplaats,postcode:v.postcode,ll,adres:addrOf(b)};
+    const m=/^(.*?)\s+\d+\S*,\s*(\d{4}\s?[A-Z]{2})\s+(.+)$/.exec(S.addr||'');return m?{straat:m[1],postcode:m[2].replace(/\s/,''),plaats:m[3],ll,adres:addrOf(b)}:{ll,adres:addrOf(b)}},
   adres:()=>{const b=selB();return b?addrOf(b):''},
   samenvatting,
   pdfGegevens,
@@ -2066,8 +2069,15 @@ function voortgang(n,tot){const el=$('bz-voortgang');if(!tot){el.hidden=true;ret
 
 /* --- adressen ophalen uit de BAG (PDOK Locatieserver) --- */
 async function lsJson(u){const r=await fetch(u);if(!r.ok)throw new Error('Locatieserver '+r.status);return(await r.json()).response}
+async function rondom(lat,lon,straal,naam){
+  const fl='weergavenaam,straatnaam,huisnummer,huisletter,huisnummertoevoeging,postcode,woonplaatsnaam,adresseerbaarobject_id,centroide_ll,adrestype,afstand';
+  const r=await lsJson(`${LS}/reverse?lat=${lat}&lon=${lon}&type=adres&rows=100&distance=${straal}&fl=${fl}`);
+  return{naam:`omgeving ${naam} (${straal} m)`,docs:r.docs};
+}
 async function adressen(invoer){
   const t=invoer.trim();let fq,naam;
+  const rd=/^rond:([\d.]+),([\d.]+),(\d+)\|(.*)$/.exec(t);
+  if(rd){const{naam:n,docs}=await rondom(rd[1],rd[2],rd[3],rd[4]);return{naam:n,lijst:maakLijst(docs)}}
   if(/^\d{4}\s?[a-z]{2}$/i.test(t)){const pc=t.replace(/\s/g,'').toUpperCase();fq=`fq=postcode:${pc}`;naam='postcode '+pc}
   else if(/^\d{4}$/.test(t)){fq=`fq=postcode:${t}*`;naam='postcodegebied '+t}
   else{
@@ -2081,14 +2091,17 @@ async function adressen(invoer){
   const tot=eerste.numFound;let docs=eerste.docs;
   if(tot>MAX)throw new Error(`${naam}: ${tot} adressen, dat is te veel (max ${MAX}). Kies een postcode met letters (bv. 3343DA) of een straat.`);
   for(let st=100;st<tot;st+=100){status(`Adressen ophalen… ${st} van ${tot}`);docs=docs.concat((await lsJson(`${LS}/free?q=*:*&fq=type:adres&${fq}&rows=100&start=${st}&fl=${fl}`)).docs)}
+  return{naam,lijst:maakLijst(docs)};
+}
+function maakLijst(docs){
   const gezien=new Set();
   const lijst=docs.filter(d=>d.adrestype!=='nevenadres').filter(d=>{const k=d.adresseerbaarobject_id||d.weergavenaam;if(gezien.has(k))return false;gezien.add(k);return true})
     .map(d=>{const m=/POINT\(([\d.]+) ([\d.]+)\)/.exec(d.centroide_ll||'');
       const nr=`${d.huisnummer}${d.huisletter||''}${d.huisnummertoevoeging?'-'+d.huisnummertoevoeging:''}`;
       return{adres:`${d.straatnaam} ${nr}`,weergave:d.weergavenaam,postcode:d.postcode,plaats:d.woonplaatsnaam,straat:d.straatnaam,hnr:d.huisnummer,toev:(d.huisletter||'')+(d.huisnummertoevoeging||''),
-        q:`${d.postcode} ${nr}`,vbo:d.adresseerbaarobject_id||'',ll:m?[+m[2],+m[1]]:null,label:undefined}});
+        q:`${d.postcode} ${nr}`,vbo:d.adresseerbaarobject_id||'',ll:m?[+m[2],+m[1]]:null,afstand:d.afstand!=null?Math.round(d.afstand):null,label:undefined}});
   lijst.sort((a,b)=>a.straat.localeCompare(b.straat,'nl')||a.hnr-b.hnr||a.toev.localeCompare(b.toev,'nl',{numeric:true}));
-  return{naam,lijst};
+  return lijst;
 }
 
 /* --- labels ophalen via de label-server, in porties --- */
@@ -2111,11 +2124,11 @@ async function labels(lijst,tok){
   return fouten;
 }
 
-async function zoek(invoer){
-  invoer=(invoer||$('bz-q').value).trim();if(!invoer)return;
+async function zoek(invoer,weergave){
+  invoer=(invoer||$('bz-q').value).trim();if(!invoer)return;if(/^rond:/.test(invoer)&&!weergave)weergave=invoer.split('|')[1];
   if(!api()){status('Label-server niet ingesteld (zie ⚙️ bij Bestaand energielabel in de pand analyse).','err');return}
-  const tok=++S.tok;$('bz-q').value=invoer;S.filter=null;S.rij=[];$('bz-verw').innerHTML='';render();voortgang(0,0);status('Adressen ophalen…');
-  try{localStorage.setItem('ee_bz_q',invoer)}catch(e){}
+  const tok=++S.tok;$('bz-q').value=weergave?('Rond '+weergave):invoer;$('bz-q').dataset.q=invoer;S.filter=null;S.rij=[];$('bz-verw').innerHTML='';render();voortgang(0,0);status('Adressen ophalen…');
+  try{if(!/^rond:/.test(invoer))localStorage.setItem('ee_bz_q',invoer)}catch(e){}
   let r;try{r=await adressen(invoer)}catch(e){if(tok===S.tok)status(e.message||String(e),'err');return}
   if(tok!==S.tok)return;
   S.gebied=r.naam;S.rij=r.lijst;
@@ -2148,7 +2161,7 @@ function render(fit){
   $('bz-tabel').innerHTML=!rij.length?'':`<table><thead><tr>${kop('adres','Adres')}${kop('label','Label')}${kop('geldig','Geldig tot')}${kop('reg','Geregistreerd')}${kop('ep2','EP2')}${kop('cert','Certificaathouder')}</tr></thead><tbody>
     ${zicht.map(r=>{const l=r.label,k=klasseVan(r);
       const lab=l===undefined?'<span class="bz-bezig">…</span>':l&&l.fout?'<span class="bz-fout" title="'+esc(l.fout)+'">fout</span>':!l?'<span class="bz-geen">geen</span>':`<span class="bz-kl" style="background:${KLEUR[k]||'#6b7a73'};color:${/^(C|D|E)$/.test(k)?'#1d2a22':'#fff'}">${esc(k)}</span>${l.ingetrokken?' <small>ingetrokken</small>':''}`;
-      return`<tr data-a="${esc(r.weergave)}"><td><b>${esc(r.adres)}</b><small>${esc(r.postcode)}</small></td><td>${lab}</td><td>${l&&!l.fout&&l.geldigTot?esc(l.geldigTot)+(verlopen(l)?' <span class="bz-verl">verlopen</span>':''):''}</td><td>${l&&!l.fout&&l.registratiedatum?esc(l.registratiedatum):''}</td><td>${l&&!l.fout&&l.ep2!=null?fmt(l.ep2,1):''}</td><td class="bz-cert">${l&&!l.fout?esc(l.certificaathouder||''):''}</td></tr>`}).join('')}</tbody></table>`;
+      return`<tr data-a="${esc(r.weergave)}"><td><b>${esc(r.adres)}</b><small>${esc(r.postcode)}${r.afstand!=null?' · '+r.afstand+' m':''}</small></td><td>${lab}</td><td>${l&&!l.fout&&l.geldigTot?esc(l.geldigTot)+(verlopen(l)?' <span class="bz-verl">verlopen</span>':''):''}</td><td>${l&&!l.fout&&l.registratiedatum?esc(l.registratiedatum):''}</td><td>${l&&!l.fout&&l.ep2!=null?fmt(l.ep2,1):''}</td><td class="bz-cert">${l&&!l.fout?esc(l.certificaathouder||''):''}</td></tr>`}).join('')}</tbody></table>`;
   $('bz-tabel').querySelectorAll('th[data-s]').forEach(th=>th.onclick=()=>{if(S.sort===th.dataset.s)S.asc=!S.asc;else{S.sort=th.dataset.s;S.asc=true}render()});
   $('bz-tabel').querySelectorAll('tr[data-a]').forEach(tr=>tr.onclick=()=>openPand(tr.dataset.a));
   $('bz-acties').hidden=!rij.length;
@@ -2185,21 +2198,28 @@ function csv(){
   const txt='﻿'+r.map(a=>a.map(v=>{v=String(v??'');return/[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(';')).join('\r\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/csv;charset=utf-8'}));a.download=`Energielabels ${S.gebied.replace(/[\\/:*?"<>|]/g,'')}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
 }
+function rondQ(b,straal){return b&&b.ll?`rond:${b.ll[0].toFixed(6)},${b.ll[1].toFixed(6)},${straal}|${(b.adres||'').split(',')[0]}`:null}
 function voorstel(){
   const b=window.BAG&&BAG.huidig?BAG.huidig():null;const el=$('bz-snel');
-  if(!b){el.innerHTML='';return}
-  el.innerHTML=[b.straat&&b.plaats?[`${b.straat} ${b.plaats}`,'🛣️ '+b.straat]:null,b.postcode?[b.postcode,'📮 '+b.postcode]:null,b.postcode?[b.postcode.slice(0,4),'🗺️ '+b.postcode.slice(0,4)]:null].filter(Boolean)
-    .map(([q,t])=>`<button type="button" class="actie licht" data-q="${esc(q)}">${esc(t)}</button>`).join('');
+  if(!b){el.innerHTML='<span class="klein">Tip: zoek eerst een adres in de pand analyse, dan zie je hier meteen de labels in de buurt.</span>';return null}
+  const knoppen=[[rondQ(b,150),'📍 Rond '+(b.adres||'').split(',')[0]+' (150 m)'],[rondQ(b,300),'📍 300 m'],
+    b.straat&&b.plaats?[`${b.straat} ${b.plaats}`,'🛣️ '+b.straat]:null,b.postcode?[b.postcode,'📮 '+b.postcode]:null].filter(x=>x&&x[0]);
+  el.innerHTML=knoppen.map(([q,t])=>`<button type="button" class="actie licht" data-q="${esc(q)}">${esc(t)}</button>`).join('');
   el.querySelectorAll('[data-q]').forEach(k=>k.onclick=()=>zoek(k.dataset.q));
+  return b;
 }
 function bind(){
-  $('bz-go').onclick=()=>zoek();
-  $('bz-q').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();zoek()}});
+  const vrij=()=>{const v=$('bz-q').value.trim();return /^Rond /.test(v)&&$('bz-q').dataset.q?$('bz-q').dataset.q:v};
+  $('bz-go').onclick=()=>zoek(vrij());
+  $('bz-q').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();zoek(vrij())}});
+  $('bz-q').addEventListener('input',()=>{delete $('bz-q').dataset.q});
   $('bz-csv').onclick=csv;$('bz-opnieuw').onclick=opnieuw;
   try{const q=localStorage.getItem('ee_bz_q');if(q)$('bz-q').value=q}catch(e){}
 }
 bind();
-return{toon(){voorstel();if(S.map)setTimeout(()=>S.map.invalidateSize(),30)},zoek};
+return{toon(){const b=voorstel();if(S.map)setTimeout(()=>S.map.invalidateSize(),30);
+  /* automatisch de labels rond het adres van de pand analyse zoeken (één keer per adres) */
+  if(b&&b.ll&&b.adres&&S.auto!==b.adres){S.auto=b.adres;zoek(rondQ(b,150))}},zoek};
 })();
 
 </script>
