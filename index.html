@@ -1985,7 +1985,7 @@ return {
 window.BUURT = (function(){
 const $=id=>document.getElementById(id);
 const LS='https://api.pdok.nl/bzk/locatieserver/search/v3_1';
-const MAX=1500, BATCH=20;
+const MAX=1500, BATCH=8;   /* gratis Cloudflare: max 50 subverzoeken per aanroep (± 4 per adres) */
 const KLASSEN=['A+++++','A++++','A+++','A++','A+','A','B','C','D','E','F','G'];
 const KLEUR={'A+++++':'#00843d','A++++':'#00843d','A+++':'#00843d','A++':'#00843d','A+':'#00843d','A':'#009036','B':'#55ab26','C':'#c8d100','D':'#ffed00','E':'#fbba00','F':'#eb6909','G':'#e2001a'};
 const GEEN='#b8c2bc';
@@ -2043,7 +2043,7 @@ async function labels(lijst,tok){
       else throw new Error(j.fout||r.status);
     }catch(e){fouten++;portie.forEach(x=>{if(x.label===undefined)x.label={fout:String(e.message||e)}})}
     klaar+=portie.length;if(tok!==S.tok)return;voortgang(klaar,lijst.length);status(`Labels opzoeken in EP-Online… ${klaar} van ${lijst.length}`);render()}};
-  await Promise.all([werker(),werker()]);
+  await Promise.all([werker(),werker(),werker()]);
   return fouten;
 }
 
@@ -2057,13 +2057,13 @@ async function zoek(invoer){
   S.gebied=r.naam;S.rij=r.lijst;
   if(!S.rij.length){status(`Geen adressen gevonden voor ${r.naam}.`,'err');return}
   render(true);voortgang(0,S.rij.length);status(`${S.rij.length} adressen in ${r.naam}. Labels opzoeken in EP-Online…`);
-  const fouten=await labels(S.rij,tok);if(tok!==S.tok)return;
+  await labels(S.rij,tok);if(tok!==S.tok)return;const fouten=S.rij.filter(x=>x.label&&x.label.fout).length;
   voortgang(0,0);const n=S.rij.filter(x=>x.label&&!x.label.fout).length;
-  status(`${r.naam}: ${S.rij.length} adressen, ${n} met een geregistreerd energielabel.`+(fouten?` ${fouten} portie(s) mislukt — klik "Opnieuw" om die nog eens te proberen.`:''),fouten?'err':'ok');
+  status(`${r.naam}: ${S.rij.length} adressen, ${n} met een geregistreerd energielabel.`+(fouten?` ${fouten} adres(sen) mislukt — klik "Opnieuw" om die nog eens te proberen.`:''),fouten?'err':'ok');
   $('bz-opnieuw').hidden=!fouten;render();
 }
 async function opnieuw(){const mis=S.rij.filter(x=>x.label&&x.label.fout);if(!mis.length)return;mis.forEach(x=>x.label=undefined);const tok=S.tok;$('bz-opnieuw').hidden=true;
-  voortgang(0,mis.length);const f=await labels(mis,tok);voortgang(0,0);status(f?'Nog steeds niet alles gelukt. Probeer het later nog eens.':'Alle labels opgehaald.',f?'err':'ok');$('bz-opnieuw').hidden=!f;render()}
+  voortgang(0,mis.length);await labels(mis,tok);const f=S.rij.filter(x=>x.label&&x.label.fout).length;voortgang(0,0);status(f?'Nog steeds niet alles gelukt. Probeer het later nog eens.':'Alle labels opgehaald.',f?'err':'ok');$('bz-opnieuw').hidden=!f;render()}
 
 /* --- weergave --- */
 const groep=r=>r.label===undefined?'bezig':r.label&&r.label.fout?'fout':!r.label?'geen':verlopen(r.label)?'verlopen':klasseVan(r);
