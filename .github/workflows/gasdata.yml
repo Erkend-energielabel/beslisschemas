@@ -1,0 +1,26 @@
+name: Gasdata netbeheerders bijwerken
+on:
+  workflow_dispatch:
+  push:
+    paths: ['tools/gasdata.py']
+  schedule:
+    - cron: '17 4 15 2,8 *'   # 15 februari en 15 augustus
+permissions:
+  contents: write
+jobs:
+  bijwerken:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Data ophalen en omzetten
+        run: |
+          rm -rf gas
+          python tools/gasdata.py gas
+      - name: Vastleggen
+        run: |
+          git config user.name "gasdata-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add gas
+          git diff --cached --quiet || (git commit -m "Gasdata netbeheerders bijgewerkt" && git push)
