@@ -733,7 +733,7 @@ function renderMap(fit){
   if(!grp)return;grp.clearLayers();if(!S.blds.length)return;
   const orient=S.tab==='orient';
   S.blds.forEach(b=>{const ll=b.ring.map(c=>rd2wgs(c[0],c[1]));const h=relH(b);const sel=b.id===S.sel;
-    L.polygon(ll,{color:sel?'#0B3D2E':'#fff',weight:sel?(orient?1:3):1,fillColor:sel&&orient?'#3CB54A':css(col(h)),fillOpacity:orient?(sel?.2:.3):(sel?.85:.6),interactive:false}).addTo(grp);
+    L.polygon(ll,{color:sel?'#0B3D2E':'#fff',weight:sel?(orient?1:3):1,fillColor:orient?(sel?'#ffffff':'#e9ece9'):css(col(h)),fillOpacity:orient?(sel?.35:.45):(sel?.85:.6),interactive:false}).addTo(grp);
     if(!orient&&h!=null&&(sel||Math.abs(polyArea(b.ring))>40)){const c=centroid(b.ring);
       L.marker(rd2wgs(c[0],c[1]),{interactive:false,icon:L.divIcon({className:'',html:`<span class="bag-hl">${fmt(h)} m</span>`,iconSize:null,iconAnchor:[18,8]})}).addTo(grp)}});
   if(orient&&selB()){
@@ -882,7 +882,7 @@ function init3d(){
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));box.appendChild(renderer.domElement);
   scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(45,1,0.5,5000);
   if(THREE.OrbitControls){controls=new THREE.OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.maxPolarAngle=Math.PI/2.05}
-  scene.add(new THREE.HemisphereLight(0xffffff,0x8a9a90,0.75));const sun=new THREE.DirectionalLight(0xffffff,0.75);sun.position.set(-120,200,-80);scene.add(sun);
+  scene.add(new THREE.HemisphereLight(0xffffff,0xb8c2bc,0.95));scene.add(new THREE.AmbientLight(0xffffff,0.18));const sun=new THREE.DirectionalLight(0xffffff,0.55);sun.position.set(-120,200,-80);scene.add(sun);const sun2=new THREE.DirectionalLight(0xffffff,0.25);sun2.position.set(150,120,160);scene.add(sun2);
   world=new THREE.Group();scene.add(world);
   new ResizeObserver(resize).observe(box);resize();
   (function loop(){requestAnimationFrame(loop);if(controls)controls.update();renderer.render(scene,camera)})();
@@ -908,7 +908,7 @@ function build3d(resetCam){
       // echt 3D-model (LoD2.2)
       const T=b.geo.tri,n=b.geo.n,pos=new Float32Array(n*9),colr=new Float32Array(n*9);
       const vl=sel?vlakkenVan(b):[],vlVan={};vl.forEach(v=>{const c=new THREE.Color(v.plat?'#c9d3cd':DCOL[v.dir]);v.tris.forEach(i=>vlVan[i]=c)});
-      const muur=new THREE.Color(sel?'#f3efe7':'#e7e4de'),dakN=new THREE.Color(css(col(relH(b)))).lerp(new THREE.Color('#ffffff'),.25);
+      const muur=new THREE.Color(sel?'#fbf9f4':'#eceae5'),dakN=S.tab==='hoogte'?new THREE.Color(css(col(relH(b)))).lerp(new THREE.Color('#ffffff'),.35):new THREE.Color('#cfccc5');
       for(let i=0;i<n;i++){const o=i*9;
         const ux=T[o+3]-T[o],uy=T[o+4]-T[o+1],uz=T[o+5]-T[o+2],vx=T[o+6]-T[o],vy=T[o+7]-T[o+1],vz=T[o+8]-T[o+2];
         const nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx,l=Math.hypot(nx,ny,nz)||1,dak=Math.abs(nz/l)>=0.17&&(T[o+2]+T[o+5]+T[o+8])/3>b.geo.zmin+1;
@@ -932,7 +932,7 @@ function build3d(resetCam){
   if(resetCam)resetView();
 }
 function resetView(){if(!renderer)return;const b=selB();let tx=0,tz=0,d=+$('bag-rad').value;if(b){const c=centroid(b.ring);tx=c[0]-origin[0];tz=-(c[1]-origin[1]);
-  const xs=b.ring.map(p=>p[0]),ys=b.ring.map(p=>p[1]);const sz=Math.hypot(Math.max(...xs)-Math.min(...xs),Math.max(...ys)-Math.min(...ys));d=Math.max(30,sz*2.2,(relH(b)||0)*2.5)}
+  const xs=b.ring.map(p=>p[0]),ys=b.ring.map(p=>p[1]);const sz=Math.hypot(Math.max(...xs)-Math.min(...xs),Math.max(...ys)-Math.min(...ys));d=Math.max(20,sz*1.5,(relH(b)||0)*2.4)}
   camera.position.set(tx-d*0.75,d*0.65,tz+d*0.95);
   if(controls){controls.target.set(tx,Math.min(8,(relH(b)||6)/2),tz);controls.update()}else camera.lookAt(tx,Math.min(8,(relH(b)||6)/2),tz)}
 
@@ -1045,7 +1045,7 @@ function bind(){
   $('bag-tol').onchange=()=>{S.roles={};compute();renderAll(false);changed()};
   $('bag-minl').onchange=()=>{S.eSel=zuidelijkste();S.autoSel=true;renderAll(false);changed()};
   document.querySelectorAll('#bag [data-t]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.t;document.querySelectorAll('#bag [data-t]').forEach(x=>x.classList.toggle('on',x===b));
-    document.querySelectorAll('#bag .bag-paneel').forEach(t=>t.classList.toggle('on',t.id==='bag-p-'+S.tab));renderMap(false);renderLegenda()});
+    document.querySelectorAll('#bag .bag-paneel').forEach(t=>t.classList.toggle('on',t.id==='bag-p-'+S.tab));renderMap(false);renderLegenda();build3d(false)});
   $('bag-reset').onclick=resetView;
   $('bag-exag').onclick=e=>{S.exag=S.exag===1?2:S.exag===2?3:1;e.target.textContent='×'+S.exag;build3d(false)};
   $('bag-hsel').onchange=()=>{renderMap(false);build3d(false);renderList()};
