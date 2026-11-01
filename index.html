@@ -262,6 +262,8 @@ body.tab-bag .wrap{max-width:1180px}
 .bag-mlijst tr.sub td{font-weight:700;border-bottom:2px solid #cfdcd2}
 .bag-mlijst tr.tot td{font-weight:800;font-size:1rem;background:#eef7ef;color:#0B3D2E;border-bottom:2px solid #0B3D2E}
 .bag-mlijst tr.niet td{color:var(--grijs);font-style:italic}
+#bag #bag-loc{white-space:nowrap}
+@media(max-width:560px){#bag .bag-loct{display:none}}
 #vbs{
   --bg:#F2F4F3; --surface:#FFFFFF; --ink:#18232A; --muted:#5A6870; --line:#D5DCDE; --soft:#E9EEEE;
   --accent:#5B2D86; --accent-ink:#FFFFFF; --accent-soft:#EFE8F6;
@@ -583,6 +585,7 @@ body.tab-bag .wrap{max-width:1180px}
       <div class="bag-zoek">
         <input type="text" id="bag-q" placeholder="Postcode + huisnr of adres, bv. 3343DA 45" autocomplete="off">
         <button class="actie" id="bag-go" type="button">Zoek</button>
+        <button class="actie licht" id="bag-loc" type="button" title="Adres op mijn huidige locatie" aria-label="Mijn locatie">📍<span class="bag-loct"> Mijn locatie</span></button>
         <div id="bag-sugg"></div>
       </div>
       <p class="klein" style="margin:6px 0 0">Gebruikt standaard het adres uit de projectgegevens hierboven. Klik op een pand om het te selecteren, op een gevel om te wisselen, of op een richting om de groep te markeren.</p>
@@ -783,12 +786,29 @@ function bindZoek(){
     try{const j=await(await fetch(`${LS}/suggest?q=${encodeURIComponent(q)}&fq=type:adres&rows=8`)).json();sI=j.response.docs.map(d=>({id:d.id,t:d.weergavenaam}));sA=-1;drawS()}catch(e){}},220)});
   qEl.addEventListener('keydown',e=>{if(e.key==='ArrowDown'){sA=Math.min(sA+1,sI.length-1);drawS();e.preventDefault()}else if(e.key==='ArrowUp'){sA=Math.max(sA-1,0);drawS();e.preventDefault()}else if(e.key==='Enter'){e.preventDefault();sA>=0&&sI[sA]?pick(sI[sA].id):search()}else if(e.key==='Escape')sg.style.display='none'});
   $('bag-go').onclick=()=>search();
+  $('bag-loc').onclick=()=>mijnLocatie();
   document.addEventListener('click',e=>{if(!e.target.closest('.bag-zoek'))sg.style.display='none'});
 }
 function drawS(){const sg=$('bag-sugg');if(!sI.length){sg.style.display='none';return}sg.innerHTML=sI.map((s,i)=>`<div class="${i===sA?'act':''}" data-id="${esc(s.id)}">${esc(s.t)}</div>`).join('');sg.style.display='block';sg.querySelectorAll('div').forEach(d=>d.onclick=()=>pick(d.dataset.id))}
 async function pick(id){$('bag-sugg').style.display='none';try{const d=(await(await fetch(`${LS}/lookup?id=${encodeURIComponent(id)}&fl=*`)).json()).response.docs[0];$('bag-q').value=d.weergavenaam;useAddr(d)}catch(e){status('Adres ophalen mislukt.','err')}}
 async function search(q){q=(q||$('bag-q').value).trim();if(!q)return;$('bag-q').value=q;$('bag-sugg').style.display='none';if(!init())return;status('Zoeken…');
   try{const d=(await(await fetch(`${LS}/free?q=${encodeURIComponent(q)}&fq=type:adres&rows=1&fl=*`)).json()).response.docs[0];if(!d){status('Geen adres gevonden voor “'+q+'”. Probeer postcode + huisnummer.','err');return}$('bag-q').value=d.weergavenaam;useAddr(d)}catch(e){status('Zoeken mislukt (geen verbinding met PDOK).','err')}}
+/* adres op de huidige locatie (GPS/wifi) via de PDOK reverse geocoder; dichtstbijzijnde wordt gekozen, de andere staan in de lijst */
+function mijnLocatie(){
+  if(!navigator.geolocation){status('Locatie wordt niet ondersteund door deze browser.','err');return}
+  if(!init())return;const k=$('bag-loc');k.disabled=true;status('Locatie bepalen…');
+  navigator.geolocation.getCurrentPosition(async p=>{
+    try{const{latitude:la,longitude:lo,accuracy:acc}=p.coords;
+      const j=await(await fetch(`${LS}/reverse?lat=${la}&lon=${lo}&type=adres&rows=6&fl=*`)).json();
+      const docs=(j.response&&j.response.docs)||[];
+      if(!docs.length){status('Geen adres gevonden bij je locatie (buiten Nederland?).','err');return}
+      $('bag-q').value=docs[0].weergavenaam;useAddr(docs[0]);
+      status(`Locatie gevonden (nauwkeurigheid ±${Math.round(acc)} m): ${docs[0].weergavenaam}. Niet goed? Kies een ander adres in de lijst of klik op het pand.`,'ok');
+      sI=docs.map(d=>({id:d.id,t:d.weergavenaam+(d.afstand!=null?` · ${Math.round(d.afstand)} m`:'')}));sA=0;drawS();
+    }catch(e){status('Adres bij locatie ophalen mislukt.','err')}finally{k.disabled=false}
+  },e=>{k.disabled=false;status(e.code===1?'Geen toestemming voor locatie. Sta locatie toe voor deze site in je browser of telefoon.':e.code===3?'Locatie bepalen duurde te lang. Probeer opnieuw (buiten gaat het beter).':'Locatie niet beschikbaar.','err')},
+  {enableHighAccuracy:true,timeout:15000,maximumAge:30000});
+}
 function useAddr(d){const m=/POINT\(([\d.]+) ([\d.]+)\)/.exec(d.centroide_rd||'');if(!m){status('Geen coördinaten bij dit adres.','err');return}
   try{window.bagAdresGekozen&&window.bagAdresGekozen(d.weergavenaam)}catch(e){}
   loadArea(+m[1],+m[2],d.weergavenaam)}
