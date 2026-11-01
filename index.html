@@ -1252,6 +1252,7 @@ function ramingData(b){
 }
 const eur=v=>'€ '+Math.round(v).toLocaleString('nl-NL');
 const VARNAAM={egw:'eengezinswoning',mgw:'meergezinswoning (appartement)',min:'klein',mid:'gemiddeld',max:'groot',enk:'losse woning',pro:'projectmatig'};
+const HERK={gevelnetto:r=>`${fmt(r.o.gevel,1)} m² gevel − ${r.glas}% ramen/deuren`,glas:r=>`${r.glas}% van ${fmt(r.o.gevel,1)} m² gevel`,kozijn:r=>`glas ÷ 0,8 (kozijnmaat)`,gevelbruto:r=>`bruto gevel, excl. gedeelde muur`,dakhellend:r=>`schuine m² van de hellende dakvlakken`,dakplat:r=>`platte dakvlakken`,vloer:r=>`BAG-footprint`};
 function renderRaming(){
   const el=$('bag-raming');if(!el)return;const b=selB();
   if(!b){el.innerHTML='<p class="klein">Zoek een adres of klik op een pand.</p>';return}
@@ -1269,7 +1270,7 @@ function renderRaming(){
     <table class="ram-tab"><thead><tr><th></th><th>Maatregel (RVO-variant)</th><th>Hoeveelheid</th><th>Prijs p/eenh.</th><th>Totaal</th></tr></thead><tbody>
     ${r.regels.map(x=>`<tr class="${x.aan?'aan':''}"><td><input type="checkbox" data-aan="${x.k}"${ramS.aan[x.k]?' checked':''}></td>
       <td><b>${x.naam}</b>${x.codes.length>1?`<select class="ram-code" data-code="${x.k}">${x.codes.map(c=>`<option value="${c}"${c===x.code?' selected':''}>${c} · ${esc(RVO_KK[c].e)}</option>`).join('')}</select>`:`<small>${x.code?x.code+' · ':''}${esc(x.omschr)}</small>`}</td>
-      <td><input type="number" class="ram-h" data-h="${x.k}" step="0.1" min="0" value="${Math.round(x.hoev*10)/10}"> ${x.eenh}${ramS.hoev[x.k]!=null?` <a href="#" data-reset="${x.k}" title="terug naar ${fmt(x.auto,1)}">↺</a>`:''}${x.besteld!=null&&x.aan?`<small>bestellen ± ${fmt(x.besteld,1)} ${x.eenh}</small>`:''}</td>
+      <td><input type="number" class="ram-h" data-h="${x.k}" step="0.1" min="0" value="${Math.round(x.hoev*10)/10}"> ${x.eenh}${ramS.hoev[x.k]!=null?` <a href="#" data-reset="${x.k}" title="terug naar ${fmt(x.auto,1)}">↺</a>`:''}${ramS.hoev[x.k]==null&&HERK[x.bron]?`<small>${HERK[x.bron](r)}</small>`:''}${x.besteld!=null&&x.aan?`<small>bestellen ± ${fmt(x.besteld,1)} ${x.eenh}</small>`:''}</td>
       <td>€ <input type="number" class="ram-p" data-p="${x.k}" step="0.01" min="0" value="${Math.round(x.prijs*100)/100}">${x.eigenPrijs?` <a href="#" data-preset="${x.k}" title="terug naar RVO-kental">↺</a><small>eigen prijs</small>`:''}</td>
       <td class="m2">${x.aan?eur(x.totaal):'<span class="klein">–</span>'}</td></tr>`).join('')}
     <tr class="tot"><td></td><td colspan="3">Totaal geselecteerde maatregelen (${r.btw?'incl.':'excl.'} btw, indicatief)</td><td class="m2">${eur(r.totaal)}</td></tr></tbody></table>
