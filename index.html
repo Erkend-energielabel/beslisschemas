@@ -882,7 +882,7 @@ function init3d(){
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));box.appendChild(renderer.domElement);
   scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(45,1,0.5,5000);
   if(THREE.OrbitControls){controls=new THREE.OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.maxPolarAngle=Math.PI/2.05}
-  scene.add(new THREE.HemisphereLight(0xffffff,0xb8c2bc,0.95));scene.add(new THREE.AmbientLight(0xffffff,0.18));const sun=new THREE.DirectionalLight(0xffffff,0.55);sun.position.set(-120,200,-80);scene.add(sun);const sun2=new THREE.DirectionalLight(0xffffff,0.25);sun2.position.set(150,120,160);scene.add(sun2);
+  scene.add(new THREE.HemisphereLight(0xffffff,0x9aa59f,0.7));const sun=new THREE.DirectionalLight(0xffffff,0.7);sun.position.set(-120,200,-80);scene.add(sun);const sun2=new THREE.DirectionalLight(0xffffff,0.25);sun2.position.set(150,120,160);scene.add(sun2);
   world=new THREE.Group();scene.add(world);
   new ResizeObserver(resize).observe(box);resize();
   (function loop(){requestAnimationFrame(loop);if(controls)controls.update();renderer.render(scene,camera)})();
@@ -908,7 +908,7 @@ function build3d(resetCam){
       // echt 3D-model (LoD2.2)
       const T=b.geo.tri,n=b.geo.n,pos=new Float32Array(n*9),colr=new Float32Array(n*9);
       const vl=sel?vlakkenVan(b):[],vlVan={};vl.forEach(v=>{const c=new THREE.Color(v.plat?'#c9d3cd':DCOL[v.dir]);v.tris.forEach(i=>vlVan[i]=c)});
-      const muur=new THREE.Color(sel?'#fbf9f4':'#eceae5'),dakN=S.tab==='hoogte'?new THREE.Color(css(col(relH(b)))).lerp(new THREE.Color('#ffffff'),.35):new THREE.Color('#cfccc5');
+      const muur=new THREE.Color(sel?'#f7f3ea':'#dedad2'),dakN=S.tab==='hoogte'?new THREE.Color(css(col(relH(b)))).lerp(new THREE.Color('#ffffff'),.2):new THREE.Color('#a9a49b');
       for(let i=0;i<n;i++){const o=i*9;
         const ux=T[o+3]-T[o],uy=T[o+4]-T[o+1],uz=T[o+5]-T[o+2],vx=T[o+6]-T[o],vy=T[o+7]-T[o+1],vz=T[o+8]-T[o+2];
         const nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx,l=Math.hypot(nx,ny,nz)||1,dak=Math.abs(nz/l)>=0.17&&(T[o+2]+T[o+5]+T[o+8])/3>b.geo.zmin+1;
@@ -918,7 +918,7 @@ function build3d(resetCam){
       const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide,emissive:sel?0x0a1a0e:0}));
       m.userData.id=b.id;world.add(m);meshes.push(m);
       world.add(new THREE.LineSegments(new THREE.EdgesGeometry(g,25),new THREE.LineBasicMaterial({color:sel?0x0B3D2E:0x6b746f,transparent:true,opacity:sel?.9:.28})));
-      if(sel){const hm=relH(b),cc=centroid(b.ring);if(hm!=null){const t=makeText(fmt(hm)+' m');t.position.set(cc[0]-origin[0],(b.geo.zmax-gref)*S.exag+4,-(cc[1]-origin[1]));world.add(t)}}
+      if(sel){const hm=relH(b),cc=centroid(b.ring);if(hm!=null){const t=makeText(fmt(hm)+' m',7);t.position.set(cc[0]-origin[0],(b.geo.zmax-gref)*S.exag+4,-(cc[1]-origin[1]));world.add(t)}}
       return;
     }
     let h=relH(b);const known=h!=null;if(!known)h=3;h=Math.max(h,0.5)*S.exag;
@@ -933,7 +933,7 @@ function build3d(resetCam){
 }
 function resetView(){if(!renderer)return;const b=selB();let tx=0,tz=0,d=+$('bag-rad').value;if(b){const c=centroid(b.ring);tx=c[0]-origin[0];tz=-(c[1]-origin[1]);
   const xs=b.ring.map(p=>p[0]),ys=b.ring.map(p=>p[1]);const sz=Math.hypot(Math.max(...xs)-Math.min(...xs),Math.max(...ys)-Math.min(...ys));d=Math.max(20,sz*1.5,(relH(b)||0)*2.4)}
-  camera.position.set(tx-d*0.75,d*0.65,tz+d*0.95);
+  camera.position.set(tx-d*0.55,d*1.05,tz+d*0.75);
   if(controls){controls.target.set(tx,Math.min(8,(relH(b)||6)/2),tz);controls.update()}else camera.lookAt(tx,Math.min(8,(relH(b)||6)/2),tz)}
 
 /* ===== Handmatig ===== */
