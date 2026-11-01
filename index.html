@@ -253,6 +253,15 @@ body.tab-bag .wrap{max-width:1180px}
 .meet-staat tfoot td{font-weight:800;border-top:2px solid var(--paars)}
 .meet-dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
 [hidden]{display:none!important}
+
+.bag-oppkaart{max-width:620px}
+.bag-mlijst{width:100%;border-collapse:collapse;font-size:.88rem}
+.bag-mlijst td,.bag-mlijst th{padding:5px 6px;border-bottom:1px solid #e3ebe5;text-align:left}
+.bag-mlijst tr.kop th{background:#e7f3e8;color:#0B3D2E;font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;padding-top:8px}
+.bag-mlijst td.m2{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.bag-mlijst tr.sub td{font-weight:700;border-bottom:2px solid #cfdcd2}
+.bag-mlijst tr.tot td{font-weight:800;font-size:1rem;background:#eef7ef;color:#0B3D2E;border-bottom:2px solid #0B3D2E}
+.bag-mlijst tr.niet td{color:var(--grijs);font-style:italic}
 #vbs{
   --bg:#F2F4F3; --surface:#FFFFFF; --ink:#18232A; --muted:#5A6870; --line:#D5DCDE; --soft:#E9EEEE;
   --accent:#5B2D86; --accent-ink:#FFFFFF; --accent-soft:#EFE8F6;
@@ -605,7 +614,7 @@ body.tab-bag .wrap{max-width:1180px}
         <div class="bag-meta" id="bag-meta"><b>Adres</b><span class="klein">Zoek een adres of klik op de kaart</span></div>
       </div>
 
-      <div class="bag-sub"><button type="button" data-t="orient" class="on">Oriëntatie</button><button type="button" data-t="hoogte">Hoogtes</button></div>
+      <div class="bag-sub"><button type="button" data-t="orient" class="on">Oriëntatie</button><button type="button" data-t="hoogte">Hoogtes</button><button type="button" data-t="opp">m² overzicht</button></div>
 
       <div class="bag-paneel on" id="bag-p-orient">
         <div class="bag-grid">
@@ -649,13 +658,16 @@ body.tab-bag .wrap{max-width:1180px}
             <div id="bag-dak"><p class="klein">—</p></div>
           </div>
           <div class="kaart">
-            <h2>Oppervlaktes schil (3D-model)</h2>
-            <div id="bag-opp"><p class="klein">—</p></div>
-          </div>
-          <div class="kaart">
             <h2>Panden in de buurt</h2>
             <table><thead><tr><th>Adres / pand</th><th>Bj</th><th>Nok</th><th>H 70%</th></tr></thead><tbody id="bag-ltb"><tr><td colspan="4" class="klein">—</td></tr></tbody></table>
           </div>
+        </div>
+      </div>
+
+      <div class="bag-paneel" id="bag-p-opp">
+        <div class="kaart bag-oppkaart">
+          <h2>m² overzicht</h2>
+          <div id="bag-opp"><p class="klein">—</p></div>
         </div>
       </div>
 
@@ -995,37 +1007,48 @@ function gevelvlakken(b){
     const az=((Math.atan2(nx,ny)*180/Math.PI)+360)%360,d=dirOf(az);uit[d]=(uit[d]||0)+A}
   b.gevels={per:uit,gedeeld,totaal:Object.values(uit).reduce((s,v)=>s+v,0)};return b.gevels;
 }
-/* oppervlaktes van de schil: gevel en dak per oriëntatie, vloer, verliesoppervlak en bruto inhoud */
+/* oppervlaktes van de schil: alle m² gegroepeerd (gevels, dak per vlak, vloer), plus verliesoppervlak en bruto inhoud */
 function oppervlaktes(b){
   if(!b||!b.geo)return null;const gv=gevelvlakken(b),vl=vlakkenVan(b);if(!gv)return null;
-  const dak={},hel={};vl.filter(v=>!v.plat).forEach(v=>{dak[v.dir]=(dak[v.dir]||0)+v.opp;hel[v.dir]=(hel[v.dir]||0)+v.helling*v.opp});
-  const plat=vl.filter(v=>v.plat).reduce((s,v)=>s+v.opp,0);
   const T=b.geo.tri;let inh=0;
   for(let i=0;i<b.geo.n;i++){const o=i*9,ux=T[o+3]-T[o],uy=T[o+4]-T[o+1],vx=T[o+6]-T[o],vy=T[o+7]-T[o+1];
     const axy=Math.abs(ux*vy-uy*vx)/2;if(axy<1e-6)continue;
     const uz=T[o+5]-T[o+2],vz=T[o+8]-T[o+2],nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx,l=Math.hypot(nx,ny,nz);
     if(Math.abs(nz)/l<0.17)continue;const zm=(T[o+2]+T[o+5]+T[o+8])/3-b.geo.zmin;if(zm>0.3)inh+=axy*zm}
-  const vloer=Math.abs(polyArea(b.ring)),dakT=Object.values(dak).reduce((s,v)=>s+v,0)+plat;
-  const rijen=[];
-  DIRS.forEach(d=>{if(gv.per[d]>=0.5)rijen.push({soort:'Gevel',dir:d,helling:90,opp:gv.per[d]})});
-  DIRS.forEach(d=>{if(dak[d]>=0.5)rijen.push({soort:'Dak hellend',dir:d,helling:hel[d]/dak[d],opp:dak[d]})});
-  if(plat>=0.5)rijen.push({soort:'Dak plat',dir:'hor.',helling:0,opp:plat});
-  rijen.push({soort:'Vloer begane grond',dir:'hor.',helling:0,opp:vloer});
+  const gevels=DIRS.filter(d=>gv.per[d]>=0.5).map(d=>({naam:'Gevel '+d,dir:d,helling:90,opp:gv.per[d]}));
+  const kl=gv.totaal-gevels.reduce((s,r)=>s+r.opp,0);if(kl>=0.05)gevels.push({naam:'Kleine geveldelen',dir:null,helling:90,opp:kl});
+  const nr=new Map(vl.map((v,i)=>[v,i+1]));
+  const dak=[...vl.filter(v=>!v.plat).sort((p,q)=>DIRS.indexOf(p.dir)-DIRS.indexOf(q.dir)||q.opp-p.opp),...vl.filter(v=>v.plat)]
+    .map(v=>({naam:`Dakvlak ${nr.get(v)} · ${v.plat?'plat':v.dir}`,dir:v.plat?'plat':v.dir,helling:v.helling,opp:v.opp}));
+  const vloer=Math.abs(polyArea(b.ring)),dakT=vl.reduce((s,v)=>s+v.opp,0);
+  const groepen=[{titel:'Gevels',sub:'Subtotaal gevels',rijen:gevels,tot:gv.totaal},
+    {titel:'Dak',sub:'Subtotaal dak',rijen:dak,tot:dakT},
+    {titel:'Vloer',sub:'Subtotaal vloer',rijen:[{naam:'Begane grondvloer',dir:'hor.',helling:0,opp:vloer}],tot:vloer}];
   const als=gv.totaal+dakT+vloer,v=b.vbos.length===1?+(b.vbos[0].p.oppervlakte||0):0;
-  return{rijen,gevel:gv.totaal,gedeeld:gv.gedeeld,dak:dakT,plat,vloer,als,inhoud:inh,ag:v||null,alsAg:v?als/v:null,vbos:b.vbos.length}
+  return{groepen,gevel:gv.totaal,gedeeld:gv.gedeeld,dak:dakT,vloer,als,inhoud:inh,ag:v||null,alsAg:v?als/v:null,vbos:b.vbos.length}
 }
+function oppTsv(o){const L=['Onderdeel\tOriëntatie\tHelling (°)\tOppervlak (m²)'],n=x=>fmt(x,1);
+  o.groepen.forEach(g=>{g.rijen.forEach(r=>L.push(`${r.naam}\t${r.dir||''}\t${fmt(r.helling,0)}\t${n(r.opp)}`));L.push(`${g.sub}\t\t\t${n(g.tot)}`)});
+  L.push(`Totaal verliesoppervlak\t\t\t${n(o.als)}`);if(o.gedeeld)L.push(`Gedeelde muur (niet meegeteld)\t\t\t${n(o.gedeeld)}`);
+  L.push(`Bruto inhoud (m³)\t\t\t${fmt(o.inhoud,0)}`);if(o.ag)L.push(`Gebruiksoppervlak BAG\t\t\t${fmt(o.ag,0)}`);return L.join('\n')}
 function renderOpp(){
   const el=$('bag-opp');if(!el)return;const b=selB();
-  if(!b){el.innerHTML='<p class="klein">—</p>';return}
+  if(!b){el.innerHTML='<p class="klein">Zoek een adres of klik op een pand.</p>';return}
   const o=oppervlaktes(b);
   if(!o){el.innerHTML=`<p class="klein">${b.h===undefined?'3D-model laden…':'Geen 3D-model beschikbaar: oppervlaktes niet te berekenen. Gebruik de tab Opmeten.'}</p>`;return}
-  const pill=r=>r.dir==='hor.'?'<span class="bag-pill" style="background:#9aa59f">hor.</span>':`<span class="bag-pill" style="background:${DCOL[r.dir]}">${r.dir}</span>`;
-  el.innerHTML=`<div class="bag-dakkpi"><div>Gevel<b>${fmt(o.gevel,1)} m²</b></div><div>Dak<b>${fmt(o.dak,1)} m²</b></div><div>Vloer BG<b>${fmt(o.vloer,1)} m²</b></div><div>Verliesopp.<b>${fmt(o.als,1)} m²</b></div><div>Bruto inhoud<b>${fmt(o.inhoud,0)} m³</b></div></div>
-    <table><thead><tr><th>Onderdeel</th><th>Oriëntatie</th><th>Helling</th><th>Oppervlak</th></tr></thead><tbody>
-    ${o.rijen.map(r=>`<tr><td>${r.soort}</td><td>${pill(r)}</td><td>${fmt(r.helling,0)}°</td><td><b>${fmt(r.opp,1)} m²</b></td></tr>`).join('')}
-    <tr><td><b>Totaal verliesoppervlak</b></td><td></td><td></td><td><b>${fmt(o.als,1)} m²</b></td></tr>
-    ${o.gedeeld?`<tr class="klein"><td>Gedeelde muur (telt niet mee)</td><td></td><td></td><td>${fmt(o.gedeeld,1)} m²</td></tr>`:''}</tbody></table>
-    <p class="klein">${o.ag?`Gebruiksoppervlak (BAG) ${fmt(o.ag,0)} m² · verhouding A<sub>ls</sub>/A<sub>g</sub> = ${fmt(o.alsAg,2)}. `:o.vbos>1?`Pand heeft ${o.vbos} verblijfsobjecten: oppervlaktes gelden voor het hele pand. `:''}Bruto oppervlaktes uit het 3D-model (incl. ramen en deuren; buitenwerks). Gevel per oriëntatie in 8 sectoren (NTA 8800). Indicatief: controleer ter plaatse of met de tab Opmeten.</p>`;
+  const pill=d=>!d?'':d==='hor.'||d==='plat'?`<span class="bag-pill" style="background:#9aa59f">${d}</span>`:`<span class="bag-pill" style="background:${DCOL[d]}">${d}</span>`;
+  el.innerHTML=`<table class="bag-mlijst">${o.groepen.map(g=>`<tr class="kop"><th colspan="3">${g.titel}</th></tr>
+      ${g.rijen.map(r=>`<tr><td>${esc(r.naam.replace(/ · .*/,''))} ${pill(r.dir)}</td><td class="klein">${r.dir&&r.dir!=='hor.'&&r.dir!=='plat'&&r.helling<89?fmt(r.helling,0)+'°':r.dir==='plat'?fmt(r.helling,0)+'°':''}</td><td class="m2">${fmt(r.opp,1)} m²</td></tr>`).join('')}
+      <tr class="sub"><td colspan="2">${g.sub}</td><td class="m2">${fmt(g.tot,1)} m²</td></tr>`).join('')}
+    <tr class="tot"><td colspan="2">Totaal verliesoppervlak (A<sub>ls</sub>)</td><td class="m2">${fmt(o.als,1)} m²</td></tr>
+    ${o.gedeeld?`<tr class="niet"><td colspan="2">Gedeelde muur — telt niet mee</td><td class="m2">${fmt(o.gedeeld,1)} m²</td></tr>`:''}
+    <tr class="kop"><th colspan="3">Overig</th></tr>
+    <tr><td colspan="2">Bruto inhoud</td><td class="m2">${fmt(o.inhoud,0)} m³</td></tr>
+    ${o.ag?`<tr><td colspan="2">Gebruiksoppervlak A<sub>g</sub> (BAG)</td><td class="m2">${fmt(o.ag,0)} m²</td></tr><tr><td colspan="2">Verhouding A<sub>ls</sub>/A<sub>g</sub></td><td class="m2">${fmt(o.alsAg,2)}</td></tr>`:''}
+    </table>
+    <div class="acties" style="margin:10px 0 4px"><button class="actie licht" type="button" id="bag-oppcopy">Kopieer m² (Excel)</button></div>
+    <p class="klein">${o.vbos>1?`Let op: pand heeft ${o.vbos} verblijfsobjecten — oppervlaktes gelden voor het hele pand. `:''}Bruto buitenwerkse m² uit het 3D-model (LoD2.2), gevels incl. ramen en deuren, dak = werkelijke schuine oppervlakte. Indicatief: controleer ter plaatse of met de tab Opmeten.</p>`;
+  $('bag-oppcopy').onclick=async()=>{try{await navigator.clipboard.writeText(oppTsv(o));$('bag-oppcopy').textContent='Gekopieerd ✓'}catch(e){$('bag-oppcopy').textContent='Kopiëren mislukt'}setTimeout(()=>{const k=$('bag-oppcopy');if(k)k.textContent='Kopieer m² (Excel)'},1800)};
 }
 const adrTxt=p=>`${p.openbare_ruimte||''} ${p.huisnummer||''}${p.huisletter||''}${p.toevoeging?'-'+p.toevoeging:''}`.trim();
 
@@ -1106,7 +1129,7 @@ function renderGevels(){renderTable();renderRose();renderRes();renderGroepen();r
 
 function renderMap(fit){
   if(!grp)return;grp.clearLayers();if(!S.blds.length)return;
-  const orient=S.tab==='orient';
+  const orient=S.tab!=='hoogte';
   S.blds.forEach(b=>{const ll=b.ring.map(c=>rd2wgs(c[0],c[1]));const h=relH(b);const sel=b.id===S.sel;
     L.polygon(ll,{color:sel?'#0B3D2E':'#fff',weight:sel?(orient?1:3):1,fillColor:orient?(sel?'#ffffff':'#e9ece9'):css(col(h)),fillOpacity:orient?(sel?.35:.45):(sel?.85:.6),interactive:false}).addTo(grp);
     if(!orient&&h!=null&&(sel||Math.abs(polyArea(b.ring))>40)){const c=centroid(b.ring);
@@ -1216,7 +1239,7 @@ function renderGroepen(){
 }
 function renderLegenda(){
   const el=$('bag-legenda');if(!el)return;
-  if(S.tab!=='orient'||!selB()){el.hidden=true;return}
+  if(S.tab==='hoogte'||!selB()){el.hidden=true;return}
   const gr=groepen();el.hidden=false;
   el.innerHTML=`<b>GEVELRICHTINGEN</b><div class="chips">${gr.filter(g=>g.dir!=='BEL').map(g=>`<span class="bag-chip${S.hlDir&&S.hlDir!==g.dir?' uit':''}" data-d="${g.dir}" style="border-color:${DCOL[g.dir]};color:${DCOL[g.dir]}">${g.dir}</span>`).join('')}</div>
     ${gr.some(g=>g.dir==='BEL')?'<div class="gd"><span style="letter-spacing:1px;color:#8a8f8c;font-weight:700">– –</span> gedeelde muur</div>':''}<div class="gd">➜ geselecteerde gevel</div>`;
@@ -1331,7 +1354,7 @@ function samenvatting(){
   const es=S.edges[S.eSel];if(es)L2.splice(L2.length-1,0,`Geselecteerde gevel: ${es.dir} (${Math.round(es.az)}°), ${fmt(es.len)} m${S.autoSel?' — meest zuidgerichte gevel':''}`,'');
   const gvs=gevelvlakken(b);
   groepen().forEach(g=>L2.push(g.dir==='BEL'?`Gedeelde muur: ${fmt(g.len)} m (${g.delen.length} delen, telt niet mee)`:`${g.dir}: ${fmt(g.len)} m (${g.delen.length} ${g.delen.length===1?'deel':'delen'}, ${g.azTxt})${gvs&&gvs.per[g.dir]?`, gevel ${fmt(gvs.per[g.dir],1)} m² (3D)`:''}`));
-  const op=oppervlaktes(b);if(op){L2.push('','Oppervlaktes schil (3D-model, bruto):');op.rijen.forEach(r=>L2.push(`${r.soort} ${r.dir}${r.soort==='Dak hellend'?' ('+fmt(r.helling,0)+'°)':''}: ${fmt(r.opp,1)} m²`));L2.push(`Totaal verliesoppervlak: ${fmt(op.als,1)} m²${op.gedeeld?` (gedeelde muur ${fmt(op.gedeeld,1)} m² niet meegeteld)`:''}`,`Bruto inhoud: ${fmt(op.inhoud,0)} m³`)}
+  const op=oppervlaktes(b);if(op){L2.push('','m² overzicht (3D-model, bruto):');op.groepen.forEach(g=>{g.rijen.forEach(r=>L2.push(`  ${r.naam}${r.dir&&r.dir!=='hor.'&&r.helling<89?' ('+fmt(r.helling,0)+'°)':''}: ${fmt(r.opp,1)} m²`));L2.push(`${g.sub}: ${fmt(g.tot,1)} m²`)});L2.push(`Totaal verliesoppervlak: ${fmt(op.als,1)} m²${op.gedeeld?` (gedeelde muur ${fmt(op.gedeeld,1)} m² niet meegeteld)`:''}`,`Bruto inhoud: ${fmt(op.inhoud,0)} m³`)}
   const vlk=vlakkenVan(b);if(vlk.length){L2.push('','Dakvlakken (3D-model):');vlk.forEach((v,i)=>L2.push(`${i+1}. ${v.plat?'plat':v.dir+' ('+Math.round(v.az)+'°)'}, helling ${fmt(v.helling,0)}°, ${fmt(v.opp,1)} m²${v.plat?'':`, goot ${fmt(v.goot)} m`}, top ${fmt(v.hoogte)} m`))}
   L2.push('','Geveldelen:');
   visible().forEach(({e,i})=>L2.push(`${i+1}. ${role(i)}: ${e.dir} (${Math.round(e.az)}°), ${fmt(e.len)} m`));
@@ -1420,8 +1443,8 @@ async function pdfGegevens(){
     lagenGeschat:h.lagenEst, route:hoogteRoute,
     dakvlakken:vlakkenVan(b).map((v,i)=>({nr:i+1,dir:v.plat?'plat':v.dir,az:v.plat?'-':Math.round(v.az)+'°',helling:fmt(v.helling,0)+'°',opp:fmt(v.opp,1)+' m²',hoogte:fm(v.hoogte),goot:v.plat?'-':fm(v.goot),kleur:v.plat?'#9aa59f':DCOL[v.dir]})),
     dakTotaal:vlakkenVan(b).reduce((s,v)=>s+v.opp,0),
-    opp:(()=>{const o=oppervlaktes(b);if(!o)return null;return{...o,rijen:o.rijen.map(r=>({soort:r.soort,dir:r.dir,helling:fmt(r.helling,0)+'°',opp:fmt(r.opp,1)+' m²',kleur:r.dir==='hor.'?'#9aa59f':DCOL[r.dir]})),
-      txt:{gevel:fmt(o.gevel,1)+' m²',dak:fmt(o.dak,1)+' m²',vloer:fmt(o.vloer,1)+' m²',als:fmt(o.als,1)+' m²',inhoud:fmt(o.inhoud,0)+' m³',gedeeld:o.gedeeld?fmt(o.gedeeld,1)+' m²':null,ag:o.ag?fmt(o.ag,0)+' m²':null,alsAg:o.alsAg?fmt(o.alsAg,2):null}}})()
+    opp:(()=>{const o=oppervlaktes(b);if(!o)return null;const n=x=>fmt(x,1)+' m²';return{vbos:o.vbos,groepen:o.groepen.map(g=>({titel:g.titel,sub:g.sub,tot:n(g.tot),rijen:g.rijen.map(r=>({naam:r.naam,dir:r.dir||'',helling:r.dir&&r.dir!=='hor.'&&r.helling<89?fmt(r.helling,0)+'°':'',opp:n(r.opp),kleur:!r.dir||r.dir==='hor.'||r.dir==='plat'?'#6b7a73':DCOL[r.dir]}))})),
+      txt:{gevel:n(o.gevel),dak:n(o.dak),vloer:n(o.vloer),als:n(o.als),inhoud:fmt(o.inhoud,0)+' m³',gedeeld:o.gedeeld?n(o.gedeeld):null,ag:o.ag?fmt(o.ag,0)+' m²':null,alsAg:o.alsAg?fmt(o.alsAg,2):null}}})()
   };
 }
 
@@ -2393,34 +2416,6 @@ function pandPaginas(doc, pd){
     y = doc.lastAutoTable.finalY + 7;
     if(y + 30 > PONDER){ doc.addPage(); y = 18; }
   }
-  if(pd.opp){
-    if(y + 60 > PONDER){ doc.addPage(); y = 18; }
-    const o = pd.opp, t = o.txt;
-    y = pdfSectie(doc, 'Oppervlaktes schil (3D-model, bruto)', PM, y, PBR);
-    const kk = [['GEVEL',t.gevel],['DAK',t.dak],['VLOER BG',t.vloer],['VERLIESOPP.',t.als],['BRUTO INHOUD',t.inhoud]], kw = (PBR-12)/5;
-    kk.forEach((k,i) => { const x = PM + i*(kw+3);
-      doc.setFillColor(241,244,242); doc.roundedRect(x, y, kw, 12, 2, 2, 'F');
-      doc.setFont('helvetica','bold'); doc.setFontSize(6); doc.setTextColor(107,122,115); doc.text(k[0], x+2.5, y+4.2);
-      doc.setFontSize(10.5); doc.setTextColor(29,42,34); doc.text(pdfTekst(k[1]), x+2.5, y+9.8); });
-    y += 16;
-    const body = o.rijen.map(r => [r.soort, r.dir, pdfTekst(r.helling), pdfTekst(r.opp)]);
-    body.push(['Totaal verliesoppervlak', '', '', pdfTekst(t.als)]);
-    if(t.gedeeld) body.push(['Gedeelde muur (telt niet mee)', '', '', pdfTekst(t.gedeeld)]);
-    const nR = o.rijen.length;
-    doc.autoTable({...tabStijl, startY: y, margin:{left:PM, right:PM, bottom:24},
-      head:[['Onderdeel','Oriëntatie','Helling','Oppervlak']], body,
-      columnStyles:{1:{fontStyle:'bold'}, 2:{halign:'right'}, 3:{halign:'right'}},
-      didParseCell: c => { if(c.section!=='body') return;
-        if(c.row.index < nR && c.column.index===1) c.cell.styles.textColor = HEX(o.rijen[c.row.index].kleur);
-        if(c.row.index === nR){ c.cell.styles.fontStyle='bold'; c.cell.styles.fillColor = HEX('#eef7ef'); }
-        if(c.row.index > nR) c.cell.styles.textColor = HEX('#6b7a73'); }
-    });
-    y = doc.lastAutoTable.finalY + 3;
-    doc.setFont('helvetica','normal'); doc.setFontSize(7.2); doc.setTextColor(107,122,115);
-    const nt = doc.splitTextToSize(pdfTekst((t.ag ? 'Gebruiksoppervlak (BAG) ' + t.ag + ' · Als/Ag = ' + t.alsAg + '. ' : o.vbos > 1 ? 'Pand heeft ' + o.vbos + ' verblijfsobjecten: oppervlaktes gelden voor het hele pand. ' : '') + 'Bruto buitenwerkse oppervlaktes incl. ramen en deuren, uit het 3D-model; gevel per oriëntatie in 8 sectoren (NTA 8800). Indicatief, controleer ter plaatse.'), PBR);
-    doc.text(nt, PM, y+2.5); y += 3.2*nt.length + 6;
-    if(y + 30 > PONDER){ doc.addPage(); y = 18; }
-  }
   y = pdfSectie(doc, 'Panden in de omgeving', PM, y, PBR);
   doc.autoTable({...tabStijl, startY: y, margin:{left:PM, right:PM, bottom:24},
     head:[['Adres / pand','Bouwjaar','Nok','Hoogte 70%']],
@@ -2430,6 +2425,48 @@ function pandPaginas(doc, pd){
   });
   y = doc.lastAutoTable.finalY + 6;
   pdfDisclaimer(doc, y, 'Hoogtes t.o.v. maaiveld en indicatief, uit de 3D BAG (TU Delft / 3DGI, gereconstrueerd uit de AHN-puntenwolk)' + (pd.route==='pdok' ? ', via de 3D Tiles van de Kadaster 3D Basisvoorziening (PDOK); nok = hoogste nok of dakpunt' : pd.route==='tegels' ? ', via de LoD1.3-tegels (nok en maaiveld daarin niet beschikbaar)' : '') + '. Recente nieuwbouw of verbouw kan afwijken.' + (pd.lagenGeschat ? ' Bouwlagen zijn geschat (ca. 3 m per laag).' : '') + ' BAG-gegevens: Kadaster via PDOK.');
+  if(pd.opp) oppPagina(doc, pd, meta);
+}
+function oppPagina(doc, pd, meta){
+  const o = pd.opp, t = o.txt;
+  doc.addPage();
+  let y = pdfKop(doc, 'Pand analyse — m2 overzicht', pd.adres);
+  y = pdfMeta(doc, y, meta);
+  const kk = [['GEVELS',t.gevel],['DAK',t.dak],['VLOER BG',t.vloer],['VERLIESOPP. (ALS)',t.als],['BRUTO INHOUD',t.inhoud]], kw = (PBR-12)/5;
+  kk.forEach((k,i) => { const x = PM + i*(kw+3);
+    doc.setFillColor(i===3?231:241, i===3?243:244, i===3?232:242); doc.roundedRect(x, y, kw, 14, 2, 2, 'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(6.2); doc.setTextColor(107,122,115); doc.text(k[0], x+3, y+4.6);
+    doc.setFontSize(12); doc.setTextColor(29,42,34); doc.text(pdfTekst(k[1]), x+3, y+11.2); });
+  y += 21;
+  const body = [], stijl = [];
+  o.groepen.forEach(g => {
+    body.push([{content:g.titel.toUpperCase(), colSpan:4}]); stijl.push('kop');
+    g.rijen.forEach(r => { body.push([pdfTekst(r.naam), r.dir, pdfTekst(r.helling), pdfTekst(r.opp)]); stijl.push(r.kleur); });
+    body.push([{content:g.sub, colSpan:3}, pdfTekst(g.tot)]); stijl.push('sub');
+  });
+  body.push([{content:'Totaal verliesoppervlak (Als)', colSpan:3}, pdfTekst(t.als)]); stijl.push('tot');
+  if(t.gedeeld){ body.push([{content:'Gedeelde muur - telt niet mee', colSpan:3}, pdfTekst(t.gedeeld)]); stijl.push('niet'); }
+  body.push([{content:'OVERIG', colSpan:4}]); stijl.push('kop');
+  body.push([{content:'Bruto inhoud', colSpan:3}, pdfTekst(t.inhoud)]); stijl.push('');
+  if(t.ag){ body.push([{content:'Gebruiksoppervlak Ag (BAG)', colSpan:3}, pdfTekst(t.ag)]); stijl.push('');
+            body.push([{content:'Verhouding Als/Ag', colSpan:3}, t.alsAg]); stijl.push(''); }
+  doc.autoTable({theme:'plain', startY:y, margin:{left:PM, right:PM, bottom:24},
+    styles:{font:'helvetica', fontSize:9, cellPadding:{top:1.6,bottom:1.6,left:2,right:2}, textColor:[29,42,34], lineColor:[227,235,229], lineWidth:{bottom:0.2}},
+    head:[['Onderdeel','Oriëntatie','Helling','Oppervlak']],
+    headStyles:{fillColor:HEX('#0B3D2E'), textColor:[255,255,255], fontStyle:'bold'},
+    body,
+    columnStyles:{1:{cellWidth:26, fontStyle:'bold'}, 2:{cellWidth:22, halign:'right'}, 3:{cellWidth:32, halign:'right'}},
+    didParseCell: c => { if(c.section!=='body') return; const s = stijl[c.row.index];
+      if(s==='kop'){ c.cell.styles.fillColor = HEX('#e7f3e8'); c.cell.styles.textColor = HEX('#0B3D2E'); c.cell.styles.fontStyle='bold'; c.cell.styles.fontSize = 7.6; }
+      else if(s==='sub'){ c.cell.styles.fontStyle='bold'; c.cell.styles.lineWidth = {bottom:0.5}; c.cell.styles.lineColor = HEX('#cfdcd2'); if(c.column.index>0) c.cell.styles.halign='right'; }
+      else if(s==='tot'){ c.cell.styles.fontStyle='bold'; c.cell.styles.fontSize = 10.5; c.cell.styles.fillColor = HEX('#eef7ef'); c.cell.styles.textColor = HEX('#0B3D2E'); if(c.column.index>0) c.cell.styles.halign='right'; }
+      else if(s==='niet'){ c.cell.styles.textColor = HEX('#6b7a73'); c.cell.styles.fontStyle='italic'; if(c.column.index>0) c.cell.styles.halign='right'; }
+      else if(s===''){ if(c.column.index>0) c.cell.styles.halign='right'; }
+      else if(c.column.index===1) c.cell.styles.textColor = HEX(s);
+    }
+  });
+  y = doc.lastAutoTable.finalY + 6;
+  pdfDisclaimer(doc, y, (o.vbos > 1 ? 'Let op: het pand heeft ' + o.vbos + ' verblijfsobjecten; de oppervlaktes gelden voor het hele pand. ' : '') + 'Bruto buitenwerkse oppervlaktes uit het 3D-model (3D BAG LoD2.2 via PDOK): gevels incl. ramen en deuren, per oriëntatie in 8 sectoren (NTA 8800); dak = werkelijke schuine oppervlakte per dakvlak; vloer = BAG-footprint. Indicatief, controleer ter plaatse.');
 }
 
 function meetPaginas(doc, md){
