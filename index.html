@@ -338,6 +338,11 @@ body.tab-bag .wrap{max-width:1180px}
 #bag .isde-x2{background:#1e7a3c;color:#fff;border-radius:8px;padding:1px 7px;font-size:.72rem;margin-left:6px}
 #bag .isde-box{background:#ecf8ef;border:1px solid #9fd5ae;border-radius:10px;padding:8px 12px;margin:10px 0;font-size:.8rem}
 #bag .isde-box ul{margin:4px 0 0 18px;padding:0}#bag .isde-box li{margin:2px 0}
+.hoofdtabs .topknop.topinst{padding:11px 12px;margin-left:-2px;background:#2f9e3e}
+.pdf-inhoud{position:fixed;z-index:2000;background:#fff;border:1px solid #cfdcd2;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:10px 14px;min-width:250px;font-size:.88rem}
+.pdf-inhoud b{display:block;margin:0 0 6px;color:#0B3D2E}
+.pdf-inhoud label{display:flex;gap:8px;align-items:center;padding:4px 0;cursor:pointer}
+.pdf-inhoud small{display:block;color:#6b7a73;margin-top:6px;font-size:.72rem}
 #vbs{
   --bg:#F2F4F3; --surface:#FFFFFF; --ink:#18232A; --muted:#5A6870; --line:#D5DCDE; --soft:#E9EEEE;
   --accent:#5B2D86; --accent-ink:#FFFFFF; --accent-soft:#EFE8F6;
@@ -1266,7 +1271,7 @@ function isdeBereken(b,regels){
 const PV_OPBR={Z:950,ZO:910,ZW:910,O:820,W:820,plat:860};   /* kWh per kWp per jaar (indicatief) */
 const ramS=(()=>{let o={};try{o=JSON.parse(localStorage.getItem('ee_raming2')||'{}')}catch(e){}
   return{isde:o.isde||{},isdeWp:o.isdeWp||{},glasDir:o.glasDir||{},glas:o.glas??20,verlies:o.verlies??5,btw:o.btw??true,aanpak:o.aanpak||'enk',prijs:o.prijs||{},code:o.code||{},type:null,grootte:null,
-    aan:{vloer:true,hrpp:true,pvh:true,pvp:true},hoev:{}}})();
+    aan:{},hoev:{}}})();
 const ramBewaar=()=>{try{localStorage.setItem('ee_raming2',JSON.stringify({isde:ramS.isde,isdeWp:ramS.isdeWp,glasDir:ramS.glasDir,glas:ramS.glas,verlies:ramS.verlies,btw:ramS.btw,aanpak:ramS.aanpak,prijs:ramS.prijs,code:ramS.code}))}catch(e){}};
 function ramVariant(b){
   const meer=b.vbos.filter(v=>/woon/.test(v.p.gebruiksdoel||'woon')).length>1,type=ramS.type||(meer?'mgw':'egw');
@@ -2823,7 +2828,13 @@ function pdfDisclaimer(doc, y, tekst){
   return y + disc.length*3.3;
 }
 
+/* ---- welke onderdelen standaard in de PDF (per browser onthouden) ---- */
+const PDF_DEELS=[['beslis',"Beslisschema's"],['orient','Pand analyse – oriëntatie'],['hoogte','Pand analyse – hoogtes en dakvlakken'],['opp','m² overzicht'],['raming','Kostenraming + ISDE'],['meet','Opmeting plattegrond']];
+const PDFI=(()=>{const std={beslis:true,orient:true,hoogte:true,opp:true,raming:false,meet:true};try{return{...std,...JSON.parse(localStorage.getItem('ee_pdf_inhoud')||'{}')}}catch(e){return std}})();
+const pdfiBewaar=()=>{try{localStorage.setItem('ee_pdf_inhoud',JSON.stringify(PDFI))}catch(e){}};
+function pg(doc){ if(doc.__gebruikt) doc.addPage(); doc.__gebruikt = true; }
 function beslisPaginas(doc){
+  pg(doc);
   const d = new Date();
   let y = pdfKop(doc, "Beslisschema's ISSO 82.1", 'Verslag per ruimte · 7e druk');
   y = pdfMeta(doc, y, [['PROJECTNUMMER',$('projnr').value||'-'],['ADRES / COMPLEX',$('project').value||'-'],['EP-ADVISEUR',$('adviseur').value||'-'],['DATUM',d.toLocaleDateString('nl-NL')]]);
@@ -2885,8 +2896,11 @@ function pandPaginas(doc, pd){
   const tabStijl = {theme:'grid', styles:{font:'helvetica', fontSize:8.5, cellPadding:1.6, lineColor:[214,226,216], lineWidth:0.2, textColor:[29,42,34]},
     headStyles:{fillColor:HEX('#e7f3e8'), textColor:HEX('#0B3D2E'), fontStyle:'bold'}};
 
+  let y = 0;
+  if(PDFI.orient){
   /* --- pagina: oriëntatie --- */
-  let y = pdfKop(doc, 'Pand analyse — oriëntatie', pd.adres);
+  pg(doc);
+  y = pdfKop(doc, 'Pand analyse — oriëntatie', pd.adres);
   y = pdfMeta(doc, y, meta);
   const kn = pd.kpi.length, kb = (PBR-3*(kn-1))/kn;
   pd.kpi.forEach((k,i) => {
@@ -2935,8 +2949,10 @@ function pandPaginas(doc, pd){
   y = doc.lastAutoTable.finalY + 6;
   pdfDisclaimer(doc, y, 'Azimut = richting loodrecht op de gevel naar buiten t.o.v. het ware noorden; indeling in 8 sectoren van 45° conform NTA 8800. Gedeelde muren (tegen een ander BAG-pand, automatisch herkend of door de adviseur aangewezen) tellen niet mee. Geometrie op basis van de BAG-pandcontour (Kadaster via PDOK); ter plaatse te controleren.');
 
+  }
+  if(PDFI.hoogte){
   /* --- pagina: hoogtes --- */
-  doc.addPage();
+  pg(doc);
   y = pdfKop(doc, 'Pand analyse — hoogtes', pd.adres);
   y = pdfMeta(doc, y, meta);
   if(pd.img3d){
@@ -3004,12 +3020,13 @@ function pandPaginas(doc, pd){
   });
   y = doc.lastAutoTable.finalY + 6;
   pdfDisclaimer(doc, y, 'Hoogtes t.o.v. maaiveld en indicatief, uit de 3D BAG (TU Delft / 3DGI, gereconstrueerd uit de AHN-puntenwolk)' + (pd.route==='pdok' ? ', via de 3D Tiles van de Kadaster 3D Basisvoorziening (PDOK); nok = hoogste nok of dakpunt' : pd.route==='tegels' ? ', via de LoD1.3-tegels (nok en maaiveld daarin niet beschikbaar)' : '') + '. Recente nieuwbouw of verbouw kan afwijken.' + (pd.lagenGeschat ? ' Bouwlagen zijn geschat (ca. 3 m per laag).' : '') + ' BAG-gegevens: Kadaster via PDOK.');
-  if(pd.opp) oppPagina(doc, pd, meta);
-  if(pd.raming) ramingPagina(doc, pd, meta);
+  }
+  if(pd.opp && PDFI.opp) oppPagina(doc, pd, meta);
+  if(pd.raming && PDFI.raming) ramingPagina(doc, pd, meta);
 }
 function ramingPagina(doc, pd, meta){
   const r = pd.raming;
-  doc.addPage();
+  pg(doc);
   let y = pdfKop(doc, 'Kostenraming verduurzaming (indicatief)', pd.adres);
   y = pdfMeta(doc, y, meta);
   const tab = {theme:'grid', styles:{font:'helvetica', fontSize:8.6, cellPadding:1.8, lineColor:[214,226,216], lineWidth:0.2, textColor:[29,42,34]},
@@ -3039,7 +3056,7 @@ function ramingPagina(doc, pd, meta){
 }
 function oppPagina(doc, pd, meta){
   const o = pd.opp, t = o.txt;
-  doc.addPage();
+  pg(doc);
   let y = pdfKop(doc, 'Pand analyse — m2 overzicht', pd.adres);
   y = pdfMeta(doc, y, meta);
   const kk = [['GEVELS',t.gevel],['DAK',t.dak],['VLOER BG',t.vloer],['VERLIESOPP. (ALS)',t.als],['BRUTO INHOUD',t.inhoud]], kw = (PBR-12)/5;
@@ -3086,7 +3103,7 @@ function meetPaginas(doc, md){
     headStyles:{fillColor:HEX('#e7f3e8'), textColor:HEX('#0B3D2E'), fontStyle:'bold', halign:'right'}};
   const kop = ['Ruimte','Vloer m2','Omtrek m','Hoogte m','Wand bruto m2','Ramen/deuren m2','Wand netto m2','Plafond m2','Ag'];
   md.bladen.forEach((b, bi) => {
-    if(bi) doc.addPage();
+    pg(doc);
     let y = pdfKop(doc, 'Opmeting plattegrond — ' + b.naam, 'Ruimtestaat (indicatief)');
     y = pdfMeta(doc, y, meta);
     if(b.afb){ const maxH = 105; let w = PBR, h = w * b.afb.h / b.afb.w; if(h > maxH){ h = maxH; w = h * b.afb.w / b.afb.h; }
@@ -3121,9 +3138,10 @@ function maakPdf(pd){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({unit:'mm', format:'a4'});
   const md = window.__meetPdf || null;
-  if(log.length) beslisPaginas(doc);
-  if(pd){ if(log.length) doc.addPage(); pandPaginas(doc, pd); }
-  if(md){ if(log.length || pd) doc.addPage(); meetPaginas(doc, md); }
+  if(log.length && PDFI.beslis) beslisPaginas(doc);
+  if(pd && (PDFI.orient || PDFI.hoogte || (pd.opp && PDFI.opp) || (pd.raming && PDFI.raming))) pandPaginas(doc, pd);
+  if(md && PDFI.meet) meetPaginas(doc, md);
+  if(!doc.__gebruikt){ doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.text('Geen onderdelen gekozen voor de PDF (zie ⚙ naast PDF downloaden).', PM, 30); }
 
   // voettekst op elke pagina
   const n = doc.getNumberOfPages();
@@ -3323,6 +3341,16 @@ function kiesTab(t){
 }
 document.querySelectorAll('.hoofdtabs [data-tab]').forEach(b => b.onclick = () => kiesTab(b.dataset.tab));
 function topMelding(soort, tekst){ const el = $('top-melding'); el.className = 'top-melding ' + soort; el.textContent = tekst; el.hidden = false; clearTimeout(el._t); el._t = setTimeout(() => { el.hidden = true; }, 5000); }
+(function(){
+  const k = $('top-pdf'); if(!k) return;
+  const b = document.createElement('button'); b.type='button'; b.className='topknop topinst'; b.id='top-pdfinst'; b.title='Kies wat standaard in de PDF komt'; b.textContent='⚙';
+  k.insertAdjacentElement('afterend', b);
+  const p = document.createElement('div'); p.id='pdf-inhoud'; p.className='pdf-inhoud'; p.hidden=true; document.body.appendChild(p);
+  const teken = () => { p.innerHTML = '<b>Standaard in de PDF</b>' + PDF_DEELS.map(([k2,t]) => `<label><input type="checkbox" data-pdfi="${k2}"${PDFI[k2]?' checked':''}> ${t}</label>`).join('') + '<small>Wordt onthouden in deze browser. Onderdelen zonder gegevens worden overgeslagen.</small>';
+    p.querySelectorAll('[data-pdfi]').forEach(c => c.onchange = () => { PDFI[c.dataset.pdfi] = c.checked; pdfiBewaar(); }); };
+  b.onclick = e => { e.stopPropagation(); teken(); const r = b.getBoundingClientRect(); p.style.top = (r.bottom + 6) + 'px'; p.style.right = Math.max(8, innerWidth - r.right) + 'px'; p.hidden = !p.hidden; };
+  document.addEventListener('click', e => { if(!p.hidden && !p.contains(e.target) && e.target !== b) p.hidden = true; });
+})();
 $('top-pdf').onclick = async () => {
   if(!ietsInPdf()){ topMelding('fout', 'Nog niets om in de PDF te zetten: leg een beslisschema vast, zoek een pand op of teken een plattegrond in.'); return; }
   const k = $('top-pdf'); k.disabled = true; const oud = k.innerHTML; k.textContent = '⏳ PDF maken…';
