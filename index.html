@@ -202,6 +202,10 @@ body.tab-bag .wrap{max-width:1180px}
 .bag-groep .bar{grid-column:1/4;height:5px;border-radius:3px;background:var(--bg)}
 .bag-groep .bar i{display:block;height:100%;border-radius:3px}
 .bag-groep .bag-chip{min-width:44px}
+.bag-dakkpi{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
+.bag-dakkpi div{background:var(--bg);border-radius:8px;padding:6px 8px;font-size:.7rem;color:var(--grijs)}
+.bag-dakkpi b{display:block;font-size:1rem;color:var(--tekst)}
+@media(max-width:560px){.bag-dakkpi{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
@@ -318,6 +322,10 @@ body.tab-bag .wrap{max-width:1180px}
             <h2 style="margin-top:14px">Kleurschaal hoogte</h2>
             <div class="bag-legend" id="bag-leg"></div><div><span>0 m</span><span id="bag-legMax">60 m</span></div>
             <p class="klein">Alle hoogtes uit de <b>3D BAG</b> (TU Delft / 3DGI): per pand gereconstrueerd uit de AHN-puntenwolk, t.o.v. maaiveld. 70% = representatieve dakhoogte; nok = hoogste punt dak. Recente nieuwbouw kan ontbreken.</p>
+          </div>
+          <div class="kaart">
+            <h2>Dakvlakken (3D-model)</h2>
+            <div id="bag-dak"><p class="klein">—</p></div>
           </div>
           <div class="kaart">
             <h2>Panden in de buurt</h2>
@@ -531,66 +539,121 @@ const TILES3D='https://api.pdok.nl/kadaster/3d-basisvoorziening/ogc/v1/collectio
 const tsCache={},glbCache={};
 async function jsonVan(u){if(!tsCache[u])tsCache[u]=fetch(u).then(r=>{if(!r.ok)throw new Error('3D tiles '+r.status);return r.json()}).catch(e=>{delete tsCache[u];throw e});return tsCache[u]}
 async function laadMeshopt(){if(window.MeshoptDecoder)return MeshoptDecoder.ready;throw new Error('meshopt-decoder niet geladen')}
+const I4=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];
+const mul4=(a,b)=>{const o=new Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++){let s=0;for(let k=0;k<4;k++)s+=a[k*4+r]*b[c*4+k];o[c*4+r]=s}return o};
+function ecef2lla(x,y,z){const a=6378137,f=1/298.257223563,e2=f*(2-f),b=a*(1-f),ep2=(a*a-b*b)/(b*b),p=Math.hypot(x,y),th=Math.atan2(z*a,p*b);
+  const lon=Math.atan2(y,x),lat=Math.atan2(z+ep2*b*Math.sin(th)**3,p-e2*a*Math.cos(th)**3),N=a/Math.sqrt(1-e2*Math.sin(lat)**2);return[lat*180/Math.PI,lon*180/Math.PI,p/Math.cos(lat)-N]}
 async function viaPdok3d(x,y,r){
   await laadMeshopt();
   const hk=[[x-r,y-r],[x+r,y+r],[x-r,y+r],[x+r,y-r]].map(c=>rd2wgs(c[0],c[1]).map(v=>v*Math.PI/180));
   const la0=Math.min(...hk.map(c=>c[0])),la1=Math.max(...hk.map(c=>c[0])),lo0=Math.min(...hk.map(c=>c[1])),lo1=Math.max(...hk.map(c=>c[1]));
   const raakt=b=>b&&b.region&&b.region[0]<=lo1&&b.region[2]>=lo0&&b.region[1]<=la1&&b.region[3]>=la0;
-  const glbs=new Set(),dirOf=u=>u.replace(/[^/]*$/,'');
-  async function walk(node,dir){
+  const glbs=new Map(),dirOf=u=>u.replace(/[^/]*$/,'');
+  async function walk(node,dir,M){
     if(!raakt(node.boundingVolume))return;
+    const M2=node.transform?mul4(M,node.transform):M;
     const c=node.content&&node.content.uri;
-    if(c&&/\.json$/.test(c)){const u=dir+c;const j=await jsonVan(u);return walk(j.root,dirOf(u))}
+    if(c&&/\.json$/.test(c)){const u=dir+c;const j=await jsonVan(u);return walk(j.root,dirOf(u),M2)}
     const kids=(node.children||[]).filter(k=>raakt(k.boundingVolume));
-    if(kids.length){await Promise.all(kids.map(k=>walk(k,dir)));return}
-    if(c)glbs.add(dir+c);
+    if(kids.length){await Promise.all(kids.map(k=>walk(k,dir,M2)));return}
+    if(c)glbs.set(dir+c,M2);
   }
   const root=await jsonVan(TILES3D+'?f=json');
-  await walk(root.root,TILES3D+'/');
+  await walk(root.root,TILES3D+'/',I4);
   if(!glbs.size)throw new Error('geen 3D-tegel gevonden');
   if(glbs.size>6)throw new Error('te veel 3D-tegels ('+glbs.size+')');
-  const uit={};
-  await Promise.all([...glbs].map(async u=>{
-    if(!glbCache[u])glbCache[u]=fetch(u).then(r=>{if(!r.ok)throw new Error('glb '+r.status);return r.arrayBuffer()}).then(leesGlbTabel).catch(e=>{delete glbCache[u];throw e});
-    const tab=await glbCache[u];Object.assign(uit,tab);
+  const tabel={},geom={};
+  await Promise.all([...glbs].map(async([u,M])=>{
+    if(!glbCache[u])glbCache[u]=fetch(u).then(r=>{if(!r.ok)throw new Error('glb '+r.status);return r.arrayBuffer()}).then(b=>leesGlb(b,M)).catch(e=>{delete glbCache[u];throw e});
+    const t=await glbCache[u];Object.assign(tabel,t.tabel);
+    for(const k in t.geom)if(!geom[k]||t.geom[k].n>geom[k].n)geom[k]=t.geom[k];
   }));
-  if(!Object.keys(uit).length)throw new Error('geen panden in 3D-tegels');
-  return uit;
+  if(!Object.keys(tabel).length)throw new Error('geen panden in 3D-tegels');
+  // nok uit het 3D-model: hoogste modelpunt t.o.v. de onderkant van het pand
+  for(const k in tabel){const g=geom[k];if(g&&tabel[k].b3_h_maaiveld!=null){const nk=tabel[k].b3_h_maaiveld+(g.zmax-g.zmin);if(nk>tabel[k].b3_h_maaiveld+0.5)tabel[k].b3_h_dak_max=nk}}
+  return{tabel,geom};
 }
-function leesGlbTabel(buf){
+function leesGlb(buf,Mt){
   const dv=new DataView(buf),jl=dv.getUint32(12,true),js=JSON.parse(new TextDecoder().decode(new Uint8Array(buf,20,jl))),bin=20+jl+8;
   const view=i=>{const v=js.bufferViews[i],e=v.extensions&&v.extensions.EXT_meshopt_compression;
     if(!e)return new Uint8Array(buf,bin+(v.byteOffset||0),v.byteLength).slice();
     const out=new Uint8Array(e.count*e.byteStride);MeshoptDecoder.decodeGltfBuffer(out,e.count,e.byteStride,new Uint8Array(buf,bin+(e.byteOffset||0),e.byteLength),e.mode,e.filter);return out.slice(0,v.byteLength)};
-  const tabel=(((js.extensions||{}).EXT_structural_metadata||{}).propertyTables||[])[0];if(!tabel)return{};
-  const P=tabel.properties,ND=3e38;
+  const tabelDef=(((js.extensions||{}).EXT_structural_metadata||{}).propertyTables||[])[0];if(!tabelDef)return{tabel:{},geom:{}};
+  const P=tabelDef.properties,ND=3e38;
   const f32=k=>P[k]?new Float32Array(view(P[k].values).buffer):null;
   const strs=k=>{if(!P[k])return[];const offs=new Uint32Array(view(P[k].stringOffsets).buffer),bytes=view(P[k].values),td=new TextDecoder(),o=[];for(let i=0;i<offs.length-1;i++)o.push(td.decode(bytes.subarray(offs[i],offs[i+1])));return o};
-  const ids=strs('identificatie'),rt=strs('rf_roof_type');
+  const ids=strs('identificatie').map(id=>id.replace('NL.IMBAG.Pand.','')),rt=strs('rf_roof_type');
   const g=f32('rf_h_ground'),nok=f32('rf_h_roof_ridge'),mx=f32('rf_roof_elevation_max'),p70=f32('rf_roof_elevation_70p'),p50=f32('rf_roof_elevation_50p'),mn=f32('rf_roof_elevation_min');
   const ok=(a,i)=>a&&a[i]<ND&&a[i]>-100?a[i]:null;
-  const uit={};
-  ids.forEach((id,i)=>{const k=id.replace('NL.IMBAG.Pand.','');const mv=ok(g,i);if(mv==null)return;
+  const tabel={};
+  ids.forEach((k,i)=>{const mv=ok(g,i);if(mv==null)return;
     let top=ok(nok,i);const m=ok(mx,i);if(top==null||top<mv+0.5||(m!=null&&top>m+3))top=m;
     const o={b3_h_maaiveld:mv,b3_h_dak_max:top,b3_h_dak_70p:ok(p70,i),b3_h_dak_50p:ok(p50,i),b3_h_dak_min:ok(mn,i),b3_dak_type:(rt[i]||'').replace(/ /g,'_')||null,bron:'3D BAG',route:'pdok'};
-    if(o.b3_h_dak_70p!=null||o.b3_h_dak_max!=null)uit[k]=o});
-  return uit;
+    if(o.b3_h_dak_70p!=null||o.b3_h_dak_max!=null)tabel[k]=o});
+  /* --- geometrie (LoD2.2) per pand, omgerekend naar RD + hoogte --- */
+  const geom={};
+  try{
+    const lees=(ai,comps)=>{const A=js.accessors[ai],bv=js.bufferViews[A.bufferView],raw=view(A.bufferView),d=new DataView(raw.buffer),ct=A.componentType;
+      const sz={5120:1,5121:1,5122:2,5123:2,5125:4,5126:4}[ct],st=bv.byteStride||sz*comps,off=A.byteOffset||0,out=new Float64Array(A.count*comps);
+      const rd=ct===5126?o=>d.getFloat32(o,true):ct===5125?o=>d.getUint32(o,true):ct===5123?o=>d.getUint16(o,true):ct===5122?o=>d.getInt16(o,true):ct===5121?o=>d.getUint8(o):o=>d.getInt8(o);
+      const nrm=A.normalized?({5122:32767,5120:127,5123:65535,5121:255}[ct]||1):1;
+      for(let i=0;i<A.count;i++)for(let c=0;c<comps;c++)out[i*comps+c]=rd(off+i*st+c*sz)/nrm;return out};
+    js.nodes.forEach(nd=>{if(nd.mesh==null)return;const Mn=nd.matrix||I4;
+      js.meshes[nd.mesh].primitives.forEach(pr=>{
+        if(pr.attributes._FEATURE_ID_0==null||pr.indices==null||(pr.mode!=null&&pr.mode!==4))return;
+        const pos=lees(pr.attributes.POSITION,3),fid=lees(pr.attributes._FEATURE_ID_0,1),idx=lees(pr.indices,1),nv=fid.length;
+        const cache=new Float64Array(nv*3),done=new Uint8Array(nv);
+        const conv=v=>{if(done[v])return;done[v]=1;const q0=pos[v*3],q1=pos[v*3+1],q2=pos[v*3+2];
+          const gx=Mn[0]*q0+Mn[4]*q1+Mn[8]*q2+Mn[12],gy=Mn[1]*q0+Mn[5]*q1+Mn[9]*q2+Mn[13],gz=Mn[2]*q0+Mn[6]*q1+Mn[10]*q2+Mn[14];
+          const zx=gx,zy=-gz,zz=gy;  // glTF y-up -> 3D Tiles z-up
+          const ex=Mt[0]*zx+Mt[4]*zy+Mt[8]*zz+Mt[12],ey=Mt[1]*zx+Mt[5]*zy+Mt[9]*zz+Mt[13],ez=Mt[2]*zx+Mt[6]*zy+Mt[10]*zz+Mt[14];
+          const[la,lo,h]=ecef2lla(ex,ey,ez),rdp=wgs2rd(la,lo);cache[v*3]=rdp[0];cache[v*3+1]=rdp[1];cache[v*3+2]=h};
+        const per={};
+        for(let t=0;t+2<idx.length;t+=3){const a=idx[t],b=idx[t+1],c=idx[t+2],f=fid[a];const k=ids[f];if(!k)continue;(per[k]=per[k]||[]).push(a,b,c)}
+        for(const k in per){const L=per[k],tri=new Float64Array(L.length*3);let zmin=1e9,zmax=-1e9;
+          L.forEach((v,j)=>{conv(v);tri[j*3]=cache[v*3];tri[j*3+1]=cache[v*3+1];const z=cache[v*3+2];tri[j*3+2]=z;if(z<zmin)zmin=z;if(z>zmax)zmax=z});
+          const n=L.length/3;if(!geom[k]||n>geom[k].n)geom[k]={tri,n,zmin,zmax}}
+      })});
+  }catch(e){console.warn('3D-geometrie',e)}
+  return{tabel,geom};
+}
+/* dakvlakken uit de LoD2.2-driehoeken: groeperen op vlak, met helling, oriëntatie en echte (schuine) oppervlakte */
+function dakvlakken(g){
+  if(!g)return[];
+  const T=g.tri,tris=[];
+  for(let i=0;i<g.n;i++){const o=i*9,ax=T[o],ay=T[o+1],az=T[o+2],bx=T[o+3]-ax,by=T[o+4]-ay,bz=T[o+5]-az,cx=T[o+6]-ax,cy=T[o+7]-ay,cz=T[o+8]-az;
+    let nx=by*cz-bz*cy,ny=bz*cx-bx*cz,nz=bx*cy-by*cx;const l=Math.hypot(nx,ny,nz);if(l<1e-6)continue;
+    const A=l/2;nx/=l;ny/=l;nz/=l;if(nz<0){nx=-nx;ny=-ny;nz=-nz}
+    if(nz<0.17)continue;                                   // wanden (steiler dan ~80°)
+    const zm=(az+T[o+5]+T[o+8])/3;if(zm<g.zmin+1.0)continue;  // vloer / maaiveld
+    tris.push({i,nx,ny,nz,A,d:nx*ax+ny*ay+nz*az,zm})}
+  tris.sort((p,q)=>q.A-p.A);
+  const vl=[];
+  tris.forEach(t=>{let v=vl.find(v=>v.nx*t.nx+v.ny*t.ny+v.nz*t.nz>0.9975&&Math.abs(v.d-(v.nx*(T[t.i*9])+v.ny*T[t.i*9+1]+v.nz*T[t.i*9+2]))<0.35);
+    if(!v){v={nx:t.nx,ny:t.ny,nz:t.nz,d:t.d,A:0,tris:[],zmin:1e9,zmax:-1e9};vl.push(v)}
+    v.A+=t.A;v.tris.push(t.i);const o=t.i*9;v.zmin=Math.min(v.zmin,T[o+2],T[o+5],T[o+8]);v.zmax=Math.max(v.zmax,T[o+2],T[o+5],T[o+8])});
+  return vl.filter(v=>v.A>=1.5).map(v=>{const helling=Math.acos(Math.min(1,v.nz))*180/Math.PI,plat=helling<5;
+    const az=((Math.atan2(v.nx,v.ny)*180/Math.PI)+360)%360;
+    return{helling,plat,az:plat?null:az,dir:plat?null:dirOf(az),opp:v.A,opp2d:v.A*v.nz,hoogte:v.zmax-g.zmin,tris:v.tris}})
+   .sort((p,q)=>q.opp-p.opp);
 }
 let hoogteRoute=null;
 async function laadHoogtes(t,x,y,r){
-  status('Hoogtes uit 3D BAG ophalen…');
-  let d=null,fout=null;
+  status('Hoogtes en 3D-model uit 3D BAG ophalen…');
+  let d=null,fout=null,geo=null;
   const api=viaApi(x,y,r),pdok=viaPdok3d(x,y,r);pdok.catch(()=>{});
   try{d=await api;hoogteRoute='api'}catch(e){console.warn('3D BAG API',e.message||e);
-    try{d=await pdok;hoogteRoute='pdok'}catch(e2){console.warn('3D BAG via PDOK',e2.message||e2);
+    try{d=(await pdok).tabel;hoogteRoute='pdok'}catch(e2){console.warn('3D BAG via PDOK',e2.message||e2);
       try{d=await viaTegels(x,y,r);hoogteRoute='tegels'}catch(e3){console.warn('3D BAG tegels',e3);fout=e3}}}
+  try{geo=(await pdok).geom}catch(e){geo=null}
   if(t!==tok)return;
-  S.blds.forEach(b=>{b.h=d&&d[b.id]||null});
-  renderAll(false);build3d(false);changed();
-  const n=S.blds.filter(b=>b.h).length,mis=S.blds.length-n;
+  S.blds.forEach(b=>{b.h=d&&d[b.id]||null;b.geo=geo&&geo[b.id]||null;b.vlakken=null});
+  renderAll(false);build3d(true);changed();
+  const n=S.blds.filter(b=>b.h).length,mis=S.blds.length-n,n3=S.blds.filter(b=>b.geo).length;
   if(fout){status('3D BAG niet bereikbaar — hoogtes onbekend. Oriëntatie werkt wel.','err');return}
-  status(`Hoogtes uit 3D BAG: ${n} panden${mis?`, ${mis} zonder 3D BAG-hoogte (bv. recente nieuwbouw)`:''}.`+(hoogteRoute==='pdok'?' (3D BAG-reconstructie via PDOK 3D Basisvoorziening)':hoogteRoute==='tegels'?' Via de 3D BAG-tegels: geen nok en maaiveld beschikbaar.':''),mis&&!n?'err':'ok');
+  status(`Hoogtes uit 3D BAG: ${n} panden${mis?`, ${mis} zonder 3D BAG-hoogte (bv. recente nieuwbouw)`:''}.`+(n3?` 3D-dakmodel (LoD2.2) voor ${n3} panden.`:'')+(hoogteRoute==='pdok'?' Bron: 3D BAG-reconstructie via PDOK 3D Basisvoorziening.':hoogteRoute==='tegels'?' Via de 3D BAG-tegels: geen nok en maaiveld beschikbaar.':''),mis&&!n?'err':'ok');
 }
+const vlakkenVan=b=>{if(!b||!b.geo)return[];if(!b.vlakken)b.vlakken=dakvlakken(b.geo);return b.vlakken};
 const adrTxt=p=>`${p.openbare_ruimte||''} ${p.huisnummer||''}${p.huisletter||''}${p.toevoeging?'-'+p.toevoeging:''}`.trim();
 
 let tok=0;
@@ -664,7 +727,7 @@ const role=i=>S.roles[i]||'Gevel';
 function totals(){const t={};visible().forEach(({e,i})=>{if(role(i)!=='Belendend')t[e.dir]=(t[e.dir]||0)+e.len});return t}
 
 /* ===== Render ===== */
-function renderAll(fit){renderMap(fit);build3d(false);renderPand();renderGevels();renderHInfo();renderList()}
+function renderAll(fit){renderMap(fit);build3d(false);renderPand();renderGevels();renderHInfo();renderDak();renderList()}
 function renderGevels(){renderTable();renderRose();renderRes();renderGroepen();renderLegenda()}
 
 function renderMap(fit){
@@ -789,6 +852,18 @@ function renderHInfo(){
     <div class="bag-meta">${h.h50!=null?`<b>Hoogte 50%</b><span>${fmt(h.h50)} m</span>`:''}${h.route==='tegels'?'':`<b>Maaiveld</b><span>${fmt(h.mv,2)} m NAP</span>`}<b>Daktype</b><span>${h.dak}</span><b>Bron</b><span>${bronLabel(h.route)}</span></div>
     <p><a href="https://3dbag.nl/nl/viewer?rdx=${Math.round(centroid(b.ring)[0])}&rdy=${Math.round(centroid(b.ring)[1])}&ox=-200&oy=200&oz=200" target="_blank" rel="noopener">Open in 3DBAG viewer ↗</a></p>`;
 }
+function renderDak(){
+  const el=$('bag-dak');if(!el)return;const b=selB();
+  if(!b){el.innerHTML='<p class="klein">—</p>';return}
+  if(!b.geo){el.innerHTML=`<p class="klein">${b.h===undefined?'3D-model laden…':'Geen 3D-dakmodel (LoD2.2) beschikbaar voor dit pand.'}</p>`;return}
+  const vl=vlakkenVan(b);if(!vl.length){el.innerHTML='<p class="klein">Geen dakvlakken herkend.</p>';return}
+  const tot=vl.reduce((s,v)=>s+v.opp,0),hel=vl.filter(v=>!v.plat),pl=vl.filter(v=>v.plat);
+  el.innerHTML=`<div class="bag-dakkpi"><div>Dakoppervlak<b>${fmt(tot,1)} m²</b></div><div>Hellend<b>${fmt(hel.reduce((s,v)=>s+v.opp,0),1)} m²</b></div><div>Plat<b>${fmt(pl.reduce((s,v)=>s+v.opp,0),1)} m²</b></div><div>Dakvlakken<b>${vl.length}</b></div></div>
+    <table><thead><tr><th>#</th><th>Oriëntatie</th><th>Helling</th><th>Oppervlak</th><th>Hoogte</th></tr></thead><tbody>${vl.map((v,i)=>`<tr><td><b>${i+1}</b></td>
+      <td>${v.plat?'<span class="bag-pill" style="background:#9aa59f">plat</span>':`<span class="bag-pill" style="background:${DCOL[v.dir]}">${v.dir}</span> <span class="klein">${Math.round(v.az)}°</span>`}</td>
+      <td>${fmt(v.helling,0)}°</td><td>${fmt(v.opp,1)} m²</td><td>${fmt(v.hoogte)} m</td></tr>`).join('')}</tbody></table>
+    <p class="klein">Uit het 3D-model (LoD2.2, 3D BAG-reconstructie via PDOK). Oppervlak = werkelijke (schuine) oppervlakte; dakkapellen en kleine uitbouwen kunnen aparte vlakken zijn. Indicatief: controleer ter plaatse.</p>`;
+}
 function buren(n){const b=selB();const c=centroid(b.ring);
   return S.blds.map(o=>({o,d:Math.hypot(...centroid(o.ring).map((v,k)=>v-c[k]))})).sort((a,x)=>a.d-x.d).slice(0,n).map(x=>x.o)}
 function renderList(){
@@ -828,10 +903,29 @@ function build3d(resetCam){
   const g0=new THREE.Mesh(new THREE.CircleGeometry(r*1.4,64),new THREE.MeshLambertMaterial({color:0xe9efe9}));g0.rotation.x=-Math.PI/2;world.add(g0);
   world.add(new THREE.ArrowHelper(new THREE.Vector3(0,0,-1),new THREE.Vector3(r*1.15,0.2,r*0.2),r*0.3,0x0B3D2E,6,4));
   const nl=makeText('N',10);nl.position.set(r*1.15,1,r*0.2-r*0.3-6);world.add(nl);
-  S.blds.forEach(b=>{let h=relH(b);const known=h!=null;if(!known)h=3;h=Math.max(h,0.5)*S.exag;
+  const sb=selB(),gref=sb&&sb.geo?sb.geo.zmin:null;
+  S.blds.forEach(b=>{const sel=b.id===S.sel;
+    if(b.geo&&gref!=null){
+      // echt 3D-model (LoD2.2)
+      const T=b.geo.tri,n=b.geo.n,pos=new Float32Array(n*9),colr=new Float32Array(n*9);
+      const vl=sel?vlakkenVan(b):[],vlVan={};vl.forEach(v=>{const c=new THREE.Color(v.plat?'#c9d3cd':DCOL[v.dir]);v.tris.forEach(i=>vlVan[i]=c)});
+      const muur=new THREE.Color(sel?'#f3efe7':'#e7e4de'),dakN=new THREE.Color(css(col(relH(b)))).lerp(new THREE.Color('#ffffff'),.25);
+      for(let i=0;i<n;i++){const o=i*9;
+        const ux=T[o+3]-T[o],uy=T[o+4]-T[o+1],uz=T[o+5]-T[o+2],vx=T[o+6]-T[o],vy=T[o+7]-T[o+1],vz=T[o+8]-T[o+2];
+        const nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx,l=Math.hypot(nx,ny,nz)||1,dak=Math.abs(nz/l)>=0.17&&(T[o+2]+T[o+5]+T[o+8])/3>b.geo.zmin+1;
+        const c=dak?(sel?(vlVan[i]||new THREE.Color('#c9d3cd')):dakN):muur;
+        for(let k=0;k<3;k++){pos[o+k*3]=T[o+k*3]-origin[0];pos[o+k*3+1]=(T[o+k*3+2]-gref)*S.exag;pos[o+k*3+2]=-(T[o+k*3+1]-origin[1]);colr[o+k*3]=c.r;colr[o+k*3+1]=c.g;colr[o+k*3+2]=c.b}}
+      const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('color',new THREE.BufferAttribute(colr,3));g.computeVertexNormals();
+      const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide,emissive:sel?0x0a1a0e:0}));
+      m.userData.id=b.id;world.add(m);meshes.push(m);
+      world.add(new THREE.LineSegments(new THREE.EdgesGeometry(g,25),new THREE.LineBasicMaterial({color:sel?0x0B3D2E:0x6b746f,transparent:true,opacity:sel?.9:.28})));
+      if(sel){const hm=relH(b),cc=centroid(b.ring);if(hm!=null){const t=makeText(fmt(hm)+' m');t.position.set(cc[0]-origin[0],(b.geo.zmax-gref)*S.exag+4,-(cc[1]-origin[1]));world.add(t)}}
+      return;
+    }
+    let h=relH(b);const known=h!=null;if(!known)h=3;h=Math.max(h,0.5)*S.exag;
     const sh=new THREE.Shape();b.ring.forEach((c,i)=>{const x=c[0]-origin[0],y=c[1]-origin[1];i?sh.lineTo(x,y):sh.moveTo(x,y)});
     const g=new THREE.ExtrudeGeometry(sh,{depth:h,bevelEnabled:false});g.rotateX(-Math.PI/2);
-    const sel=b.id===S.sel,c=col(known?relH(b):null);
+    const c=col(known?relH(b):null);
     const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({color:new THREE.Color(css(c)),transparent:!known,opacity:known?1:.45,emissive:sel?0x224422:0}));
     m.userData.id=b.id;world.add(m);meshes.push(m);
     world.add(new THREE.LineSegments(new THREE.EdgesGeometry(g,20),new THREE.LineBasicMaterial({color:sel?0x0B3D2E:0x55605a,transparent:true,opacity:sel?1:.35})));
@@ -855,6 +949,7 @@ function samenvatting(){
     `Hoogte 70%: ${fmt(h.h70)} m · nok: ${fmt(h.hmax)} m · laagste dakdeel: ${fmt(h.hmin)} m · bouwlagen: ${h.lagen??'–'}${h.lagenEst?' (schatting)':''} · ${h.dak}`,'','Oriëntatie gevels:'];
   const es=S.edges[S.eSel];if(es)L2.splice(L2.length-1,0,`Geselecteerde gevel: ${es.dir} (${Math.round(es.az)}°), ${fmt(es.len)} m${S.autoSel?' — meest zuidgerichte gevel':''}`,'');
   groepen().forEach(g=>L2.push(g.dir==='BEL'?`Gedeelde muur: ${fmt(g.len)} m (${g.delen.length} delen, telt niet mee)`:`${g.dir}: ${fmt(g.len)} m (${g.delen.length} ${g.delen.length===1?'deel':'delen'}, ${g.azTxt})`));
+  const vlk=vlakkenVan(b);if(vlk.length){L2.push('','Dakvlakken (3D-model):');vlk.forEach((v,i)=>L2.push(`${i+1}. ${v.plat?'plat':v.dir+' ('+Math.round(v.az)+'°)'}, helling ${fmt(v.helling,0)}°, ${fmt(v.opp,1)} m²`))}
   L2.push('','Geveldelen:');
   visible().forEach(({e,i})=>L2.push(`${i+1}. ${role(i)}: ${e.dir} (${Math.round(e.az)}°), ${fmt(e.len)} m`));
   const t=totals();L2.push('','Gevellengte per oriëntatie (excl. belendend): '+(DIRS.filter(d=>t[d]).map(d=>`${d} ${fmt(t[d])} m`).join(' · ')||'–'));
@@ -938,7 +1033,9 @@ async function pdfGegevens(){
     hoogte:{hmax:h.hmax,h70:h.h70,hmin:h.hmin,top:h.top},
     pandgegevens:[...metaRows(b).filter(r=>r[0]!=='Adres'&&r[0]!=='Pand-ID'),...(h.h50!=null?[['Hoogte 50%',fm(h.h50)]]:[]),['Laagste dakdeel',fm(h.hmin)],...(h.route==='tegels'?[]:[['Maaiveld',fmt(h.mv,2)+' m NAP']])],
     buren:buren(8).map(o=>{const q=heights(o);return{adres:(o.adressen[0]||'pand …'+o.id.slice(-6))+(o.adressen.length>1?` (+${o.adressen.length-1})`:''),bj:String(o.bouwjaar||''),h70:fm(q.h70),nok:fm(q.hmax),zelf:o.id===b.id}}),
-    lagenGeschat:h.lagenEst, route:hoogteRoute
+    lagenGeschat:h.lagenEst, route:hoogteRoute,
+    dakvlakken:vlakkenVan(b).map((v,i)=>({nr:i+1,dir:v.plat?'plat':v.dir,az:v.plat?'-':Math.round(v.az)+'°',helling:fmt(v.helling,0)+'°',opp:fmt(v.opp,1)+' m²',hoogte:fm(v.hoogte),kleur:v.plat?'#9aa59f':DCOL[v.dir]})),
+    dakTotaal:vlakkenVan(b).reduce((s,v)=>s+v.opp,0)
   };
 }
 
@@ -1524,10 +1621,21 @@ function pandPaginas(doc, pd){
   });
   y = Math.max(yl, yp) + 6;
   if(y + 30 > PONDER){ doc.addPage(); y = 18; }
+  if(pd.dakvlakken && pd.dakvlakken.length){
+    y = pdfSectie(doc, 'Dakvlakken (3D-model)  ·  totaal ' + pdfTekst(pd.dakTotaal.toLocaleString('nl-NL',{minimumFractionDigits:1,maximumFractionDigits:1})) + ' m²', PM, y, PBR);
+    doc.autoTable({...tabStijl, startY: y, margin:{left:PM, right:PM, bottom:24},
+      head:[['#','Oriëntatie','Azimut','Helling','Oppervlak','Hoogte']],
+      body: pd.dakvlakken.map(v => [String(v.nr), v.dir, pdfTekst(v.az), pdfTekst(v.helling), pdfTekst(v.opp), pdfTekst(v.hoogte)]),
+      columnStyles:{0:{cellWidth:9, fontStyle:'bold'}, 1:{fontStyle:'bold'}, 2:{halign:'right'}, 3:{halign:'right'}, 4:{halign:'right'}, 5:{halign:'right'}},
+      didParseCell: c => { if(c.section==='body' && c.column.index===1) c.cell.styles.textColor = HEX(pd.dakvlakken[c.row.index].kleur); }
+    });
+    y = doc.lastAutoTable.finalY + 7;
+    if(y + 30 > PONDER){ doc.addPage(); y = 18; }
+  }
   y = pdfSectie(doc, 'Panden in de omgeving', PM, y, PBR);
   doc.autoTable({...tabStijl, startY: y, margin:{left:PM, right:PM, bottom:24},
     head:[['Adres / pand','Bouwjaar','Nok','Hoogte 70%']],
-    body: pd.buren.map(b => [pdfTekst(b.adres), b.bj, pdfTekst(b.nok), pdfTekst(b.h70)]),
+    body: pd.buren.slice(0, pd.dakvlakken && pd.dakvlakken.length > 3 ? 5 : 8).map(b => [pdfTekst(b.adres), b.bj, pdfTekst(b.nok), pdfTekst(b.h70)]),
     columnStyles:{1:{cellWidth:24}, 2:{cellWidth:22, halign:'right'}, 3:{cellWidth:26, halign:'right'}},
     didParseCell: c => { if(c.section==='body' && pd.buren[c.row.index].zelf){ c.cell.styles.fontStyle='bold'; c.cell.styles.fillColor = HEX('#eef7ef'); } }
   });
