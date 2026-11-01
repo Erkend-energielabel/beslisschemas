@@ -1249,10 +1249,12 @@ function isdeBereken(b,regels){
     const d0=ISDE[c];const d=(r.k==='kozijn'&&!/triple/i.test(RVO_KK[r.code]?.e||''))?{...ISDE.glas}:d0;
     const catM2=perCat[c].reduce((t,x)=>t+x.hoev,0),minM2=d.groep?groepM2(d.groep):catM2;
     if(minM2<d.min){uit[r.k]={ok:false,reden:`minder dan ${d.min} m²`};return}
-    const share=r.hoev/(catM2||1),m2=Math.min(catM2,d.max)*share;
-    uit[r.k]={ok:true,m2,tarief:d.tarief,basis:m2*d.tarief,afgetopt:catM2>d.max};isoCats.add(d.groep||c)});
+    const totM2=d.groep==='gl'?groepM2('gl'):catM2,share=r.hoev/(totM2||1),m2=Math.min(totM2,d.max)*share;
+    if(totM2>d.max&&d.groep==='gl'&&!meld.some(x=>/45 m²/.test(x)))meld.push('Glas, kozijnen en deuren samen meer dan 45 m²: ISDE geldt voor maximaal 45 m² (naar rato verdeeld).');
+    uit[r.k]={ok:true,m2,tarief:d.tarief,basis:m2*d.tarief,afgetopt:totM2>d.max};isoCats.add(d.groep||c)});
   regels.filter(r=>ISDE_CAT[r.k]&&!uit[r.k]).forEach(r=>{uit[r.k]={ok:null,reden:r.aan?'niet meegenomen':''}});
   const wp=act.some(r=>ISDE_CAT[r.k]==='wp');
+  if(act.some(r=>r.k==='kozijn')&&act.some(r=>r.k==='hrpp'||r.k==='triple'))meld.push('Let op: zowel los glas als kozijnvervanging aangevinkt — bij nieuwe kozijnen zit het glas er al in; vink er één uit als het om dezelfde ramen gaat.');
   const dubbel=isoCats.size>=2||(isoCats.size>=1&&wp);
   let totaal=0;Object.values(uit).forEach(u=>{if(!u.ok)return;if(u.wp)u.bedrag=u.bedrag;else u.bedrag=u.basis*(dubbel?2:1);totaal+=u.bedrag});
   if(dubbel)meld.push(isoCats.size>=2?`${isoCats.size} isolatiemaatregelen → ISDE-bedragen voor isolatie verdubbeld (uitvoeren binnen 24 maanden na elkaar).`:'Isolatie gecombineerd met een warmtepomp → ISDE-bedrag voor isolatie verdubbeld (binnen 24 maanden).');
