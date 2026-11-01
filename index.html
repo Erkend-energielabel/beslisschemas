@@ -569,8 +569,6 @@ async function viaPdok3d(x,y,r){
     for(const k in t.geom)if(!geom[k]||t.geom[k].n>geom[k].n)geom[k]=t.geom[k];
   }));
   if(!Object.keys(tabel).length)throw new Error('geen panden in 3D-tegels');
-  // nok uit het 3D-model: hoogste modelpunt t.o.v. de onderkant van het pand
-  for(const k in tabel){const g=geom[k];if(g&&tabel[k].b3_h_maaiveld!=null){const nk=tabel[k].b3_h_maaiveld+(g.zmax-g.zmin);if(nk>tabel[k].b3_h_maaiveld+0.5)tabel[k].b3_h_dak_max=nk}}
   return{tabel,geom};
 }
 function leesGlb(buf,Mt){
@@ -706,7 +704,8 @@ function compute(){
 }
 /* gevel het dichtst bij 180° (zuid); bij gelijke afwijking de langste. Gedeelde muren tellen niet mee. */
 function zuidelijkste(){
-  let best=-1,bd=1e9,bl=0;const kand=visible().filter(o=>role(o.i)!=='Belendend');
+  let best=-1,bd=1e9,bl=0;const mxl=Math.max(0,...visible().map(o=>o.e.len)),minL=Math.min(2,mxl*.5);
+  let kand=visible().filter(o=>role(o.i)!=='Belendend'&&o.e.len>=minL);if(!kand.length)kand=visible().filter(o=>role(o.i)!=='Belendend');
   (kand.length?kand:visible()).forEach(({e,i})=>{const d=Math.abs(((e.az-180)%360+540)%360-180);
     if(d<bd-0.5||(Math.abs(d-bd)<=0.5&&e.len>bl)){best=i;bd=d;bl=e.len}});
   return best;
