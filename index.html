@@ -303,6 +303,11 @@ body.tab-bag .wrap{max-width:1180px}
 .verw-ic{flex:0 0 auto;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem}
 .verw b{display:block;color:var(--tekst)}.verw small{display:block;color:var(--grijs);font-size:.74rem;margin-top:2px}
 #bz .bz-verw{margin:10px 0 0}#bz .bz-verw table{font-size:.8rem}#bz .bz-verw td{padding:4px 6px}
+.verw-rood{color:#c0392b!important;font-weight:800!important}
+.verw-coll{background:#fdecea;border:2px solid #c0392b}
+.verw-coll .verw-rood{font-size:1.05rem;letter-spacing:.02em}
+.verw-sub{display:block;color:#c0392b;font-weight:700;margin-top:2px}
+#bag .bag-label .bag-lklasse{flex:0 0 auto;min-width:48px}
 #vbs{
   --bg:#F2F4F3; --surface:#FFFFFF; --ink:#18232A; --muted:#5A6870; --line:#D5DCDE; --soft:#E9EEEE;
   --accent:#5B2D86; --accent-ink:#FFFFFF; --accent-soft:#EFE8F6;
@@ -804,13 +809,15 @@ function duiding(pc6,data){
   else if(ratio>=.2){soort='gemengd';kort='gemengd';uitleg='Een deel van de woningen heeft een eigen gasaansluiting, een deel niet (bv. deels collectief of all-electric).'}
   else{soort='collectief';kort='weinig eigen gasaansluitingen';uitleg='Waarschijnlijk blokverwarming, stadswarmte of all-electric.'}
   const cijfers=`${ng} gas- / ${ne} elektra-aansluitingen${ng?`, gem. ${fmt(sja)} m³ gas/jaar`:''}`;
-  return{soort,kort,uitleg,cijfers,ng,ne,sja,bron,samen,bereik,
-    tekst:`${kort} (${cijfers}${samen?`; postcodes ${bereik} samen`:''})`};
+  const collectief=soort==='collectief'||soort==='koken';
+  return{soort,kort,uitleg,cijfers,ng,ne,sja,bron,samen,bereik,collectief,
+    tekst:`${collectief?'COLLECTIEVE VERWARMING – ':''}${kort} (${cijfers}${samen?`; postcodes ${bereik} samen`:''})`};
 }
 const KLEUR={eigen:'#c0392b',twijfel:'#e67e22',koken:'#2e86de',collectief:'#2e86de',gemengd:'#8e44ad'};
 const ICON={eigen:'🔥',twijfel:'🔥',koken:'🏢',collectief:'🏢',gemengd:'🔀'};
 function html(d){
   if(!d)return'';
+  if(d.collectief)return`<div class="verw verw-coll"><span class="verw-ic" style="background:#c0392b">🏢</span><div><b class="verw-rood">⚠ COLLECTIEVE VERWARMING (indicatie)</b><span class="verw-sub">${d.kort} — blokverwarming, stadswarmte of all-electric</span><small>${d.cijfers}${d.samen?` · postcodes ${d.bereik} samengevoegd`:''} · bron: ${d.bron} open data</small><small>${d.uitleg}</small></div></div>`;
   return`<div class="verw"><span class="verw-ic" style="background:${KLEUR[d.soort]||'#6b7a73'}">${ICON[d.soort]||'?'}</span><div><b>Verwarming (indicatie): ${d.kort}</b><small>${d.cijfers}${d.samen?` · postcodes ${d.bereik} samengevoegd`:''} · bron: ${d.bron} open data</small><small>${d.uitleg}</small></div></div>`;
 }
 return{laad,duiding,html,async voor(pc6){const d=await laad(pc6);return duiding(pc6,d)}};
@@ -1311,12 +1318,13 @@ function dakHelling(b){if(!b||!b.geo)return null;const vl=vlakkenVan(b);if(!vl.l
   const g=hel.reduce((a,v)=>v.opp>a.opp?v:a),mn=Math.min(...hel.map(v=>v.helling)),mx=Math.max(...hel.map(v=>v.helling));
   const t=Math.round(g.helling)+'°'+(Math.round(mx)-Math.round(mn)>=3?` (${Math.round(mn)}–${Math.round(mx)}°)`:'');
   return{tekst:t,hoofd:g.helling,plat:false,mn,mx}}
+const metaHtml=r=>/^COLLECTIEVE VERWARMING/.test(String(r[1]))?`<b class="verw-rood">${esc(r[0])}</b><span class="verw-rood">${esc(r[1])}</span>`:`<b>${esc(r[0])}</b><span>${esc(r[1])}</span>`;
 function renderPand(){
   const b=selB();if(!b){$('bag-kpis').innerHTML='';return}
   const h=heights(b);
   $('bag-kpis').innerHTML=`<div>Nokhoogte<b>${fm(h.hmax)}</b></div><div>Hoogte (70%)<b>${fm(h.h70)}</b></div>
     <div>Dakhelling<b>${dakHelling(b)?.tekst??(b.geo===undefined&&b.h===undefined?'…':'–')}</b></div><div>Bouwlagen${h.lagenEst?' (schatting)':''}<b>${h.lagen??'–'}</b></div><div>Footprint<b>${fmt(S.area,0)} m²</b></div>`;
-  $('bag-meta').innerHTML=metaRows(b).map(r=>`<b>${esc(r[0])}</b><span>${esc(r[1])}</span>`).join('');
+  $('bag-meta').innerHTML=metaRows(b).map(metaHtml).join('');
   renderVbo(b);
 }
 /* bestaand energielabel uit EP-Online via de label-server (Cloudflare Worker) */
@@ -1365,7 +1373,7 @@ function renderVbo(b){
   const cp=$('bag-epcopy');if(cp)cp.onclick=async()=>{const t=vboZoek(cur);try{await navigator.clipboard.writeText(t);cp.textContent='Gekopieerd: '+t}catch(e){cp.textContent=t}setTimeout(()=>{if($('bag-epcopy'))$('bag-epcopy').textContent='Kopieer postcode + huisnr'},2500)};
   const st=$('bag-epset');if(st)st.onclick=()=>{const u=prompt('Adres van de label-server (Cloudflare Worker), bv. https://ep-label.jouwnaam.workers.dev',labelApi()||'https://');if(u&&/^https:\/\//.test(u.trim())){try{localStorage.setItem('ee_label_api',u.trim())}catch(e){}renderVbo(b)}};
   const rt=$('bag-epretry');if(rt)rt.onclick=()=>{delete labelCache[k];renderVbo(b)};
-  if(cur&&cur.postcode&&window.VERW&&verwCache[cur.postcode]===undefined){verwCache[cur.postcode]=null;VERW.voor(cur.postcode).then(d=>{verwCache[cur.postcode]=d;if(selB()===b){renderVbo(b);$('bag-meta').innerHTML=metaRows(b).map(r=>`<b>${esc(r[0])}</b><span>${esc(r[1])}</span>`).join('');changed()}})}
+  if(cur&&cur.postcode&&window.VERW&&verwCache[cur.postcode]===undefined){verwCache[cur.postcode]=null;VERW.voor(cur.postcode).then(d=>{verwCache[cur.postcode]=d;if(selB()===b){renderVbo(b);$('bag-meta').innerHTML=metaRows(b).map(metaHtml).join('');changed()}})}
   if(cur&&labelApi()&&!res){haalLabel(cur).then(()=>{if(selB()===b&&vboOf(b)===cur){renderVbo(b);changed()}})}
 }
 function renderTable(){
@@ -2166,8 +2174,8 @@ async function verwarming(tok){
   if(!met.length){el.innerHTML='<p class="klein">Verwarming: geen netbeheerdersdata voor dit gebied (nu alleen Stedin-gebied beschikbaar).</p>';return}
   if(pcs.length===1){el.innerHTML=VERW.html(met[0][1]);return}
   const KL={eigen:'🔥',twijfel:'🔥',koken:'🏢',collectief:'🏢',gemengd:'🔀'};
-  el.innerHTML=`<details${pcs.length<=6?' open':''}><summary><b>Verwarming per postcode (indicatie)</b> · ${met.filter(x=>/eigen|twijfel/.test(x[1].soort)).length} eigen cv · ${met.filter(x=>/koken|collectief/.test(x[1].soort)).length} collectief · ${met.filter(x=>x[1].soort==='gemengd').length} gemengd</summary>
-    <table><tbody>${res.map(([pc,d,n])=>`<tr><td><b>${pc}</b><small>${n} adressen</small></td><td>${d?KL[d.soort]+' '+d.kort:'–'}</td><td class="klein">${d?d.cijfers:'geen data'}</td></tr>`).join('')}</tbody></table>
+  el.innerHTML=`<details${pcs.length<=6?' open':''}><summary><b>Verwarming per postcode (indicatie)</b> · ${met.filter(x=>/eigen|twijfel/.test(x[1].soort)).length} eigen cv · <b class="verw-rood">${met.filter(x=>x[1].collectief).length} collectief</b> · ${met.filter(x=>x[1].soort==='gemengd').length} gemengd</summary>
+    <table><tbody>${res.map(([pc,d,n])=>`<tr><td><b>${pc}</b><small>${n} adressen</small></td><td>${d?(d.collectief?`<b class="verw-rood">⚠ COLLECTIEF</b> ${d.kort}`:KL[d.soort]+' '+d.kort):'–'}</td><td class="klein">${d?d.cijfers:'geen data'}</td></tr>`).join('')}</tbody></table>
     <p class="klein">Bron: open kleinverbruiksdata netbeheerder (${esc(met[0][1].bron)}). 🔥 = eigen gasaansluiting met verwarmingsverbruik, 🏢 = geen/alleen kookgas → blokverwarming, stadswarmte of all-electric. Indicatie: controleer ter plaatse.</p></details>`;
 }
 function openPand(weergave){if(window.kiesTab)kiesTab('bag');if(window.BAG&&BAG.zoek)setTimeout(()=>BAG.zoek(weergave),60)}
@@ -2746,8 +2754,9 @@ function pandPaginas(doc, pd){
   let yp = y;
   doc.setFontSize(8.6);
   pd.pandgegevens.forEach(r => {
-    doc.setFont('helvetica','normal'); doc.setTextColor(107,122,115); doc.text(pdfTekst(r[0]), RX2, yp+2);
-    doc.setTextColor(29,42,34); const v = doc.splitTextToSize(pdfTekst(r[1]), RB2-40); doc.text(v, RX2+40, yp+2);
+    const rood = /^COLLECTIEVE VERWARMING/.test(String(r[1]));
+    doc.setFont('helvetica', rood ? 'bold' : 'normal'); doc.setTextColor(...(rood ? [192,57,43] : [107,122,115])); doc.text(pdfTekst(r[0]), RX2, yp+2);
+    doc.setTextColor(...(rood ? [192,57,43] : [29,42,34])); const v = doc.splitTextToSize(pdfTekst(r[1]), RB2-40); doc.text(v, RX2+40, yp+2); doc.setFont('helvetica','normal');
     yp += 4.6*v.length;
   });
   y = Math.max(yl, yp) + 6;
