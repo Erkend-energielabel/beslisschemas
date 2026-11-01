@@ -6,7 +6,6 @@ import csv, io, json, os, sys, urllib.request, collections, datetime
 
 BRONNEN = [  # (naam, url) — nieuwste bestand per netbeheerder; jaarlijks bijwerken
     ("Stedin 2026", "https://www.stedin.net/-/media/project/online/files/zakelijk/open-data/stedin-kleinverbruikgegevens-2026.csv"),
-    ("Stedin Zeeland 2025", "https://www.stedin.net/-/media/project/online/files/zakelijk/open-data/stedin-zeeland-kleinverbruikgegevens-2025.csv"),
 ]
 UIT = sys.argv[1] if len(sys.argv) > 1 else "gas"
 

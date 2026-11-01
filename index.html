@@ -298,6 +298,11 @@ body.tab-bag .wrap{max-width:1180px}
 #bz .bz-verl{background:#c0392b;color:#fff;border-radius:6px;padding:0 5px;font-size:.7rem;font-weight:700}
 #bz .bz-cert{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(max-width:620px){#bz .bz-kpi{grid-template-columns:repeat(2,1fr)}#bz th:nth-child(4),#bz td:nth-child(4),#bz th:nth-child(6),#bz td:nth-child(6){display:none}}
+
+.verw{display:flex;gap:10px;align-items:flex-start;background:#f4f8f5;border-radius:8px;padding:8px 10px;margin:0 0 10px;font-size:.82rem}
+.verw-ic{flex:0 0 auto;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem}
+.verw b{display:block;color:var(--tekst)}.verw small{display:block;color:var(--grijs);font-size:.74rem;margin-top:2px}
+#bz .bz-verw{margin:10px 0 0}#bz .bz-verw table{font-size:.8rem}#bz .bz-verw td{padding:4px 6px}
 #vbs{
   --bg:#F2F4F3; --surface:#FFFFFF; --ink:#18232A; --muted:#5A6870; --line:#D5DCDE; --soft:#E9EEEE;
   --accent:#5B2D86; --accent-ink:#FFFFFF; --accent-soft:#EFE8F6;
@@ -724,6 +729,7 @@ body.tab-bag .wrap{max-width:1180px}
         <div class="bz-voortgang" id="bz-voortgang" hidden><i></i></div>
         <div class="bz-status" id="bz-status" hidden></div>
         <div id="bz-sam"></div>
+        <div id="bz-verw" class="bz-verw"></div>
         <div class="acties" id="bz-acties" hidden><button class="actie licht" type="button" id="bz-csv">⬇️ Download CSV (Excel)</button><button class="actie licht" type="button" id="bz-opnieuw" hidden>↻ Opnieuw (mislukte)</button></div>
       </div>
       <div class="kaart bz-kaartblok"><div id="bz-kaart" hidden></div></div>
@@ -764,6 +770,53 @@ body.tab-bag .wrap{max-width:1180px}
   <footer><b>Erkend-Energielabel.nl</b> · Aelbert Cuyplaan 45, 3343 DA Hendrik-Ido-Ambacht · 06 51 63 08 96 · Info@Erkend-Energielabel.nl<br>Bron: ISSO-publicatie 82.1 Energieprestatie woningen en woongebouwen, 7e druk. Deze tool is een hulpmiddel en vervangt de publicatie niet; bij twijfel geldt de tekst van de ISSO en de BRL 9500-W.</footer>
 </div>
 
+<script>
+/* ===== Verwarming (indicatie) uit open kleinverbruiksdata netbeheerders: gasaansluitingen t.o.v. elektra per postcode ===== */
+window.VERW = (function(){
+const cache={};
+const basis=(()=>{try{return new URL('gas/',location.href.split('?')[0].replace(/[^/]*$/,'')).href}catch(e){return 'gas/'}})();
+function laad(pc4){
+  pc4=String(pc4||'').slice(0,4);if(!/^\d{4}$/.test(pc4))return Promise.resolve(null);
+  if(!cache[pc4])cache[pc4]=fetch(basis+pc4+'.json').then(r=>r.ok?r.json():null).catch(()=>null);
+  return cache[pc4];
+}
+const fmt=v=>Number(v).toLocaleString('nl-NL',{maximumFractionDigits:0});
+/* rijen rond deze PC6: gas- en elektrareeksen kunnen verschillend zijn samengevoegd, dus de overlappende reeksen samen nemen */
+function rijenVoor(data,pc6){
+  if(!data||!data.r)return null;pc6=String(pc6||'').replace(/\s/g,'').toUpperCase();
+  const bron=(data.r.find(r=>r[0]<=pc6&&pc6<=r[1])||[])[6];if(!bron)return null;
+  const rs=data.r.filter(r=>r[6]===bron);let lo=pc6,hi=pc6,gewijzigd=true;
+  while(gewijzigd){gewijzigd=false;rs.forEach(r=>{if(r[0]<=hi&&r[1]>=lo){if(r[0]<lo){lo=r[0];gewijzigd=true}if(r[1]>hi){hi=r[1];gewijzigd=true}}})}
+  const sel=rs.filter(r=>r[0]<=hi&&r[1]>=lo),G=sel.filter(r=>r[3]==='G'),E=sel.filter(r=>r[3]==='E');
+  const ng=G.reduce((s,r)=>s+r[4],0),ne=E.reduce((s,r)=>s+r[4],0);
+  const sja=ng?G.reduce((s,r)=>s+(r[5]||0)*r[4],0)/ng:null;
+  return{ng,ne,sja,bron,lo,hi,straten:[...new Set(sel.map(r=>r[2]).filter(Boolean))]};
+}
+function duiding(pc6,data){
+  const x=rijenVoor(data,pc6);if(!x)return null;
+  const{ng,ne,sja,bron,lo,hi}=x,samen=lo!==hi,bereik=samen?`${lo}–${hi}`:lo;
+  let soort,kort,uitleg;
+  const ratio=ne?ng/ne:(ng?1:0);
+  if(!ng){soort='collectief';kort='geen eigen gasaansluitingen';uitleg='Waarschijnlijk blokverwarming, stadswarmte of all-electric (warmtepomp).'}
+  else if(ratio>=.7&&sja>=500){soort='eigen';kort='eigen cv-ketels';uitleg='Vrijwel elke woning heeft een eigen gasaansluiting met een verbruik dat past bij verwarmen.'}
+  else if(ratio>=.7&&sja<300){soort='koken';kort='gas alleen voor koken';uitleg='Wel gasaansluitingen, maar zo weinig verbruik dat verwarming waarschijnlijk collectief is (blok- of stadsverwarming).'}
+  else if(ratio>=.7){soort='twijfel';kort='waarschijnlijk eigen cv-ketels';uitleg='Elke woning heeft gas, maar het verbruik is laag: kleine/zuinige woningen, hybride warmtepomp of deels collectief.'}
+  else if(ratio>=.2){soort='gemengd';kort='gemengd';uitleg='Een deel van de woningen heeft een eigen gasaansluiting, een deel niet (bv. deels collectief of all-electric).'}
+  else{soort='collectief';kort='weinig eigen gasaansluitingen';uitleg='Waarschijnlijk blokverwarming, stadswarmte of all-electric.'}
+  const cijfers=`${ng} gas- / ${ne} elektra-aansluitingen${ng?`, gem. ${fmt(sja)} m³ gas/jaar`:''}`;
+  return{soort,kort,uitleg,cijfers,ng,ne,sja,bron,samen,bereik,
+    tekst:`${kort} (${cijfers}${samen?`; postcodes ${bereik} samen`:''})`};
+}
+const KLEUR={eigen:'#c0392b',twijfel:'#e67e22',koken:'#2e86de',collectief:'#2e86de',gemengd:'#8e44ad'};
+const ICON={eigen:'🔥',twijfel:'🔥',koken:'🏢',collectief:'🏢',gemengd:'🔀'};
+function html(d){
+  if(!d)return'';
+  return`<div class="verw"><span class="verw-ic" style="background:${KLEUR[d.soort]||'#6b7a73'}">${ICON[d.soort]||'?'}</span><div><b>Verwarming (indicatie): ${d.kort}</b><small>${d.cijfers}${d.samen?` · postcodes ${d.bereik} samengevoegd`:''} · bron: ${d.bron} open data</small><small>${d.uitleg}</small></div></div>`;
+}
+return{laad,duiding,html,async voor(pc6){const d=await laad(pc6);return duiding(pc6,d)}};
+})();
+
+</script>
 <script>
 /* ============ PAND ANALYSE (BAG) — oriëntatie + hoogtes ============ */
 window.BAG = (function(){
@@ -1248,6 +1301,7 @@ function metaRows(b){const v=vboOf(b)||{};const rows=[['Adres',addrOf(b)],['Pand
   if(v.oppervlakte)rows.push(['Gebruiksopp. VBO',v.oppervlakte+' m²']);
   if(v.gebruiksdoel)rows.push(['Gebruiksdoel',v.gebruiksdoel]);
   {const k=v.identificatie||(v.huisnummer?vboZoek(v):null),c=k&&labelCache[k];if(c&&!c.then&&!c.fout)rows.push(['Bestaand energielabel',c.label?labelTekst(c.label)+(c.label.ep2!=null?` · EP2 ${fmt(c.label.ep2,1)} kWh/m²·jr`:''):'geen geregistreerd label (EP-Online)'])}
+  if(v.postcode&&verwCache[v.postcode])rows.push(['Verwarming (indicatie)',verwCache[v.postcode].tekst+' — bron: '+verwCache[v.postcode].bron+' open data']);
   rows.push(['Footprint pand',fmt(S.area,0)+' m²']);
   if(b.vbos.length>1)rows.push(['Verblijfsobjecten in pand',b.vbos.length]);
   rows.push(['Daktype',heights(b).dak]);if(heights(b).bron)rows.push(['Bron hoogte',bronLabel(heights(b).route)]);return rows}
@@ -1269,7 +1323,7 @@ function renderPand(){
 const LABEL_API_STD='https://ep-label.long-rain-6721.workers.dev/';
 const labelApi=()=>{try{return localStorage.getItem('ee_label_api')||LABEL_API_STD}catch(e){return LABEL_API_STD}};
 const LBLK={'A+++++':'#00843d','A++++':'#00843d','A+++':'#00843d','A++':'#00843d','A+':'#00843d','A':'#009036','B':'#55ab26','C':'#c8d100','D':'#ffed00','E':'#fbba00','F':'#eb6909','G':'#e2001a'};
-const labelCache={};
+const labelCache={},verwCache={};
 const vboZoek=p=>`${p.postcode||''} ${p.huisnummer}${p.huisletter||''}${p.toevoeging?'-'+p.toevoeging:''}`.trim();
 async function haalLabel(p){
   const api=labelApi();if(!api||!p)return null;const k=p.identificatie||vboZoek(p);
@@ -1304,12 +1358,14 @@ function renderVbo(b){
   const k=cur&&(cur.identificatie||vboZoek(cur)),c=k&&labelCache[k],res=c&&!c.then?c:null;
   el.innerHTML=(lijst.length>1?`<label class="bag-vbosel">Woning in dit pand (${lijst.length})
       <select id="bag-vbosel">${lijst.map(v=>{const lv=labelVan(v.p);return`<option value="${esc(v.p.identificatie||'')}"${cur&&v.p===cur?' selected':''}>${esc(adrTxt(v.p))}${v.p.oppervlakte?' · '+v.p.oppervlakte+' m²':''}${v.p.gebruiksdoel&&v.p.gebruiksdoel!=='woonfunctie'?' · '+esc(v.p.gebruiksdoel):''}${lv?' · label '+esc(lv.klasse):''}</option>`}).join('')}</select></label>`:'')+
-    (cur?`<div class="bag-label" id="bag-label">${labelHtml(cur,res)}</div>`:'');
+    (cur?`<div class="bag-label" id="bag-label">${labelHtml(cur,res)}</div>`:'')+
+    (cur&&cur.postcode&&verwCache[cur.postcode]?window.VERW.html(verwCache[cur.postcode]):'');
   const s=$('bag-vbosel');if(s)s.onchange=()=>{const v=b.vbos.find(x=>x.p.identificatie===s.value);if(!v)return;S.vboId=s.value;S.addr=vboAdres(v.p);
     $('bag-q').value=S.addr;try{window.bagAdresGekozen&&window.bagAdresGekozen(S.addr)}catch(e){}renderPand();renderOpp();changed()};
   const cp=$('bag-epcopy');if(cp)cp.onclick=async()=>{const t=vboZoek(cur);try{await navigator.clipboard.writeText(t);cp.textContent='Gekopieerd: '+t}catch(e){cp.textContent=t}setTimeout(()=>{if($('bag-epcopy'))$('bag-epcopy').textContent='Kopieer postcode + huisnr'},2500)};
   const st=$('bag-epset');if(st)st.onclick=()=>{const u=prompt('Adres van de label-server (Cloudflare Worker), bv. https://ep-label.jouwnaam.workers.dev',labelApi()||'https://');if(u&&/^https:\/\//.test(u.trim())){try{localStorage.setItem('ee_label_api',u.trim())}catch(e){}renderVbo(b)}};
   const rt=$('bag-epretry');if(rt)rt.onclick=()=>{delete labelCache[k];renderVbo(b)};
+  if(cur&&cur.postcode&&window.VERW&&verwCache[cur.postcode]===undefined){verwCache[cur.postcode]=null;VERW.voor(cur.postcode).then(d=>{verwCache[cur.postcode]=d;if(selB()===b){renderVbo(b);$('bag-meta').innerHTML=metaRows(b).map(r=>`<b>${esc(r[0])}</b><span>${esc(r[1])}</span>`).join('');changed()}})}
   if(cur&&labelApi()&&!res){haalLabel(cur).then(()=>{if(selB()===b&&vboOf(b)===cur){renderVbo(b);changed()}})}
 }
 function renderTable(){
@@ -2050,13 +2106,13 @@ async function labels(lijst,tok){
 async function zoek(invoer){
   invoer=(invoer||$('bz-q').value).trim();if(!invoer)return;
   if(!api()){status('Label-server niet ingesteld (zie ⚙️ bij Bestaand energielabel in de pand analyse).','err');return}
-  const tok=++S.tok;$('bz-q').value=invoer;S.filter=null;S.rij=[];render();voortgang(0,0);status('Adressen ophalen…');
+  const tok=++S.tok;$('bz-q').value=invoer;S.filter=null;S.rij=[];$('bz-verw').innerHTML='';render();voortgang(0,0);status('Adressen ophalen…');
   try{localStorage.setItem('ee_bz_q',invoer)}catch(e){}
   let r;try{r=await adressen(invoer)}catch(e){if(tok===S.tok)status(e.message||String(e),'err');return}
   if(tok!==S.tok)return;
   S.gebied=r.naam;S.rij=r.lijst;
   if(!S.rij.length){status(`Geen adressen gevonden voor ${r.naam}.`,'err');return}
-  render(true);voortgang(0,S.rij.length);status(`${S.rij.length} adressen in ${r.naam}. Labels opzoeken in EP-Online…`);
+  verwarming(tok);render(true);voortgang(0,S.rij.length);status(`${S.rij.length} adressen in ${r.naam}. Labels opzoeken in EP-Online…`);
   await labels(S.rij,tok);if(tok!==S.tok)return;const fouten=S.rij.filter(x=>x.label&&x.label.fout).length;
   voortgang(0,0);const n=S.rij.filter(x=>x.label&&!x.label.fout).length;
   status(`${r.naam}: ${S.rij.length} adressen, ${n} met een geregistreerd energielabel.`+(fouten?` ${fouten} adres(sen) mislukt — klik "Opnieuw" om die nog eens te proberen.`:''),fouten?'err':'ok');
@@ -2101,6 +2157,18 @@ function kaart(zicht,fit){
     L.circleMarker(r.ll,{radius:7,weight:1.5,color:'#fff',fillOpacity:.95,fillColor:g==='bezig'?'#e3e8e5':g==='fout'?'#888':!k?GEEN:KLEUR[k]||'#6b7a73'})
       .bindTooltip(`${esc(r.adres)}${k?' · '+esc(k):r.label===null?' · geen label':''}`).on('click',()=>openPand(r.weergave)).addTo(S.laag)});
   setTimeout(()=>{S.map.invalidateSize();if(fit&&pts.length)S.map.fitBounds(pts,{padding:[20,20],maxZoom:18})},30);
+}
+async function verwarming(tok){
+  const el=$('bz-verw');if(!window.VERW){el.innerHTML='';return}
+  const pcs=[...new Set(S.rij.map(r=>r.postcode))].sort();
+  const res=await Promise.all(pcs.map(async pc=>[pc,await VERW.voor(pc),S.rij.filter(r=>r.postcode===pc).length]));
+  if(tok!==S.tok)return;const met=res.filter(x=>x[1]);
+  if(!met.length){el.innerHTML='<p class="klein">Verwarming: geen netbeheerdersdata voor dit gebied (nu alleen Stedin-gebied beschikbaar).</p>';return}
+  if(pcs.length===1){el.innerHTML=VERW.html(met[0][1]);return}
+  const KL={eigen:'🔥',twijfel:'🔥',koken:'🏢',collectief:'🏢',gemengd:'🔀'};
+  el.innerHTML=`<details${pcs.length<=6?' open':''}><summary><b>Verwarming per postcode (indicatie)</b> · ${met.filter(x=>/eigen|twijfel/.test(x[1].soort)).length} eigen cv · ${met.filter(x=>/koken|collectief/.test(x[1].soort)).length} collectief · ${met.filter(x=>x[1].soort==='gemengd').length} gemengd</summary>
+    <table><tbody>${res.map(([pc,d,n])=>`<tr><td><b>${pc}</b><small>${n} adressen</small></td><td>${d?KL[d.soort]+' '+d.kort:'–'}</td><td class="klein">${d?d.cijfers:'geen data'}</td></tr>`).join('')}</tbody></table>
+    <p class="klein">Bron: open kleinverbruiksdata netbeheerder (${esc(met[0][1].bron)}). 🔥 = eigen gasaansluiting met verwarmingsverbruik, 🏢 = geen/alleen kookgas → blokverwarming, stadswarmte of all-electric. Indicatie: controleer ter plaatse.</p></details>`;
 }
 function openPand(weergave){if(window.kiesTab)kiesTab('bag');if(window.BAG&&BAG.zoek)setTimeout(()=>BAG.zoek(weergave),60)}
 function csv(){
