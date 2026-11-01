@@ -1,0 +1,122 @@
+<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Code label-server</title>
+<style>body{font-family:system-ui,Segoe UI,Arial;margin:0;background:#f4f8f5;color:#1d2a22}main{max-width:900px;margin:0 auto;padding:20px 16px}
+h1{color:#0B3D2E;font-size:1.4rem}button{font-size:1.3rem;font-weight:700;padding:16px 28px;border:0;border-radius:12px;background:#3cb54a;color:#fff;cursor:pointer}
+#ok{font-weight:700;color:#0B3D2E;margin-left:12px;font-size:1.1rem}textarea{width:100%;height:55vh;margin-top:16px;font:12px Consolas,monospace;border:1px solid #cfdcd2;border-radius:8px;padding:8px;box-sizing:border-box}</style></head>
+<body><main><h1>Code voor de Cloudflare-worker <code>ep-label</code></h1>
+<p>1. Klik op de groene knop. 2. Ga naar Cloudflare, klik in het codevak, druk <b>Ctrl+A</b> en dan <b>Ctrl+V</b>. 3. Klik <b>Deploy</b>.</p>
+<button id="k" type="button">📋 Kopieer de code</button><span id="ok"></span>
+<textarea id="c" readonly spellcheck="false">/* Erkend-Energielabel.nl — energielabel-opzoeker voor de Pand analyse-app.
+   Cloudflare Worker: zoekt het geregistreerde energielabel op in EP-Online en geeft JSON terug.
+   - Met variabele EP_KEY (gratis EP-Online API-key): officiële webservice.
+   - Zonder EP_KEY: het openbare zoekscherm van www.ep-online.nl.
+   Aanroep:  GET https://&lt;worker&gt;/?q=3343DA%2045&amp;vbo=0531010000000065                                  */
+const TOEGESTAAN = [&#x27;https://erkend-energielabel.github.io&#x27;, &#x27;http://localhost&#x27;, &#x27;http://127.0.0.1&#x27;];
+const SITE = &#x27;https://www.ep-online.nl/Energylabel/Search&#x27;;
+const API = &#x27;https://public.ep-online.nl/api/v5/PandEnergielabel&#x27;;
+
+export default {
+  async fetch(req, env, ctx) {
+    const origin = req.headers.get(&#x27;Origin&#x27;) || &#x27;&#x27;;
+    const cors = {
+      &#x27;Access-Control-Allow-Origin&#x27;: TOEGESTAAN.some(o =&gt; origin.startsWith(o)) ? origin : TOEGESTAAN[0],
+      &#x27;Access-Control-Allow-Methods&#x27;: &#x27;GET, OPTIONS&#x27;, &#x27;Vary&#x27;: &#x27;Origin&#x27;
+    };
+    if (req.method === &#x27;OPTIONS&#x27;) return new Response(null, { headers: cors });
+    const url = new URL(req.url);
+    const q = (url.searchParams.get(&#x27;q&#x27;) || &#x27;&#x27;).trim().toUpperCase().replace(/\s+/g, &#x27; &#x27;);
+    const vbo = (url.searchParams.get(&#x27;vbo&#x27;) || &#x27;&#x27;).replace(/\D/g, &#x27;&#x27;);
+    if (!/^\d{4} ?[A-Z]{2} \d+/.test(q) &amp;&amp; !vbo) return json({ fout: &#x27;Geef q=postcode huisnummer (bv. 3343DA 45) en/of vbo=BAG-verblijfsobject-id&#x27; }, 400, cors);
+
+    const sleutel = new Request(&#x27;https://cache.label/&#x27; + encodeURIComponent(q + &#x27;|&#x27; + vbo + &#x27;|&#x27; + (env.EP_KEY ? &#x27;api&#x27; : &#x27;site&#x27;)));
+    const cache = caches.default;
+    const hit = await cache.match(sleutel);
+    if (hit) { const r = new Response(hit.body, hit); Object.entries(cors).forEach(([k, v]) =&gt; r.headers.set(k, v)); return r; }
+
+    let labels = [], bron;
+    try {
+      if (env.EP_KEY) { labels = await viaApi(q, vbo, env.EP_KEY); bron = &#x27;EP-Online webservice&#x27;; }
+      else { labels = await viaSite(q || vbo); bron = &#x27;EP-Online (openbaar zoekscherm)&#x27;; }
+    } catch (e) { return json({ fout: &#x27;EP-Online niet bereikbaar: &#x27; + (e.message || e) }, 502, cors); }
+
+    labels.sort((a, b) =&gt; (a.ingetrokken ? 1 : 0) - (b.ingetrokken ? 1 : 0) || datum(b.registratiedatum) - datum(a.registratiedatum));
+    const passend = vbo ? labels.filter(l =&gt; l.vbo === vbo) : labels;
+    const uit = { q, vbo, bron, label: (passend[0] || (vbo ? null : labels[0])) || null, alle: labels, opgehaald: new Date().toISOString() };
+    const res = json(uit, 200, { ...cors, &#x27;Cache-Control&#x27;: &#x27;public, max-age=86400&#x27; });
+    ctx.waitUntil(cache.put(sleutel, res.clone()));
+    return res;
+  }
+};
+
+const json = (o, s, h) =&gt; new Response(JSON.stringify(o), { status: s, headers: { &#x27;Content-Type&#x27;: &#x27;application/json; charset=utf-8&#x27;, ...h } });
+const datum = d =&gt; { const m = /(\d{2})-(\d{2})-(\d{4})/.exec(d || &#x27;&#x27;); return m ? +(m[3] + m[2] + m[1]) : 0; };
+const schoon = s =&gt; String(s || &#x27;&#x27;).replace(/&lt;[^&gt;]+&gt;/g, &#x27;&#x27;).replace(/&amp;amp;/g, &#x27;&amp;&#x27;).replace(/&amp;sup2;/g, &#x27;²&#x27;).replace(/&amp;nbsp;/g, &#x27; &#x27;).replace(/&amp;#x([0-9a-f]+);/gi, (_, h) =&gt; String.fromCharCode(parseInt(h, 16))).replace(/&amp;#(\d+);/g, (_, d) =&gt; String.fromCharCode(+d)).replace(/\s+/g, &#x27; &#x27;).trim();
+const leeg = v =&gt; (v == null || v === &#x27;-&#x27; || v === &#x27;&#x27; ? null : v);
+
+/* ---------- openbaar zoekscherm ---------- */
+async function viaSite(zoek) {
+  const kop = { &#x27;User-Agent&#x27;: &#x27;Mozilla/5.0 (Erkend-Energielabel.nl pand analyse)&#x27;, &#x27;Accept&#x27;: &#x27;text/html&#x27; };
+  const r1 = await fetch(SITE, { headers: kop });
+  const html1 = await r1.text();
+  const token = (/name=&quot;__RequestVerificationToken&quot;[^&gt;]*value=&quot;([^&quot;]+)&quot;/.exec(html1) || /value=&quot;([^&quot;]+)&quot;[^&gt;]*name=&quot;__RequestVerificationToken&quot;/.exec(html1) || [])[1];
+  if (!token) throw new Error(&#x27;geen formulier-token&#x27;);
+  const koekjes = (r1.headers.getSetCookie ? r1.headers.getSetCookie() : (r1.headers.get(&#x27;set-cookie&#x27;) || &#x27;&#x27;).split(/,(?=\s*[^;,]+=)/))
+    .map(c =&gt; c.split(&#x27;;&#x27;)[0].trim()).filter(Boolean).join(&#x27;; &#x27;);
+  const body = new URLSearchParams({ SearchValue: zoek, __RequestVerificationToken: token });
+  const r2 = await fetch(SITE, { method: &#x27;POST&#x27;, headers: { ...kop, &#x27;Content-Type&#x27;: &#x27;application/x-www-form-urlencoded&#x27;, &#x27;Cookie&#x27;: koekjes, &#x27;Origin&#x27;: &#x27;https://www.ep-online.nl&#x27;, &#x27;Referer&#x27;: SITE }, body });
+  if (!r2.ok) throw new Error(&#x27;zoeken HTTP &#x27; + r2.status);
+  return parseSite(await r2.text());
+}
+function parseSite(html) {
+  const blokken = html.split(/&lt;div class=&quot;se-result-item[^&quot;]*&quot;/).slice(1);
+  return blokken.map(b =&gt; {
+    const v = {};
+    const re = /se-item-description[^&quot;]*&quot;[^&gt;]*&gt;\s*&lt;span[^&gt;]*&gt;([\s\S]*?)&lt;\/span&gt;\s*&lt;\/div&gt;\s*&lt;div class=&quot;[^&quot;]*se-item-(?:value|number)[^&quot;]*&quot;[^&gt;]*&gt;\s*(?:&lt;span[^&gt;]*&gt;([\s\S]*?)&lt;\/span&gt;)?/g;
+    let m; while ((m = re.exec(b))) { const k = schoon(m[1]); if (!(k in v)) v[k] = schoon(m[2]); }
+    const adres = schoon((/sort-value-pht[^&gt;]*&gt;([\s\S]*?)&lt;\/span&gt;/.exec(b) || [])[1]);
+    const status = schoon((/Status van het energielabel:&lt;\/span&gt;[\s\S]*?&lt;span[^&gt;]*&gt;([\s\S]*?)&lt;\/span&gt;/.exec(b) || [])[1]);
+    const getal = k =&gt; { const x = leeg(v[k]); if (x == null) return null; const n = parseFloat(x.replace(/[^\d,-]/g, &#x27;&#x27;).replace(&#x27;,&#x27;, &#x27;.&#x27;)); return isNaN(n) ? null : n; };
+    return {
+      adres, status: status || null,
+      klasse: leeg(v[&#x27;Labelklasse&#x27;] || v[&#x27;Energieklasse&#x27;]),
+      vbo: leeg(v[&#x27;BAG verblijfsobject id&#x27;]), pand: leeg(v[&#x27;BAG pand id&#x27;]),
+      registratienummer: leeg(v[&#x27;Registratienummer&#x27;]),
+      registratiedatum: leeg(v[&#x27;Registratiedatum&#x27;]), opnamedatum: leeg(v[&#x27;Opnamedatum&#x27;]), geldigTot: leeg(v[&#x27;Geldig tot&#x27;]),
+      certificaathouder: leeg(v[&#x27;Certificaathouder&#x27;]), ingetrokken: leeg(v[&#x27;Ingetrokken&#x27;]),
+      statusRegistratie: leeg(v[&#x27;Status&#x27;]), soortOpname: leeg(v[&#x27;Soort opname&#x27;]), berekening: leeg(v[&#x27;Berekening volgens&#x27;]),
+      ag: getal(&#x27;Gebr. opp. thermische zone&#x27;),
+      energiebehoefte: getal(&#x27;Energiebehoefte&#x27;), ep2: getal(&#x27;Prim. fossiel energiegebruik&#x27;),
+      hernieuwbaar: getal(&#x27;Aandeel hernieuwbare energie&#x27;), warmtebehoefte: getal(&#x27;Warmtebehoefte&#x27;),
+      energieindex: getal(&#x27;Energie-index&#x27;) ?? getal(&#x27;Energieindex&#x27;)
+    };
+  }).filter(l =&gt; l.klasse || l.vbo);
+}
+
+/* ---------- officiële webservice (met API-key) ---------- */
+async function viaApi(q, vbo, key) {
+  let u;
+  if (vbo) u = `${API}/AdresseerbaarObject/${vbo}`;
+  else {
+    const m = /^(\d{4}) ?([A-Z]{2}) (\d+)\s*([A-Z])?(?:[- ]?(\w+))?$/.exec(q);
+    if (!m) throw new Error(&#x27;adres niet herkend&#x27;);
+    u = `${API}/Adres?postcode=${m[1]}${m[2]}&amp;huisnummer=${m[3]}` + (m[4] ? `&amp;huisletter=${m[4]}` : &#x27;&#x27;) + (m[5] ? `&amp;huisnummertoevoeging=${m[5]}` : &#x27;&#x27;);
+  }
+  const r = await fetch(u, { headers: { Authorization: key, Accept: &#x27;application/json&#x27; } });
+  if (r.status === 404) return [];
+  if (!r.ok) throw new Error(&#x27;webservice HTTP &#x27; + r.status);
+  const d = await r.json();
+  const nl = s =&gt; { if (!s) return null; const t = new Date(s); return isNaN(t) ? s : t.toLocaleDateString(&#x27;nl-NL&#x27;, { day: &#x27;2-digit&#x27;, month: &#x27;2-digit&#x27;, year: &#x27;numeric&#x27; }).replace(/\//g, &#x27;-&#x27;); };
+  return (Array.isArray(d) ? d : [d]).map(x =&gt; ({
+    adres: [x.Postcode, x.Huisnummer, x.Huisletter, x.Huisnummertoevoeging].filter(Boolean).join(&#x27; &#x27;),
+    status: x.Status || null, klasse: x.Energieklasse || x.Labelklasse || null,
+    vbo: x.BAGVerblijfsobjectID || null, pand: x.BAGPandID || null, registratienummer: x.Registratienummer || null,
+    registratiedatum: nl(x.Registratiedatum), opnamedatum: nl(x.Opnamedatum), geldigTot: nl(x.Geldig_tot || x.GeldigTot),
+    certificaathouder: x.Certificaathouder || null, ingetrokken: x.Ingetrokken ? &#x27;ja&#x27; : null,
+    statusRegistratie: x.Gebouwklasse || null, soortOpname: x.SoortOpname || null, berekening: x.Berekeningstype || null,
+    ag: x.Gebruiksoppervlakte_thermische_zone ?? null, energiebehoefte: x.Energiebehoefte ?? null,
+    ep2: x.PrimaireFossieleEnergie ?? null, hernieuwbaar: x.Aandeel_hernieuwbare_energie ?? null,
+    warmtebehoefte: x.Warmtebehoefte ?? null, energieindex: x.EnergieIndex ?? null
+  }));
+}
+</textarea></main>
+<script>const c=document.getElementById('c'),ok=document.getElementById('ok');
+document.getElementById('k').onclick=async()=>{try{await navigator.clipboard.writeText(c.value);ok.textContent='✓ Gekopieerd — nu plakken bij Cloudflare'}catch(e){c.focus();c.select();document.execCommand('copy');ok.textContent='✓ Gekopieerd (Ctrl+C als het niet lukt)'}};</script></body></html>
