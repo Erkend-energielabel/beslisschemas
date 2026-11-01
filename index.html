@@ -272,6 +272,32 @@ body.tab-bag .wrap{max-width:1180px}
 #bag .bag-label .actie{padding:5px 10px;font-size:.8rem;text-decoration:none}
 #bag .bag-lklasse{display:inline-block;min-width:44px;text-align:center;font-weight:800;font-size:1.05rem;padding:3px 9px;border-radius:4px 14px 14px 4px}
 #bag .bag-verl{background:#c0392b;color:#fff;border-radius:6px;padding:1px 6px;font-size:.72rem;font-weight:700}
+
+/* ===== Labels buurt ===== */
+#bz .bz-zoek{display:flex;gap:8px}#bz .bz-zoek input{flex:1;min-width:0}
+#bz .bz-snel{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0}#bz .bz-snel .actie{padding:5px 10px;font-size:.82rem}
+#bz .bz-voortgang{height:6px;background:#e3ebe5;border-radius:4px;overflow:hidden;margin:10px 0 0}#bz .bz-voortgang i{display:block;height:100%;width:0;background:#3cb54a;transition:width .3s}
+#bz .bz-status{margin:8px 0 0;font-size:.85rem;color:var(--grijs)}#bz .bz-status.err{color:#c0392b}#bz .bz-status.ok{color:#0B3D2E}
+#bz .bz-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:12px 0 8px}
+#bz .bz-kpi div{background:var(--bg);border-radius:8px;padding:6px 8px;font-size:.72rem;color:var(--grijs)}#bz .bz-kpi b{display:block;font-size:1.15rem;color:var(--tekst)}
+#bz .bz-balk{display:flex;height:14px;border-radius:7px;overflow:hidden;margin:0 0 8px}#bz .bz-balk i{display:block}
+#bz .bz-chips{display:flex;flex-wrap:wrap;gap:6px}
+#bz .bz-chips button{border:1px solid #cfdcd2;background:#fff;border-radius:16px;padding:3px 9px 3px 3px;font-size:.8rem;font-weight:700;color:var(--tekst);display:flex;align-items:center;gap:6px;cursor:pointer}
+#bz .bz-chips button.on{border-color:#0B3D2E;box-shadow:0 0 0 2px #0B3D2E inset}
+#bz .bz-chips button span{display:inline-block;min-width:34px;text-align:center;border-radius:12px;padding:1px 6px;color:#fff}
+#bz .bz-chips button.wis{padding:3px 10px;font-weight:600}
+#bz-kaart{height:380px;border-radius:10px}
+#bz table{width:100%;border-collapse:collapse;font-size:.85rem}
+#bz th{text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--grijs);padding:6px;border-bottom:2px solid #cfdcd2;cursor:pointer;white-space:nowrap;user-select:none}
+#bz th.op::after{content:" ▲"}#bz th.af::after{content:" ▼"}
+#bz td{padding:6px;border-bottom:1px solid #e3ebe5;vertical-align:middle}
+#bz tbody tr{cursor:pointer}#bz tbody tr:hover{background:#f4f8f5}
+#bz td small{display:block;color:var(--grijs);font-size:.72rem}
+#bz .bz-kl{display:inline-block;min-width:42px;text-align:center;font-weight:800;padding:2px 7px;border-radius:3px 12px 12px 3px}
+#bz .bz-geen{color:var(--grijs)}#bz .bz-fout{color:#c0392b}#bz .bz-bezig{color:var(--grijs)}
+#bz .bz-verl{background:#c0392b;color:#fff;border-radius:6px;padding:0 5px;font-size:.7rem;font-weight:700}
+#bz .bz-cert{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:620px){#bz .bz-kpi{grid-template-columns:repeat(2,1fr)}#bz th:nth-child(4),#bz td:nth-child(4),#bz th:nth-child(6),#bz td:nth-child(6){display:none}}
 #vbs{
   --bg:#F2F4F3; --surface:#FFFFFF; --ink:#18232A; --muted:#5A6870; --line:#D5DCDE; --soft:#E9EEEE;
   --accent:#5B2D86; --accent-ink:#FFFFFF; --accent-soft:#EFE8F6;
@@ -536,6 +562,7 @@ body.tab-bag .wrap{max-width:1180px}
     <button type="button" role="tab" id="tabknop-bs" aria-selected="true" data-tab="bs">📋 Beslisschema's</button>
     <button type="button" role="tab" id="tabknop-bag" aria-selected="false" data-tab="bag">🏠 Pand<span class="lang"> analyse (BAG)</span></button>
     <button type="button" role="tab" id="tabknop-meet" aria-selected="false" data-tab="meet">📐 Opmeten</button>
+    <button type="button" role="tab" id="tabknop-buurt" aria-selected="false" data-tab="buurt">🏘️ Labels<span class="lang"> buurt</span></button>
     <button type="button" class="topknop" id="top-pdf" title="Eén PDF met beslisschema's en pand analyse">📄 PDF<span class="lang"> downloaden</span></button>
   </div>
   <div id="top-melding" class="top-melding" hidden></div>
@@ -686,6 +713,24 @@ body.tab-bag .wrap{max-width:1180px}
       <div class="acties" style="margin:14px 0"><button class="actie licht" id="bag-copy" type="button">Kopieer overzicht</button></div>
     </div>
   </section>
+
+  <section id="tab-buurt" role="tabpanel" hidden>
+    <div id="bz">
+      <div class="kaart">
+        <h2>Energielabels in de straat of buurt</h2>
+        <p class="klein" style="margin:0 0 10px">Zoekt alle adressen in een straat of postcodegebied op in de BAG en haalt per adres het geregistreerde energielabel uit EP-Online. Klik op een adres om de pand analyse te openen.</p>
+        <div class="bz-zoek"><input type="text" id="bz-q" placeholder="Postcode (3343DA of 3343) of straat + plaats" autocomplete="off"><button class="actie" id="bz-go" type="button">Zoek labels</button></div>
+        <div class="bz-snel" id="bz-snel"></div>
+        <div class="bz-voortgang" id="bz-voortgang" hidden><i></i></div>
+        <div class="bz-status" id="bz-status" hidden></div>
+        <div id="bz-sam"></div>
+        <div class="acties" id="bz-acties" hidden><button class="actie licht" type="button" id="bz-csv">⬇️ Download CSV (Excel)</button><button class="actie licht" type="button" id="bz-opnieuw" hidden>↻ Opnieuw (mislukte)</button></div>
+      </div>
+      <div class="kaart bz-kaartblok"><div id="bz-kaart" hidden></div></div>
+      <div class="kaart"><div id="bz-tabel"><p class="klein">Nog niets gezocht.</p></div></div>
+    </div>
+  </section>
+
 
   <div class="kaart">
     <h2>Vastgelegd bij dit project</h2>
@@ -1558,6 +1603,10 @@ return {
     else if(!$('bag-q').value.trim()&&projectAdres){$('bag-q').value=projectAdres}
   },
   heeftPand:()=>!!selB(),
+  zoek:q=>search(q),
+  labelApi,
+  huidig:()=>{const b=selB();const v=b&&vboOf(b);if(v&&v.postcode)return{straat:v.openbare_ruimte,plaats:v.woonplaats,postcode:v.postcode};
+    const m=/^(.*?)\s+\d+\S*,\s*(\d{4}\s?[A-Z]{2})\s+(.+)$/.exec(S.addr||'');return m?{straat:m[1],postcode:m[2].replace(/\s/,''),plaats:m[3]}:null},
   adres:()=>{const b=selB();return b?addrOf(b):''},
   samenvatting,
   pdfGegevens,
@@ -1928,6 +1977,153 @@ return {
   pdfGegevens,
   _D:() => D, _test:{oppPx, omtrekPx, bereken, zelfKruisend}
 };
+})();
+
+</script>
+<script>
+/* ===== Labels in de buurt: alle bestaande energielabels in een straat of postcodegebied ===== */
+window.BUURT = (function(){
+const $=id=>document.getElementById(id);
+const LS='https://api.pdok.nl/bzk/locatieserver/search/v3_1';
+const MAX=1500, BATCH=20;
+const KLASSEN=['A+++++','A++++','A+++','A++','A+','A','B','C','D','E','F','G'];
+const KLEUR={'A+++++':'#00843d','A++++':'#00843d','A+++':'#00843d','A++':'#00843d','A+':'#00843d','A':'#009036','B':'#55ab26','C':'#c8d100','D':'#ffed00','E':'#fbba00','F':'#eb6909','G':'#e2001a'};
+const GEEN='#b8c2bc';
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=(v,d=1)=>v==null||isNaN(v)?'–':Number(v).toLocaleString('nl-NL',{minimumFractionDigits:d,maximumFractionDigits:d});
+const api=()=>window.BAG&&BAG.labelApi?BAG.labelApi():'';
+const S={rij:[],filter:null,sort:'adres',asc:true,tok:0,gebied:'',map:null,laag:null};
+const datumNum=d=>{const m=/(\d{2})-(\d{2})-(\d{4})/.exec(d||'');return m?+(m[3]+m[2]+m[1]):0};
+const verlopen=l=>l&&l.geldigTot&&datumNum(l.geldigTot)<+new Date().toISOString().slice(0,10).replace(/-/g,'');
+const klasseVan=r=>r.label&&r.label.klasse?String(r.label.klasse).toUpperCase():null;
+
+function status(t,soort){const el=$('bz-status');el.textContent=t||'';el.className='bz-status '+(soort||'');el.hidden=!t}
+function voortgang(n,tot){const el=$('bz-voortgang');if(!tot){el.hidden=true;return}el.hidden=false;el.firstElementChild.style.width=(100*n/tot).toFixed(1)+'%'}
+
+/* --- adressen ophalen uit de BAG (PDOK Locatieserver) --- */
+async function lsJson(u){const r=await fetch(u);if(!r.ok)throw new Error('Locatieserver '+r.status);return(await r.json()).response}
+async function adressen(invoer){
+  const t=invoer.trim();let fq,naam;
+  if(/^\d{4}\s?[a-z]{2}$/i.test(t)){const pc=t.replace(/\s/g,'').toUpperCase();fq=`fq=postcode:${pc}`;naam='postcode '+pc}
+  else if(/^\d{4}$/.test(t)){fq=`fq=postcode:${t}*`;naam='postcodegebied '+t}
+  else{
+    const s=await lsJson(`${LS}/suggest?q=${encodeURIComponent(t)}&fq=type:weg&rows=1`);
+    if(!s.docs.length)throw new Error('Straat niet gevonden. Typ straat + plaats, bv. "Aelbert Cuyplaan Hendrik-Ido-Ambacht", of een postcode.');
+    const d=(await lsJson(`${LS}/lookup?id=${encodeURIComponent(s.docs[0].id)}&fl=straatnaam,woonplaatsnaam,weergavenaam`)).docs[0];
+    fq=`fq=straatnaam:${encodeURIComponent('"'+d.straatnaam+'"')}&fq=woonplaatsnaam:${encodeURIComponent('"'+d.woonplaatsnaam+'"')}`;naam=d.weergavenaam;
+  }
+  const fl='weergavenaam,straatnaam,huisnummer,huisletter,huisnummertoevoeging,postcode,woonplaatsnaam,adresseerbaarobject_id,centroide_ll,adrestype';
+  const eerste=await lsJson(`${LS}/free?q=*:*&fq=type:adres&${fq}&rows=100&start=0&fl=${fl}`);
+  const tot=eerste.numFound;let docs=eerste.docs;
+  if(tot>MAX)throw new Error(`${naam}: ${tot} adressen, dat is te veel (max ${MAX}). Kies een postcode met letters (bv. 3343DA) of een straat.`);
+  for(let st=100;st<tot;st+=100){status(`Adressen ophalen… ${st} van ${tot}`);docs=docs.concat((await lsJson(`${LS}/free?q=*:*&fq=type:adres&${fq}&rows=100&start=${st}&fl=${fl}`)).docs)}
+  const gezien=new Set();
+  const lijst=docs.filter(d=>d.adrestype!=='nevenadres').filter(d=>{const k=d.adresseerbaarobject_id||d.weergavenaam;if(gezien.has(k))return false;gezien.add(k);return true})
+    .map(d=>{const m=/POINT\(([\d.]+) ([\d.]+)\)/.exec(d.centroide_ll||'');
+      const nr=`${d.huisnummer}${d.huisletter||''}${d.huisnummertoevoeging?'-'+d.huisnummertoevoeging:''}`;
+      return{adres:`${d.straatnaam} ${nr}`,weergave:d.weergavenaam,postcode:d.postcode,plaats:d.woonplaatsnaam,straat:d.straatnaam,hnr:d.huisnummer,toev:(d.huisletter||'')+(d.huisnummertoevoeging||''),
+        q:`${d.postcode} ${nr}`,vbo:d.adresseerbaarobject_id||'',ll:m?[+m[2],+m[1]]:null,label:undefined}});
+  lijst.sort((a,b)=>a.straat.localeCompare(b.straat,'nl')||a.hnr-b.hnr||a.toev.localeCompare(b.toev,'nl',{numeric:true}));
+  return{naam,lijst};
+}
+
+/* --- labels ophalen via de label-server, in porties --- */
+async function losse(portie){let i=0;const w=async()=>{while(i<portie.length){const x=portie[i++];
+  try{const r=await fetch(`${api()}${api().includes('?')?'&':'?'}q=${encodeURIComponent(x.q)}&vbo=${encodeURIComponent(x.vbo)}`);const j=await r.json();x.label=r.ok?(j.label||null):{fout:j.fout||String(r.status)}}
+  catch(e){x.label={fout:String(e.message||e)}}}};await Promise.all([w(),w(),w(),w()])}
+async function labels(lijst,tok){
+  const porties=[];for(let i=0;i<lijst.length;i+=BATCH)porties.push(lijst.slice(i,i+BATCH));
+  let klaar=0,p=0,fouten=0;
+  const werker=async()=>{while(p<porties.length&&tok===S.tok){const portie=porties[p++];
+    try{const c=new AbortController();const to=setTimeout(()=>c.abort(),45000);
+      const r=await fetch(`${api()}${api().includes('?')?'&':'?'}b=${encodeURIComponent(portie.map(x=>x.q+'~'+x.vbo).join(';'))}`,{signal:c.signal});clearTimeout(to);
+      const j=await r.json();
+      if(r.ok&&Array.isArray(j.resultaten))j.resultaten.forEach((res,i)=>{const x=portie[i];if(!x)return;x.label=res.fout?{fout:res.fout}:(res.label||null)});
+      else if(r.status===400&&!j.resultaten)await losse(portie);   /* oudere label-server zonder ?b= : één voor één */
+      else throw new Error(j.fout||r.status);
+    }catch(e){fouten++;portie.forEach(x=>{if(x.label===undefined)x.label={fout:String(e.message||e)}})}
+    klaar+=portie.length;if(tok!==S.tok)return;voortgang(klaar,lijst.length);status(`Labels opzoeken in EP-Online… ${klaar} van ${lijst.length}`);render()}};
+  await Promise.all([werker(),werker()]);
+  return fouten;
+}
+
+async function zoek(invoer){
+  invoer=(invoer||$('bz-q').value).trim();if(!invoer)return;
+  if(!api()){status('Label-server niet ingesteld (zie ⚙️ bij Bestaand energielabel in de pand analyse).','err');return}
+  const tok=++S.tok;$('bz-q').value=invoer;S.filter=null;S.rij=[];render();voortgang(0,0);status('Adressen ophalen…');
+  try{localStorage.setItem('ee_bz_q',invoer)}catch(e){}
+  let r;try{r=await adressen(invoer)}catch(e){if(tok===S.tok)status(e.message||String(e),'err');return}
+  if(tok!==S.tok)return;
+  S.gebied=r.naam;S.rij=r.lijst;
+  if(!S.rij.length){status(`Geen adressen gevonden voor ${r.naam}.`,'err');return}
+  render(true);voortgang(0,S.rij.length);status(`${S.rij.length} adressen in ${r.naam}. Labels opzoeken in EP-Online…`);
+  const fouten=await labels(S.rij,tok);if(tok!==S.tok)return;
+  voortgang(0,0);const n=S.rij.filter(x=>x.label&&!x.label.fout).length;
+  status(`${r.naam}: ${S.rij.length} adressen, ${n} met een geregistreerd energielabel.`+(fouten?` ${fouten} portie(s) mislukt — klik "Opnieuw" om die nog eens te proberen.`:''),fouten?'err':'ok');
+  $('bz-opnieuw').hidden=!fouten;render();
+}
+async function opnieuw(){const mis=S.rij.filter(x=>x.label&&x.label.fout);if(!mis.length)return;mis.forEach(x=>x.label=undefined);const tok=S.tok;$('bz-opnieuw').hidden=true;
+  voortgang(0,mis.length);const f=await labels(mis,tok);voortgang(0,0);status(f?'Nog steeds niet alles gelukt. Probeer het later nog eens.':'Alle labels opgehaald.',f?'err':'ok');$('bz-opnieuw').hidden=!f;render()}
+
+/* --- weergave --- */
+const groep=r=>r.label===undefined?'bezig':r.label&&r.label.fout?'fout':!r.label?'geen':verlopen(r.label)?'verlopen':klasseVan(r);
+function render(fit){
+  const rij=S.rij,tel={};rij.forEach(r=>{const k=klasseVan(r);if(k&&!(r.label&&r.label.fout))tel[k]=(tel[k]||0)+1});
+  const geen=rij.filter(r=>r.label===null).length,verl=rij.filter(r=>r.label&&!r.label.fout&&verlopen(r.label)).length,met=Object.values(tel).reduce((s,v)=>s+v,0);
+  $('bz-sam').innerHTML=!rij.length?'':`<div class="bz-kpi"><div>Adressen<b>${rij.length}</b></div><div>Met label<b>${met}</b></div><div>Zonder label<b>${geen}</b></div><div>Verlopen<b>${verl}</b></div></div>
+    <div class="bz-balk">${KLASSEN.filter(k=>tel[k]).map(k=>`<i style="flex:${tel[k]};background:${KLEUR[k]}" title="${k}: ${tel[k]}"></i>`).join('')}${geen?`<i style="flex:${geen};background:${GEEN}" title="geen label: ${geen}"></i>`:''}</div>
+    <div class="bz-chips">${KLASSEN.filter(k=>tel[k]).map(k=>`<button type="button" data-f="${k}" class="${S.filter===k?'on':''}"><span style="background:${KLEUR[k]};color:${/^(C|D|E)$/.test(k)?'#1d2a22':'#fff'}">${k}</span>${tel[k]}</button>`).join('')}
+      ${geen?`<button type="button" data-f="geen" class="${S.filter==='geen'?'on':''}"><span style="background:${GEEN}">–</span>geen label ${geen}</button>`:''}
+      ${verl?`<button type="button" data-f="verlopen" class="${S.filter==='verlopen'?'on':''}"><span style="background:#c0392b">!</span>verlopen ${verl}</button>`:''}
+      ${S.filter?'<button type="button" data-f="" class="wis">✕ alles tonen</button>':''}</div>`;
+  $('bz-sam').querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{S.filter=b.dataset.f||null;render()});
+  const zicht=rij.filter(r=>!S.filter||(S.filter==='geen'?r.label===null:S.filter==='verlopen'?r.label&&!r.label.fout&&verlopen(r.label):klasseVan(r)===S.filter));
+  const sleutel={adres:r=>r.straat+' '+String(r.hnr).padStart(6,'0')+r.toev,label:r=>{const k=klasseVan(r);return k?KLASSEN.indexOf(k):99},geldig:r=>datumNum(r.label&&r.label.geldigTot),reg:r=>datumNum(r.label&&r.label.registratiedatum),ep2:r=>r.label&&r.label.ep2!=null?r.label.ep2:1e9,cert:r=>(r.label&&r.label.certificaathouder)||'~'};
+  const f=sleutel[S.sort]||sleutel.adres;zicht.sort((a,b)=>{const x=f(a),y=f(b);return(x<y?-1:x>y?1:0)*(S.asc?1:-1)});
+  const kop=(k,t)=>`<th data-s="${k}" class="${S.sort===k?(S.asc?'op':'af'):''}">${t}</th>`;
+  $('bz-tabel').innerHTML=!rij.length?'':`<table><thead><tr>${kop('adres','Adres')}${kop('label','Label')}${kop('geldig','Geldig tot')}${kop('reg','Geregistreerd')}${kop('ep2','EP2')}${kop('cert','Certificaathouder')}</tr></thead><tbody>
+    ${zicht.map(r=>{const l=r.label,k=klasseVan(r);
+      const lab=l===undefined?'<span class="bz-bezig">…</span>':l&&l.fout?'<span class="bz-fout" title="'+esc(l.fout)+'">fout</span>':!l?'<span class="bz-geen">geen</span>':`<span class="bz-kl" style="background:${KLEUR[k]||'#6b7a73'};color:${/^(C|D|E)$/.test(k)?'#1d2a22':'#fff'}">${esc(k)}</span>${l.ingetrokken?' <small>ingetrokken</small>':''}`;
+      return`<tr data-a="${esc(r.weergave)}"><td><b>${esc(r.adres)}</b><small>${esc(r.postcode)}</small></td><td>${lab}</td><td>${l&&!l.fout&&l.geldigTot?esc(l.geldigTot)+(verlopen(l)?' <span class="bz-verl">verlopen</span>':''):''}</td><td>${l&&!l.fout&&l.registratiedatum?esc(l.registratiedatum):''}</td><td>${l&&!l.fout&&l.ep2!=null?fmt(l.ep2,1):''}</td><td class="bz-cert">${l&&!l.fout?esc(l.certificaathouder||''):''}</td></tr>`}).join('')}</tbody></table>`;
+  $('bz-tabel').querySelectorAll('th[data-s]').forEach(th=>th.onclick=()=>{if(S.sort===th.dataset.s)S.asc=!S.asc;else{S.sort=th.dataset.s;S.asc=true}render()});
+  $('bz-tabel').querySelectorAll('tr[data-a]').forEach(tr=>tr.onclick=()=>openPand(tr.dataset.a));
+  $('bz-acties').hidden=!rij.length;
+  kaart(zicht,fit);
+}
+function kaart(zicht,fit){
+  const el=$('bz-kaart');if(!window.L){el.hidden=true;return}
+  el.hidden=!S.rij.length;if(!S.rij.length)return;
+  if(!S.map){S.map=L.map(el,{scrollWheelZoom:false,zoomControl:true});
+    L.tileLayer('https://service.pdok.nl/brt/achtergrondkaart/wmts/v2_0/grijs/EPSG:3857/{z}/{x}/{y}.png',{maxZoom:19,attribution:'Kaart: PDOK/BRT · labels: EP-Online'}).addTo(S.map);
+    S.map.on('click',()=>S.map.scrollWheelZoom.enable());el.addEventListener('mouseleave',()=>S.map.scrollWheelZoom.disable());S.laag=L.layerGroup().addTo(S.map)}
+  S.laag.clearLayers();const pts=[];
+  zicht.forEach(r=>{if(!r.ll)return;pts.push(r.ll);const k=klasseVan(r),g=groep(r);
+    L.circleMarker(r.ll,{radius:7,weight:1.5,color:'#fff',fillOpacity:.95,fillColor:g==='bezig'?'#e3e8e5':g==='fout'?'#888':!k?GEEN:KLEUR[k]||'#6b7a73'})
+      .bindTooltip(`${esc(r.adres)}${k?' · '+esc(k):r.label===null?' · geen label':''}`).on('click',()=>openPand(r.weergave)).addTo(S.laag)});
+  setTimeout(()=>{S.map.invalidateSize();if(fit&&pts.length)S.map.fitBounds(pts,{padding:[20,20],maxZoom:18})},30);
+}
+function openPand(weergave){if(window.kiesTab)kiesTab('bag');if(window.BAG&&BAG.zoek)setTimeout(()=>BAG.zoek(weergave),60)}
+function csv(){
+  const r=[['Adres','Postcode','Plaats','Label','Geldig tot','Registratiedatum','EP2 (kWh/m2.jr)','Energiebehoefte','Aandeel hernieuwbaar (%)','Ag (m2)','Certificaathouder','Status','BAG vbo-id']];
+  S.rij.forEach(x=>{const l=x.label&&!x.label.fout?x.label:null;r.push([x.adres,x.postcode,x.plaats,l?l.klasse:(x.label===null?'geen':''),l?l.geldigTot||'':'',l?l.registratiedatum||'':'',l&&l.ep2!=null?fmt(l.ep2,2):'',l&&l.energiebehoefte!=null?fmt(l.energiebehoefte,2):'',l&&l.hernieuwbaar!=null?fmt(l.hernieuwbaar,1):'',l&&l.ag!=null?fmt(l.ag,2):'',l?l.certificaathouder||'':'',l?(l.ingetrokken?'ingetrokken':l.status||''):'',x.vbo])});
+  const txt='﻿'+r.map(a=>a.map(v=>{v=String(v??'');return/[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(';')).join('\r\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/csv;charset=utf-8'}));a.download=`Energielabels ${S.gebied.replace(/[\\/:*?"<>|]/g,'')}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+function voorstel(){
+  const b=window.BAG&&BAG.huidig?BAG.huidig():null;const el=$('bz-snel');
+  if(!b){el.innerHTML='';return}
+  el.innerHTML=[b.straat&&b.plaats?[`${b.straat} ${b.plaats}`,'🛣️ '+b.straat]:null,b.postcode?[b.postcode,'📮 '+b.postcode]:null,b.postcode?[b.postcode.slice(0,4),'🗺️ '+b.postcode.slice(0,4)]:null].filter(Boolean)
+    .map(([q,t])=>`<button type="button" class="actie licht" data-q="${esc(q)}">${esc(t)}</button>`).join('');
+  el.querySelectorAll('[data-q]').forEach(k=>k.onclick=()=>zoek(k.dataset.q));
+}
+function bind(){
+  $('bz-go').onclick=()=>zoek();
+  $('bz-q').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();zoek()}});
+  $('bz-csv').onclick=csv;$('bz-opnieuw').onclick=opnieuw;
+  try{const q=localStorage.getItem('ee_bz_q');if(q)$('bz-q').value=q}catch(e){}
+}
+bind();
+return{toon(){voorstel();if(S.map)setTimeout(()=>S.map.invalidateSize(),30)},zoek};
 })();
 
 </script>
@@ -2787,8 +2983,9 @@ initMsal();
 /* ============ TABBLADEN + KOPPELING MET PAND ANALYSE ============ */
 function kiesTab(t){
   document.querySelectorAll('.hoofdtabs [data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab===t)));
-  $('tab-bs').hidden = t!=='bs'; $('tab-bag').hidden = t!=='bag'; $('tab-meet').hidden = t!=='meet';
-  document.body.classList.toggle('tab-bag', t==='bag' || t==='meet');
+  $('tab-bs').hidden = t!=='bs'; $('tab-bag').hidden = t!=='bag'; $('tab-meet').hidden = t!=='meet'; $('tab-buurt').hidden = t!=='buurt';
+  document.body.classList.toggle('tab-bag', t==='bag' || t==='meet' || t==='buurt');
+  if(t==='buurt') BUURT.toon();
   if(t==='meet') MEET.toon();
   try{ localStorage.setItem('ee_tab', t); }catch(e){}
   if(t==='bag') BAG.toon($('project').value.trim());
@@ -2812,7 +3009,7 @@ window.bagAdresGekozen = naam => {
 window.meetGewijzigd = () => renderLog();
 MEET.laadProject(logSleutel());
 ['projnr','project'].forEach(v => $(v).addEventListener('change', () => MEET.laadProject(logSleutel())));
-try{ const t0 = localStorage.getItem('ee_tab'); if(t0==='bag' || t0==='meet') kiesTab(t0); }catch(e){}
+try{ const t0 = localStorage.getItem('ee_tab'); if(t0==='bag' || t0==='meet' || t0==='buurt') kiesTab(t0); }catch(e){}
 </script>
 <script>
 (function(){

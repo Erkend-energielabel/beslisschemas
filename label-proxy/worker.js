@@ -16,29 +16,45 @@ export default {
     };
     if (req.method === 'OPTIONS') return new Response(null, { headers: cors });
     const url = new URL(req.url);
-    const q = (url.searchParams.get('q') || '').trim().toUpperCase().replace(/\s+/g, ' ');
+    const bron = env.EP_KEY ? 'EP-Online webservice' : 'EP-Online (openbaar zoekscherm)';
+    const sessie = { env };
+    /* meerdere adressen tegelijk: ?b=3343DA 43~0531010000000063;3343DA 45~0531010000000065 (max 25) */
+    if (url.searchParams.has('b')) {
+      const items = url.searchParams.get('b').split(';').map(x => x.split('~')).slice(0, 25)
+        .map(([q, v]) => ({ q: normQ(q), vbo: (v || '').replace(/\D/g, '') })).filter(x => x.q || x.vbo);
+      const uit = new Array(items.length);
+      let i = 0;
+      const werker = async () => { while (i < items.length) { const k = i++; const it = items[k];
+        try { const r = await zoekEen(it.q, it.vbo, sessie, ctx); uit[k] = { q: it.q, vbo: it.vbo, label: r.label }; }
+        catch (e) { uit[k] = { q: it.q, vbo: it.vbo, fout: String(e.message || e) }; } } };
+      await Promise.all([werker(), werker(), werker(), werker()]);
+      return json({ bron, resultaten: uit }, 200, cors);
+    }
+    const q = normQ(url.searchParams.get('q'));
     const vbo = (url.searchParams.get('vbo') || '').replace(/\D/g, '');
     if (!/^\d{4} ?[A-Z]{2} \d+/.test(q) && !vbo) return json({ fout: 'Geef q=postcode huisnummer (bv. 3343DA 45) en/of vbo=BAG-verblijfsobject-id' }, 400, cors);
-
-    const sleutel = new Request('https://cache.label/' + encodeURIComponent(q + '|' + vbo + '|' + (env.EP_KEY ? 'api' : 'site')));
-    const cache = caches.default;
-    const hit = await cache.match(sleutel);
-    if (hit) { const r = new Response(hit.body, hit); Object.entries(cors).forEach(([k, v]) => r.headers.set(k, v)); return r; }
-
-    let labels = [], bron;
     try {
-      if (env.EP_KEY) { labels = await viaApi(q, vbo, env.EP_KEY); bron = 'EP-Online webservice'; }
-      else { labels = await viaSite(q || vbo); bron = 'EP-Online (openbaar zoekscherm)'; }
+      const r = await zoekEen(q, vbo, sessie, ctx);
+      return json({ q, vbo, bron, label: r.label, alle: r.alle, opgehaald: new Date().toISOString() }, 200, { ...cors, 'Cache-Control': 'public, max-age=86400' });
     } catch (e) { return json({ fout: 'EP-Online niet bereikbaar: ' + (e.message || e) }, 502, cors); }
-
-    labels.sort((a, b) => (a.ingetrokken ? 1 : 0) - (b.ingetrokken ? 1 : 0) || datum(b.registratiedatum) - datum(a.registratiedatum));
-    const passend = vbo ? labels.filter(l => l.vbo === vbo) : labels;
-    const uit = { q, vbo, bron, label: (passend[0] || (vbo ? null : labels[0])) || null, alle: labels, opgehaald: new Date().toISOString() };
-    const res = json(uit, 200, { ...cors, 'Cache-Control': 'public, max-age=86400' });
-    ctx.waitUntil(cache.put(sleutel, res.clone()));
-    return res;
   }
 };
+
+const normQ = q => String(q || '').trim().toUpperCase().replace(/\s+/g, ' ');
+async function zoekEen(q, vbo, sessie, ctx) {
+  const env = sessie.env;
+  const sleutel = new Request('https://cache.label/v2/' + encodeURIComponent(q + '|' + vbo + '|' + (env.EP_KEY ? 'api' : 'site')));
+  const hit = await caches.default.match(sleutel);
+  if (hit) return await hit.json();
+  let labels;
+  if (env.EP_KEY) labels = await viaApi(q, vbo, env.EP_KEY);
+  else { labels = await viaSite(vbo || q, sessie); if (!labels.length && vbo && q) labels = await viaSite(q, sessie); }
+  labels.sort((a, b) => (a.ingetrokken ? 1 : 0) - (b.ingetrokken ? 1 : 0) || datum(b.registratiedatum) - datum(a.registratiedatum));
+  const passend = vbo ? labels.filter(l => l.vbo === vbo) : labels;
+  const r = { label: passend[0] || (vbo && labels.length === 1 ? labels[0] : (vbo ? null : labels[0])) || null, alle: labels };
+  ctx.waitUntil(caches.default.put(sleutel, new Response(JSON.stringify(r), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=86400' } })));
+  return r;
+}
 
 const json = (o, s, h) => new Response(JSON.stringify(o), { status: s, headers: { 'Content-Type': 'application/json; charset=utf-8', ...h } });
 const datum = d => { const m = /(\d{2})-(\d{2})-(\d{4})/.exec(d || ''); return m ? +(m[3] + m[2] + m[1]) : 0; };
@@ -46,16 +62,24 @@ const schoon = s => String(s || '').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&
 const leeg = v => (v == null || v === '-' || v === '' ? null : v);
 
 /* ---------- openbaar zoekscherm ---------- */
-async function viaSite(zoek) {
-  const kop = { 'User-Agent': 'Mozilla/5.0 (Erkend-Energielabel.nl pand analyse)', 'Accept': 'text/html' };
-  const r1 = await fetch(SITE, { headers: kop });
-  const html1 = await r1.text();
-  const token = (/name="__RequestVerificationToken"[^>]*value="([^"]+)"/.exec(html1) || /value="([^"]+)"[^>]*name="__RequestVerificationToken"/.exec(html1) || [])[1];
-  if (!token) throw new Error('geen formulier-token');
-  const koekjes = (r1.headers.getSetCookie ? r1.headers.getSetCookie() : (r1.headers.get('set-cookie') || '').split(/,(?=\s*[^;,]+=)/))
-    .map(c => c.split(';')[0].trim()).filter(Boolean).join('; ');
-  const body = new URLSearchParams({ SearchValue: zoek, __RequestVerificationToken: token });
-  const r2 = await fetch(SITE, { method: 'POST', headers: { ...kop, 'Content-Type': 'application/x-www-form-urlencoded', 'Cookie': koekjes, 'Origin': 'https://www.ep-online.nl', 'Referer': SITE }, body });
+async function sessieStart(sessie) {
+  if (sessie.token) return sessie;
+  if (!sessie.bezig) sessie.bezig = (async () => {
+    const r1 = await fetch(SITE, { headers: KOP });
+    const html1 = await r1.text();
+    const token = (/name="__RequestVerificationToken"[^>]*value="([^"]+)"/.exec(html1) || /value="([^"]+)"[^>]*name="__RequestVerificationToken"/.exec(html1) || [])[1];
+    if (!token) throw new Error('geen formulier-token');
+    sessie.koekjes = (r1.headers.getSetCookie ? r1.headers.getSetCookie() : (r1.headers.get('set-cookie') || '').split(/,(?=\s*[^;,]+=)/))
+      .map(c => c.split(';')[0].trim()).filter(Boolean).join('; ');
+    sessie.token = token;
+  })();
+  await sessie.bezig; return sessie;
+}
+const KOP = { 'User-Agent': 'Mozilla/5.0 (Erkend-Energielabel.nl pand analyse)', 'Accept': 'text/html' };
+async function viaSite(zoek, sessie) {
+  await sessieStart(sessie);
+  const body = new URLSearchParams({ SearchValue: zoek, __RequestVerificationToken: sessie.token });
+  const r2 = await fetch(SITE, { method: 'POST', headers: { ...KOP, 'Content-Type': 'application/x-www-form-urlencoded', 'Cookie': sessie.koekjes, 'Origin': 'https://www.ep-online.nl', 'Referer': SITE }, body });
   if (!r2.ok) throw new Error('zoeken HTTP ' + r2.status);
   return parseSite(await r2.text());
 }
@@ -68,8 +92,9 @@ function parseSite(html) {
     const adres = schoon((/sort-value-pht[^>]*>([\s\S]*?)<\/span>/.exec(b) || [])[1]);
     const status = schoon((/Status van het energielabel:<\/span>[\s\S]*?<span[^>]*>([\s\S]*?)<\/span>/.exec(b) || [])[1]);
     const getal = k => { const x = leeg(v[k]); if (x == null) return null; const n = parseFloat(x.replace(/[^\d,-]/g, '').replace(',', '.')); return isNaN(n) ? null : n; };
+    const functie = (/data-filter-value-function="(\w+)"/.exec(b) || [])[1] || null;
     return {
-      adres, status: status || null,
+      adres, status: status || null, functie: functie === 'residential' ? 'woning' : functie === 'utility' ? 'utiliteit' : functie,
       klasse: leeg(v['Labelklasse'] || v['Energieklasse']),
       vbo: leeg(v['BAG verblijfsobject id']), pand: leeg(v['BAG pand id']),
       registratienummer: leeg(v['Registratienummer']),
