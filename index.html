@@ -138,8 +138,8 @@ body.tab-bag .wrap{max-width:1180px}
 .bag-grid{display:grid;grid-template-columns:1fr;gap:14px}
 @media(min-width:900px){.bag-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 .bag-grid .kaart{margin:0}
-#bag-kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px}
-@media(min-width:620px){#bag-kpis{grid-template-columns:repeat(4,1fr)}}
+#bag-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+@media(min-width:620px){#bag-kpis{grid-template-columns:repeat(5,1fr)}}
 #bag-kpis div{background:var(--bg);border-radius:8px;padding:8px 10px;font-size:.72rem;color:var(--grijs)}
 #bag-kpis b{display:block;font-size:1.2rem;color:var(--tekst)}
 .bag-meta{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:.85rem}
@@ -202,10 +202,10 @@ body.tab-bag .wrap{max-width:1180px}
 .bag-groep .bar{grid-column:1/4;height:5px;border-radius:3px;background:var(--bg)}
 .bag-groep .bar i{display:block;height:100%;border-radius:3px}
 .bag-groep .bag-chip{min-width:44px}
-.bag-dakkpi{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
+.bag-dakkpi{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px}
 .bag-dakkpi div{background:var(--bg);border-radius:8px;padding:6px 8px;font-size:.7rem;color:var(--grijs)}
 .bag-dakkpi b{display:block;font-size:1rem;color:var(--tekst)}
-@media(max-width:560px){.bag-dakkpi{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.bag-dakkpi{grid-template-columns:repeat(3,1fr)}}
 
 /* ===== opmeten ===== */
 .meet-bladen{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
@@ -1112,11 +1112,17 @@ function metaRows(b){const v=vboOf(b)||{};const rows=[['Adres',addrOf(b)],['Pand
   rows.push(['Footprint pand',fmt(S.area,0)+' m²']);
   if(b.vbos.length>1)rows.push(['Verblijfsobjecten in pand',b.vbos.length]);
   rows.push(['Daktype',heights(b).dak]);if(heights(b).bron)rows.push(['Bron hoogte',bronLabel(heights(b).route)]);return rows}
+/* dakhelling in graden: grootste hellende vlak, met bereik als vlakken verschillen */
+function dakHelling(b){if(!b||!b.geo)return null;const vl=vlakkenVan(b);if(!vl.length)return null;
+  const hel=vl.filter(v=>!v.plat);if(!hel.length)return{tekst:'plat (0°)',hoofd:0,plat:true};
+  const g=hel.reduce((a,v)=>v.opp>a.opp?v:a),mn=Math.min(...hel.map(v=>v.helling)),mx=Math.max(...hel.map(v=>v.helling));
+  const t=Math.round(g.helling)+'°'+(Math.round(mx)-Math.round(mn)>=3?` (${Math.round(mn)}–${Math.round(mx)}°)`:'');
+  return{tekst:t,hoofd:g.helling,plat:false,mn,mx}}
 function renderPand(){
   const b=selB();if(!b){$('bag-kpis').innerHTML='';return}
   const h=heights(b);
   $('bag-kpis').innerHTML=`<div>Nokhoogte<b>${fm(h.hmax)}</b></div><div>Hoogte (70%)<b>${fm(h.h70)}</b></div>
-    <div>Bouwlagen${h.lagenEst?' (schatting)':''}<b>${h.lagen??'–'}</b></div><div>Footprint<b>${fmt(S.area,0)} m²</b></div>`;
+    <div>Dakhelling<b>${dakHelling(b)?.tekst??(b.geo===undefined&&b.h===undefined?'…':'–')}</b></div><div>Bouwlagen${h.lagenEst?' (schatting)':''}<b>${h.lagen??'–'}</b></div><div>Footprint<b>${fmt(S.area,0)} m²</b></div>`;
   $('bag-meta').innerHTML=metaRows(b).map(r=>`<b>${esc(r[0])}</b><span>${esc(r[1])}</span>`).join('');
 }
 function renderTable(){
@@ -1197,7 +1203,7 @@ function renderDak(){
   if(!b.geo){el.innerHTML=`<p class="klein">${b.h===undefined?'3D-model laden…':'Geen 3D-dakmodel (LoD2.2) beschikbaar voor dit pand.'}</p>`;return}
   const vl=vlakkenVan(b);if(!vl.length){el.innerHTML='<p class="klein">Geen dakvlakken herkend.</p>';return}
   const tot=vl.reduce((s,v)=>s+v.opp,0),hel=vl.filter(v=>!v.plat),pl=vl.filter(v=>v.plat);
-  el.innerHTML=`<div class="bag-dakkpi"><div>Dakoppervlak<b>${fmt(tot,1)} m²</b></div><div>Hellend<b>${fmt(hel.reduce((s,v)=>s+v.opp,0),1)} m²</b></div><div>Plat<b>${fmt(pl.reduce((s,v)=>s+v.opp,0),1)} m²</b></div><div>Dakvlakken<b>${vl.length}</b></div></div>
+  el.innerHTML=`<div class="bag-dakkpi"><div>Dakoppervlak<b>${fmt(tot,1)} m²</b></div><div>Hellend<b>${fmt(hel.reduce((s,v)=>s+v.opp,0),1)} m²</b></div><div>Plat<b>${fmt(pl.reduce((s,v)=>s+v.opp,0),1)} m²</b></div><div>Dakhelling<b>${dakHelling(b).tekst}</b></div><div>Dakvlakken<b>${vl.length}</b></div></div>
     <table><thead><tr><th>#</th><th>Oriëntatie</th><th>Helling</th><th>Oppervlak</th><th>Goot</th><th>Nok/top</th></tr></thead><tbody>${vl.map((v,i)=>`<tr><td><b>${i+1}</b></td>
       <td>${v.plat?'<span class="bag-pill" style="background:#9aa59f">plat</span>':`<span class="bag-pill" style="background:${DCOL[v.dir]}">${v.dir}</span> <span class="klein">${Math.round(v.az)}°</span>`}</td>
       <td>${fmt(v.helling,0)}°</td><td>${fmt(v.opp,1)} m²</td><td>${v.plat?'–':fmt(v.goot)+' m'}</td><td>${fmt(v.hoogte)} m</td></tr>`).join('')}</tbody></table>
@@ -1364,7 +1370,7 @@ async function pdfGegevens(){
   ]);
   return {
     adres:addrOf(b), pandId:b.id, bouwjaar:b.bouwjaar||'–',
-    kpi:[['NOKHOOGTE',fm(h.hmax)],['HOOGTE (70%)',fm(h.h70)],['BOUWLAGEN'+(h.lagenEst?' (SCHATTING)':''),String(h.lagen??'–')],['BOUWJAAR',String(b.bouwjaar||'–')]],
+    kpi:[['NOKHOOGTE',fm(h.hmax)],['HOOGTE (70%)',fm(h.h70)],['DAKHELLING',(dakHelling(b)?.tekst??'–').replace(/ \(.*\)/,'')],['BOUWLAGEN'+(h.lagenEst?' (SCHATTING)':''),String(h.lagen??'–')],['BOUWJAAR',String(b.bouwjaar||'–')]],
     plan, roos, img3d:snapshot3d(),
     gevels:visible().map(({e,i})=>({nr:i+1,rol:role(i),len:fm(e.len),az:Math.round(e.az)+'°',dir:e.dir,kleur:role(i)==='Belendend'?'#aaaaaa':DCOL[e.dir]})),
     totalen:DIRS.filter(d=>t[d]).map(d=>({dir:d,len:fm(t[d]),kleur:DCOL[d]})),
@@ -2242,7 +2248,7 @@ function pandPaginas(doc, pd){
   /* --- pagina: oriëntatie --- */
   let y = pdfKop(doc, 'Pand analyse — oriëntatie', pd.adres);
   y = pdfMeta(doc, y, meta);
-  const kb = (PBR-9)/4;
+  const kn = pd.kpi.length, kb = (PBR-3*(kn-1))/kn;
   pd.kpi.forEach((k,i) => {
     const x = PM + i*(kb+3);
     doc.setFillColor(241,244,242); doc.roundedRect(x, y, kb, 14, 2, 2, 'F');
