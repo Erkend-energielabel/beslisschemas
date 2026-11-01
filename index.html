@@ -1015,11 +1015,11 @@ function oppervlaktes(b){
     const axy=Math.abs(ux*vy-uy*vx)/2;if(axy<1e-6)continue;
     const uz=T[o+5]-T[o+2],vz=T[o+8]-T[o+2],nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx,l=Math.hypot(nx,ny,nz);
     if(Math.abs(nz)/l<0.17)continue;const zm=(T[o+2]+T[o+5]+T[o+8])/3-b.geo.zmin;if(zm>0.3)inh+=axy*zm}
-  const gevels=DIRS.filter(d=>gv.per[d]>=0.5).map(d=>({naam:'Gevel '+d,dir:d,helling:90,opp:gv.per[d]}));
+  const gevels=DIRS.filter(d=>gv.per[d]>=0.5).map(d=>({naam:'Gevel',dir:d,helling:90,opp:gv.per[d]}));
   const kl=gv.totaal-gevels.reduce((s,r)=>s+r.opp,0);if(kl>=0.05)gevels.push({naam:'Kleine geveldelen',dir:null,helling:90,opp:kl});
   const nr=new Map(vl.map((v,i)=>[v,i+1]));
   const dak=[...vl.filter(v=>!v.plat).sort((p,q)=>DIRS.indexOf(p.dir)-DIRS.indexOf(q.dir)||q.opp-p.opp),...vl.filter(v=>v.plat)]
-    .map(v=>({naam:`Dakvlak ${nr.get(v)} · ${v.plat?'plat':v.dir}`,dir:v.plat?'plat':v.dir,helling:v.helling,opp:v.opp}));
+    .map(v=>({naam:`Dakvlak ${nr.get(v)}`,dir:v.plat?'plat':v.dir,helling:v.helling,opp:v.opp}));
   const vloer=Math.abs(polyArea(b.ring)),dakT=vl.reduce((s,v)=>s+v.opp,0);
   const groepen=[{titel:'Gevels',sub:'Subtotaal gevels',rijen:gevels,tot:gv.totaal},
     {titel:'Dak',sub:'Subtotaal dak',rijen:dak,tot:dakT},
@@ -1038,7 +1038,7 @@ function renderOpp(){
   if(!o){el.innerHTML=`<p class="klein">${b.h===undefined?'3D-model laden…':'Geen 3D-model beschikbaar: oppervlaktes niet te berekenen. Gebruik de tab Opmeten.'}</p>`;return}
   const pill=d=>!d?'':d==='hor.'||d==='plat'?`<span class="bag-pill" style="background:#9aa59f">${d}</span>`:`<span class="bag-pill" style="background:${DCOL[d]}">${d}</span>`;
   el.innerHTML=`<table class="bag-mlijst">${o.groepen.map(g=>`<tr class="kop"><th colspan="3">${g.titel}</th></tr>
-      ${g.rijen.map(r=>`<tr><td>${esc(r.naam.replace(/ · .*/,''))} ${pill(r.dir)}</td><td class="klein">${r.dir&&r.dir!=='hor.'&&r.dir!=='plat'&&r.helling<89?fmt(r.helling,0)+'°':r.dir==='plat'?fmt(r.helling,0)+'°':''}</td><td class="m2">${fmt(r.opp,1)} m²</td></tr>`).join('')}
+      ${g.rijen.map(r=>`<tr><td>${esc(r.naam)} ${pill(r.dir)}</td><td class="klein">${r.dir&&r.dir!=='hor.'&&r.dir!=='plat'&&r.helling<89?fmt(r.helling,0)+'°':r.dir==='plat'?fmt(r.helling,0)+'°':''}</td><td class="m2">${fmt(r.opp,1)} m²</td></tr>`).join('')}
       <tr class="sub"><td colspan="2">${g.sub}</td><td class="m2">${fmt(g.tot,1)} m²</td></tr>`).join('')}
     <tr class="tot"><td colspan="2">Totaal verliesoppervlak (A<sub>ls</sub>)</td><td class="m2">${fmt(o.als,1)} m²</td></tr>
     ${o.gedeeld?`<tr class="niet"><td colspan="2">Gedeelde muur — telt niet mee</td><td class="m2">${fmt(o.gedeeld,1)} m²</td></tr>`:''}
@@ -1354,7 +1354,7 @@ function samenvatting(){
   const es=S.edges[S.eSel];if(es)L2.splice(L2.length-1,0,`Geselecteerde gevel: ${es.dir} (${Math.round(es.az)}°), ${fmt(es.len)} m${S.autoSel?' — meest zuidgerichte gevel':''}`,'');
   const gvs=gevelvlakken(b);
   groepen().forEach(g=>L2.push(g.dir==='BEL'?`Gedeelde muur: ${fmt(g.len)} m (${g.delen.length} delen, telt niet mee)`:`${g.dir}: ${fmt(g.len)} m (${g.delen.length} ${g.delen.length===1?'deel':'delen'}, ${g.azTxt})${gvs&&gvs.per[g.dir]?`, gevel ${fmt(gvs.per[g.dir],1)} m² (3D)`:''}`));
-  const op=oppervlaktes(b);if(op){L2.push('','m² overzicht (3D-model, bruto):');op.groepen.forEach(g=>{g.rijen.forEach(r=>L2.push(`  ${r.naam}${r.dir&&r.dir!=='hor.'&&r.helling<89?' ('+fmt(r.helling,0)+'°)':''}: ${fmt(r.opp,1)} m²`));L2.push(`${g.sub}: ${fmt(g.tot,1)} m²`)});L2.push(`Totaal verliesoppervlak: ${fmt(op.als,1)} m²${op.gedeeld?` (gedeelde muur ${fmt(op.gedeeld,1)} m² niet meegeteld)`:''}`,`Bruto inhoud: ${fmt(op.inhoud,0)} m³`)}
+  const op=oppervlaktes(b);if(op){L2.push('','m² overzicht (3D-model, bruto):');op.groepen.forEach(g=>{g.rijen.forEach(r=>L2.push(`  ${r.naam}${r.dir&&r.dir!=='hor.'?' '+r.dir:''}${r.dir&&r.dir!=='hor.'&&r.helling<89?' ('+fmt(r.helling,0)+'°)':''}: ${fmt(r.opp,1)} m²`));L2.push(`${g.sub}: ${fmt(g.tot,1)} m²`)});L2.push(`Totaal verliesoppervlak: ${fmt(op.als,1)} m²${op.gedeeld?` (gedeelde muur ${fmt(op.gedeeld,1)} m² niet meegeteld)`:''}`,`Bruto inhoud: ${fmt(op.inhoud,0)} m³`)}
   const vlk=vlakkenVan(b);if(vlk.length){L2.push('','Dakvlakken (3D-model):');vlk.forEach((v,i)=>L2.push(`${i+1}. ${v.plat?'plat':v.dir+' ('+Math.round(v.az)+'°)'}, helling ${fmt(v.helling,0)}°, ${fmt(v.opp,1)} m²${v.plat?'':`, goot ${fmt(v.goot)} m`}, top ${fmt(v.hoogte)} m`))}
   L2.push('','Geveldelen:');
   visible().forEach(({e,i})=>L2.push(`${i+1}. ${role(i)}: ${e.dir} (${Math.round(e.az)}°), ${fmt(e.len)} m`));
