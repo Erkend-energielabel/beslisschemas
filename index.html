@@ -389,6 +389,10 @@ body.tab-bag .wrap{max-width:1180px}
 .hoofdtabs button{white-space:nowrap}
 @media(max-width:1000px){.hoofdtabs button{padding:10px 6px;font-size:.84rem}}
 .pdf-inhoud hr{border:0;border-top:1px solid #e3ebe5;margin:10px 0 8px}.pdf-inhoud .actie{margin:6px 0 2px;padding:6px 10px;font-size:.82rem}
+
+.bag-pick{position:absolute;z-index:1001;top:8px;left:8px;background:rgba(255,255,255,.96);border:2px solid #ff6a00;border-radius:10px;padding:8px 30px 8px 12px;max-width:min(300px,calc(100% - 16px));font-size:.8rem;color:#1d2b25;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+.bag-pickm{font-size:1.5rem;font-weight:800;color:#b33f00;line-height:1.15;margin:2px 0}
+.bag-pickx{position:absolute;top:4px;right:6px;border:0;background:none;font-size:1.2rem;cursor:pointer;color:#555}
 #vbs{
   --bg:#F2F4F3; --surface:#FFFFFF; --ink:#18232A; --muted:#5A6870; --line:#D5DCDE; --soft:#E9EEEE;
   --accent:#5B2D86; --accent-ink:#FFFFFF; --accent-soft:#EFE8F6;
@@ -738,7 +742,8 @@ body.tab-bag .wrap{max-width:1180px}
         </div>
         <div class="bag-vw bag-vw3">
           <div id="bag-three"></div>
-          <div class="bag-tag">3D · slepen = draaien · rechts = schuiven · scroll = zoom</div>
+          <div class="bag-tag">3D · <b>klik op dak/gevel = m²</b> · slepen = draaien · rechts = schuiven · scroll = zoom</div>
+          <div class="bag-pick" id="bag-pick" hidden></div>
           <div class="bag-tools">
             <select id="bag-hsel"><option value="b3_h_dak_max" selected>Nokhoogte</option><option value="b3_h_dak_70p">Hoogte 70% dak</option><option value="b3_h_dak_50p">Hoogte 50% dak</option></select>
             <button type="button" id="bag-reset">Reset</button><button type="button" id="bag-exag">×1</button>
@@ -1230,7 +1235,7 @@ async function laadHoogtes(t,x,y,r){
       try{d=await viaTegels(x,y,r);hoogteRoute='tegels'}catch(e3){console.warn('3D BAG tegels',e3);fout=e3}}}
   try{geo=(await pdok).geom}catch(e){geo=null}
   if(t!==tok)return;
-  S.blds.forEach(b=>{b.h=d&&d[b.id]||null;b.geo=geo&&geo[b.id]||null;b.vlakken=null;b.gevels=null});
+  S.blds.forEach(b=>{b.h=d&&d[b.id]||null;b.geo=geo&&geo[b.id]||null;b.vlakken=null;b.gevels=null;b.wanden=null});
   renderAll(false);build3d(true);changed();
   const n=S.blds.filter(b=>b.h).length,mis=S.blds.length-n,n3=S.blds.filter(b=>b.geo).length;
   if(fout){status('3D BAG niet bereikbaar — hoogtes onbekend. Oriëntatie werkt wel.','err');return}
@@ -1480,7 +1485,7 @@ async function loadArea(x,y,addr,keepSel){
 }
 
 function selectBld(id,fit,first){
-  S.sel=id;S.roles={};S.eSel=-1;compute();
+  if(id!==S.sel){S.pick=null;setTimeout(toonPick)}S.sel=id;S.roles={};S.eSel=-1;compute();
   renderAll(!!fit);if(fit)resetView();
   if(!fit&&!first){const b=selB();if(b&&map&&!map.getBounds().contains(rd2wgs(...centroid(b.ring))))map.panTo(rd2wgs(...centroid(b.ring)))}
   changed();
@@ -1759,7 +1764,60 @@ function init3d(){
   const ray=new THREE.Raycaster(),mv=new THREE.Vector2();let down=null;
   renderer.domElement.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
   renderer.domElement.addEventListener('pointerup',e=>{if(!down||Math.hypot(e.clientX-down[0],e.clientY-down[1])>4)return;const r=renderer.domElement.getBoundingClientRect();
-    mv.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);ray.setFromCamera(mv,camera);const h=ray.intersectObjects(meshes)[0];if(h)selectBld(h.object.userData.id,false)});
+    mv.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);ray.setFromCamera(mv,camera);const h=ray.intersectObjects(meshes)[0];
+    if(!h){if(S.pick){S.pick=null;build3d(false);toonPick()}return}
+    const id=h.object.userData.id,b=S.blds.find(x=>x.id===id);
+    if(id===S.sel&&b&&b.geo&&h.faceIndex!=null){const p=kiesVlak(b,h.faceIndex);S.pick=p&&!(S.pick&&S.pick.id===id&&S.pick.soort===p.soort&&S.pick.i===p.i)?p:null;build3d(false);toonPick();return}
+    S.pick=null;selectBld(id,false);toonPick()});
+}
+/* ===== aangeklikt dak- of gevelvlak ===== */
+function wandvlakken(b){
+  if(!b||!b.geo)return[];if(b.wanden)return b.wanden;
+  const T=b.geo.tri,buren=S.blds.filter(o=>o.id!==b.id&&o.bb),tris=[];
+  const raakt=p=>buren.some(o=>p[0]>=o.bb[0]-.6&&p[0]<=o.bb[2]+.6&&p[1]>=o.bb[1]-.6&&p[1]<=o.bb[3]+.6&&distRing(p,o.ring)<0.45);
+  for(let i=0;i<b.geo.n;i++){const o=i*9,ux=T[o+3]-T[o],uy=T[o+4]-T[o+1],uz=T[o+5]-T[o+2],vx=T[o+6]-T[o],vy=T[o+7]-T[o+1],vz=T[o+8]-T[o+2];
+    let nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;const l=Math.hypot(nx,ny,nz);if(l<1e-6)continue;nz/=l;
+    if(Math.abs(nz)>=0.17)continue;const hh=Math.hypot(nx,ny);nx/=hh;ny/=hh;
+    const cx=(T[o]+T[o+3]+T[o+6])/3,cy=(T[o+1]+T[o+4]+T[o+7])/3;
+    if(inside([cx+nx*0.3,cy+ny*0.3],b.ring)){nx=-nx;ny=-ny}
+    tris.push({i,nx,ny,A:l/2,d:nx*cx+ny*cy,ged:raakt([cx,cy])})}
+  tris.sort((p,q)=>q.A-p.A);const vl=[];
+  tris.forEach(t=>{let v=vl.find(v=>v.nx*t.nx+v.ny*t.ny>0.998&&Math.abs(v.d-t.d)<0.3);
+    if(!v){v={nx:t.nx,ny:t.ny,d:t.d,A:0,ged:0,tris:[]};vl.push(v)}v.A+=t.A;if(t.ged)v.ged+=t.A;v.tris.push(t.i)});
+  b.wanden=vl.filter(v=>v.A>=0.3).map(v=>{let tmin=1e9,tmax=-1e9,zmin=1e9,zmax=-1e9;
+    v.tris.forEach(i=>{for(let k=0;k<3;k++){const o=i*9+k*3,tt=-v.ny*T[o]+v.nx*T[o+1];tmin=Math.min(tmin,tt);tmax=Math.max(tmax,tt);zmin=Math.min(zmin,T[o+2]);zmax=Math.max(zmax,T[o+2])}});
+    const az=((Math.atan2(v.nx,v.ny)*180/Math.PI)+360)%360;
+    return{az,dir:dirOf(az),nx:v.nx,ny:v.ny,opp:v.A,ged:v.ged,breed:tmax-tmin,van:zmin-b.geo.zmin,tot:zmax-b.geo.zmin,tris:v.tris}}).sort((p,q)=>q.opp-p.opp);
+  return b.wanden;
+}
+function kiesVlak(b,fi){
+  const vl=vlakkenVan(b);let i=vl.findIndex(v=>v.tris.includes(fi));if(i>=0)return{id:b.id,soort:'dak',i};
+  const w=wandvlakken(b);i=w.findIndex(v=>v.tris.includes(fi));if(i>=0)return{id:b.id,soort:'wand',i};return null;
+}
+function pickVlak(){const p=S.pick;if(!p)return null;const b=S.blds.find(x=>x.id===p.id);if(!b||b.id!==S.sel||!b.geo)return null;
+  const v=p.soort==='dak'?vlakkenVan(b)[p.i]:wandvlakken(b)[p.i];return v?{b,v}:null}
+function toonPick(){
+  const el=$('bag-pick');if(!el)return;const q=pickVlak();if(!q){el.hidden=true;el.innerHTML='';return}
+  const{v}=q,p=S.pick;let h;
+  if(p.soort==='dak'){const nr=p.i+1;
+    h=`<b>Dakvlak ${nr} · ${v.plat?'plat dak':v.dir+' ('+Math.round(v.az)+'°)'}</b><div class="bag-pickm">${fmt(v.opp,1)} m²</div>
+      <div class="klein">${v.plat?'':`helling ${fmt(v.helling,0)}° · horizontaal ${fmt(v.opp2d,1)} m² · `}goot ${fmt(v.goot)} m · top ${fmt(v.hoogte)} m</div>`}
+  else{const pct=ramS.glasDir[v.dir]??ramS.glas,netto=v.opp-v.ged;
+    h=`<b>Gevelvlak · ${v.dir} (${Math.round(v.az)}°)</b><div class="bag-pickm">${fmt(v.opp,1)} m²</div>
+      <div class="klein">bruto incl. ramen/deuren · ca. ${fmt(v.breed,1)} m breed · ${fmt(v.van)}–${fmt(v.tot)} m hoog</div>`+
+      (v.ged>=0.3?`<div class="klein" style="color:#b3261e"><b>${fmt(v.ged,1)} m² gedeelde muur</b> (tegen buurpand) · buitengevel ${fmt(netto,1)} m²</div>`:'')+
+      (netto>=0.3?`<div class="klein">bij ${fmt(pct,0)}% ramen/deuren: dicht ${fmt(netto*(1-pct/100),1)} m² · glas ${fmt(netto*pct/100,1)} m²</div>`:'')}
+  el.innerHTML=`<button type="button" class="bag-pickx" aria-label="Sluiten">×</button>`+h;el.hidden=false;
+  el.querySelector('.bag-pickx').onclick=()=>{S.pick=null;build3d(false);toonPick()};
+}
+function pickOverlay(b){
+  const q=pickVlak();if(!q||q.b!==b)return;const{v}=q,T=b.geo.tri,gref=b.geo.zmin,pos=new Float32Array(v.tris.length*9);let sx=0,sy=0,sz=0;
+  v.tris.forEach((i,j)=>{for(let k=0;k<9;k+=3){const o=i*9+k,x=T[o]-origin[0],y=(T[o+2]-gref)*S.exag,z=-(T[o+1]-origin[1]);pos[j*9+k]=x;pos[j*9+k+1]=y;pos[j*9+k+2]=z;sx+=x;sy+=y;sz+=z}});
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:0xff6a00,transparent:true,opacity:.78,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2,depthTest:true}));m.renderOrder=5;world.add(m);
+  world.add(new THREE.LineSegments(new THREE.EdgesGeometry(g,1),new THREE.LineBasicMaterial({color:0xb33f00})));
+  const n=v.tris.length*3,t=makeText(fmt(v.opp,1)+' m²',8);
+  const off=S.pick.soort==='wand'?[(q.v.nx||0)*2,0,-(q.v.ny||0)*2]:[0,2,0];t.position.set(sx/n+off[0],sy/n+off[1],sz/n+off[2]);world.add(t);
 }
 function resize(){if(!renderer)return;const w=box.clientWidth,h=box.clientHeight;if(!w||!h)return;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix()}
 function makeText(t,w=12){const cv=document.createElement('canvas');cv.width=256;cv.height=96;const x=cv.getContext('2d');x.fillStyle='rgba(255,255,255,.92)';x.strokeStyle='#0B3D2E';x.lineWidth=6;
@@ -1788,7 +1846,8 @@ function build3d(resetCam){
       const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide,emissive:sel?0x0a1a0e:0}));
       m.userData.id=b.id;world.add(m);meshes.push(m);
       world.add(new THREE.LineSegments(new THREE.EdgesGeometry(g,25),new THREE.LineBasicMaterial({color:sel?0x0B3D2E:0x6b746f,transparent:true,opacity:sel?.9:.28})));
-      if(sel){const hm=relH(b),cc=centroid(b.ring);if(hm!=null){const t=makeText(fmt(hm)+' m',7);t.position.set(cc[0]-origin[0],(b.geo.zmax-gref)*S.exag+4,-(cc[1]-origin[1]));world.add(t)}}
+      if(sel)pickOverlay(b);
+      if(sel&&!pickVlak()){const hm=relH(b),cc=centroid(b.ring);if(hm!=null){const t=makeText(fmt(hm)+' m',7);t.position.set(cc[0]-origin[0],(b.geo.zmax-gref)*S.exag+4,-(cc[1]-origin[1]));world.add(t)}}
       return;
     }
     let h=relH(b);const known=h!=null;if(!known)h=3;h=Math.max(h,0.5)*S.exag;
