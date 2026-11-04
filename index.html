@@ -3433,10 +3433,13 @@ function meetPaginas(doc, md){
     }
   });
 }
+const pandAdres = () => { try{ const h = window.BAG && BAG.huidig && BAG.huidig(); return h && h.adres || ''; }catch(e){ return ''; } };
 function pdfNaam(pd){
-  let n = bestandsnaam().replace(/\.txt$/,'.pdf');
-  if(pd || window.__meetPdf) n = n.replace("Beslisschema's ISSO 82.1", log.length ? "Dossier beslisschema's" : pd ? 'Pand analyse' : 'Opmeting');
-  return n;
+  const d = new Date(), dd = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const pand = pd ? ((pd.adres && pd.adres !== '–' ? pd.adres : '') || pandAdres()) : '';
+  const soort = log.length ? "Dossier beslisschema's" : pd ? 'Pand analyse' : window.__meetPdf ? 'Opmeting' : "Beslisschema's ISSO 82.1";
+  const p = [$('projnr').value.trim(), pand || $('project').value.trim()].filter(Boolean).join(' ').replace(/[\\/:*?"<>|]/g,'').replace(/\s+/g,' ').slice(0,90);
+  return `${soort}${p?' - '+p:''} - ${dd}.pdf`;
 }
 
 function maakPdf(pd){
@@ -3676,7 +3679,7 @@ async function kiesProjectmapRoot(){
 async function projectSubmap(root){
   try{
     if(!root || !root.queryPermission || (await root.queryPermission({mode:'read'})) !== 'granted') return null;
-    const nr = ($('projnr').value || '').trim().toUpperCase(), adres = ($('project').value || '').split(',')[0].trim().toLowerCase();
+    const nr = ($('projnr').value || '').trim().toUpperCase(), adres = ($('project').value || pandAdres()).split(',')[0].trim().toLowerCase();
     let beste = null;
     for await (const [naam, h] of root.entries()){
       if(h.kind !== 'directory') continue; const n = naam.toUpperCase();
@@ -3713,12 +3716,7 @@ $('top-pdf').onclick = async () => {
   finally{ k.disabled = false; k.innerHTML = oud; }
 };
 window.bagGewijzigd = () => renderLog();
-window.bagAdresGekozen = naam => {
-  if($('project').value.trim()) return;           // ingevuld adres niet overschrijven
-  $('project').value = naam;
-  try{ localStorage.setItem('ee_bs_project', naam); }catch(e){}
-  bewaarLokaal();
-};
+window.bagAdresGekozen = () => {};             // adres in projectgegevens alleen zelf invullen
 window.meetGewijzigd = () => renderLog();
 MEET.laadProject(logSleutel());
 ['projnr','project'].forEach(v => $(v).addEventListener('change', () => MEET.laadProject(logSleutel())));
