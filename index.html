@@ -1548,15 +1548,19 @@ function totals(){const t={};visible().forEach(({e,i})=>{if(role(i)!=='Belendend
 function renderAll(fit){renderMap(fit);build3d(false);renderPand();renderGevels();renderHInfo();renderDak();renderOpp();renderRaming();renderList()}
 function renderGevels(){renderTable();renderRose();renderRes();renderGroepen();renderLegenda()}
 
-/* labels per oriëntatie: midden van het langste geveldeel, naar buiten; schuiven tot ze elkaar niet raken */
+/* labels per oriëntatie: bij de eigen gevel, naar buiten; nooit over elkaar en altijd dichter bij de eigen gevel dan bij een andere richting */
 function labelPlaatsen(gr,mpp,wPx,hPx,off0Px){
-  const L=gr.filter(g=>g.dir!=='BEL').map(g=>{const e=S.edges[g.langste];return{dir:g.dir,base:e.mid,n:e.n,off:off0Px*mpp}});
-  const w=wPx*mpp,h=hPx*mpp,pos=l=>[l.base[0]+l.n[0]*l.off,l.base[1]+l.n[1]*l.off];
-  for(let it=0;it<40;it++){let raak=false;
-    for(let i=0;i<L.length;i++)for(let j=i+1;j<L.length;j++){const a=pos(L[i]),b=pos(L[j]);
-      if(Math.abs(a[0]-b[0])<w*1.08&&Math.abs(a[1]-b[1])<h*1.15){raak=true;L[i].off+=h*0.35;L[j].off+=h*0.35}}
-    if(!raak)break}
-  const uit={};L.forEach(l=>uit[l.dir]=pos(l));return uit;
+  const vis=visible().filter(({i})=>role(i)!=='Belendend').map(({e})=>e),w=wPx*mpp,h=hPx*mpp,gezet=[],uit={};
+  const eigen=(p,dir)=>{let best=1e9,bd=null;vis.forEach(e=>{const d=distSeg(p,e.a,e.c);if(d<best){best=d;bd=e.dir}});return bd===dir};
+  const vrij=p=>gezet.every(q=>Math.abs(p[0]-q[0])>=w*1.1||Math.abs(p[1]-q[1])>=h*1.2);
+  gr.filter(g=>g.dir!=='BEL').sort((a,b)=>b.len-a.len).forEach(g=>{
+    const delen=g.delen.map(i=>S.edges[i]).sort((a,b)=>b.len-a.len);let p=null,nood=null;
+    for(const off of [1,1.5,2.1,2.8,3.6,4.6])for(const e of delen)for(const t of [0.5,0.35,0.65,0.2,0.8]){
+      if(p)break;const q=[e.a[0]+(e.c[0]-e.a[0])*t+e.n[0]*off0Px*mpp*off,e.a[1]+(e.c[1]-e.a[1])*t+e.n[1]*off0Px*mpp*off];
+      if(!vrij(q))continue;if(!nood)nood=q;if(eigen(q,g.dir))p=q}
+    if(!p)p=nood||(e=>[e.mid[0]+e.n[0]*off0Px*mpp*5,e.mid[1]+e.n[1]*off0Px*mpp*5])(delen[0]);
+    gezet.push(p);uit[g.dir]=p});
+  return uit;
 }
 function renderMap(fit){
   if(!grp)return;grp.clearLayers();if(!S.blds.length)return;
