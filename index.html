@@ -388,6 +388,7 @@ body.tab-bag .wrap{max-width:1180px}
 @media(max-width:700px){.hoofdtabs{flex-wrap:wrap}.hoofdtabs button{flex:1 1 30%}}
 .hoofdtabs button{white-space:nowrap}
 @media(max-width:1000px){.hoofdtabs button{padding:10px 6px;font-size:.84rem}}
+.pdf-inhoud hr{border:0;border-top:1px solid #e3ebe5;margin:10px 0 8px}.pdf-inhoud .actie{margin:6px 0 2px;padding:6px 10px;font-size:.82rem}
 #vbs{
   --bg:#F2F4F3; --surface:#FFFFFF; --ink:#18232A; --muted:#5A6870; --line:#D5DCDE; --soft:#E9EEEE;
   --accent:#5B2D86; --accent-ink:#FFFFFF; --accent-soft:#EFE8F6;
@@ -3489,16 +3490,62 @@ function topMelding(soort, tekst){ const el = $('top-melding'); el.className = '
   const b = document.createElement('button'); b.type='button'; b.className='topknop topinst'; b.id='top-pdfinst'; b.title='Kies wat standaard in de PDF komt'; b.textContent='⚙';
   const g = document.createElement('span'); g.className='topgroep'; k.insertAdjacentElement('beforebegin', g); g.appendChild(k); g.appendChild(b);
   const p = document.createElement('div'); p.id='pdf-inhoud'; p.className='pdf-inhoud'; p.hidden=true; document.body.appendChild(p);
-  const teken = () => { p.innerHTML = '<b>Standaard in de PDF</b>' + PDF_DEELS.map(([k2,t]) => `<label><input type="checkbox" data-pdfi="${k2}"${PDFI[k2]?' checked':''}> ${t}</label>`).join('') + '<small>Wordt onthouden in deze browser. Onderdelen zonder gegevens worden overgeslagen.</small>';
-    p.querySelectorAll('[data-pdfi]').forEach(c => c.onchange = () => { PDFI[c.dataset.pdfi] = c.checked; pdfiBewaar(); }); };
+  const teken = () => { p.innerHTML = '<b>Standaard in de PDF</b>' + PDF_DEELS.map(([k2,t]) => `<label><input type="checkbox" data-pdfi="${k2}"${PDFI[k2]?' checked':''}> ${t}</label>`).join('') + '<small>Wordt onthouden in deze browser. Onderdelen zonder gegevens worden overgeslagen.</small>' + (typeof window.showDirectoryPicker === 'function' ? '<hr><b>Opslaan in projectmap</b><div id="pdf-root" class="klein">…</div><button type="button" class="actie licht" id="pdf-rootkies">📁 Projectmap kiezen</button><small>Kies de map met je energielabel-projecten (bv. OneDrive › 03 E-E.NL › 00 EPA). Bij opslaan opent de app de submap van het projectnummer (EE26-…), anders deze map.</small>' : '');
+    p.querySelectorAll('[data-pdfi]').forEach(c => c.onchange = () => { PDFI[c.dataset.pdfi] = c.checked; pdfiBewaar(); });
+    const rk = p.querySelector('#pdf-rootkies'); if(rk){ OPSLAG.get('root').then(h => { const el = p.querySelector('#pdf-root'); if(el) el.textContent = h ? 'Nu: ' + h.name : 'Nog geen projectmap gekozen'; }); rk.onclick = async () => { const h = await kiesProjectmapRoot(); const el = p.querySelector('#pdf-root'); if(h && el) el.textContent = 'Nu: ' + h.name; }; } };
   b.onclick = e => { e.stopPropagation(); teken(); const r = b.getBoundingClientRect(); p.style.top = (r.bottom + 6) + 'px'; p.style.right = Math.max(8, innerWidth - r.right) + 'px'; p.hidden = !p.hidden; };
   document.addEventListener('click', e => { if(!p.hidden && !p.contains(e.target) && e.target !== b) p.hidden = true; });
 })();
+/* ---- PDF opslaan: vraag waar, en open standaard de projectmap van de energielabels ---- */
+const OPSLAG = {
+  db(){ return new Promise((ok, nee) => { const r = indexedDB.open('ee-opslag', 1); r.onupgradeneeded = () => r.result.createObjectStore('h'); r.onsuccess = () => ok(r.result); r.onerror = () => nee(r.error); }); },
+  async get(k){ try{ const d = await this.db(); return await new Promise(ok => { const t = d.transaction('h').objectStore('h').get(k); t.onsuccess = () => ok(t.result || null); t.onerror = () => ok(null); }); }catch(e){ return null; } },
+  async set(k, v){ try{ const d = await this.db(); await new Promise(ok => { const t = d.transaction('h','readwrite'); t.objectStore('h').put(v, k); t.oncomplete = ok; t.onerror = ok; }); }catch(e){} }
+};
+const kanKiezen = () => typeof window.showSaveFilePicker === 'function';
+async function kiesProjectmapRoot(){
+  if(typeof window.showDirectoryPicker !== 'function'){ topMelding('fout', 'Deze browser kan geen map kiezen (gebruik Chrome of Edge op de computer).'); return null; }
+  try{ const h = await showDirectoryPicker({id:'ee-projectmap', mode:'read'}); await OPSLAG.set('root', h); topMelding('ok', 'Projectmap ingesteld: ' + h.name); return h; }
+  catch(e){ return null; }
+}
+/* zoek de submap van dit project (bv. "EE26-158 Straat 1, Plaats") in de projectmap */
+async function projectSubmap(root){
+  try{
+    if(!root || !root.queryPermission || (await root.queryPermission({mode:'read'})) !== 'granted') return null;
+    const nr = ($('projnr').value || '').trim().toUpperCase(), adres = ($('project').value || '').split(',')[0].trim().toLowerCase();
+    let beste = null;
+    for await (const [naam, h] of root.entries()){
+      if(h.kind !== 'directory') continue; const n = naam.toUpperCase();
+      if(nr && n.startsWith(nr)) return h;
+      if(!beste && adres.length > 4 && naam.toLowerCase().includes(adres)) beste = h;
+    }
+    return beste;
+  }catch(e){ return null; }
+}
+if(kanKiezen()){
+  const _downloadPdf = downloadPdf;
+  downloadPdf = async function(){
+    if(!log.length && !pandMee() && !meetMee()){ toonMelding('fout','Er is nog niets vastgelegd.'); return; }
+    if(!window.jspdf) return _downloadPdf();
+    const root = await OPSLAG.get('root'), sub = await projectSubmap(root);
+    const voorlopig = pdfNaam(pandMee() ? {} : null);
+    let fh;
+    try{
+      fh = await showSaveFilePicker({suggestedName: voorlopig, id: 'ee-pdf', startIn: sub || root || 'documents',
+        types:[{description:'PDF-document', accept:{'application/pdf':['.pdf']}}]});
+    }catch(e){ if(e && e.name === 'AbortError') throw Object.assign(new Error('Opslaan geannuleerd'), {stil:true}); return _downloadPdf(); }
+    await meetVoorPdf();
+    const pd = await pandVoorPdf();
+    const doc = maakPdf(pd);
+    const w = await fh.createWritable(); await w.write(doc.output('blob')); await w.close();
+    window.__laatstOpgeslagen = (sub ? sub.name + ' / ' : '') + fh.name;
+  };
+}
 $('top-pdf').onclick = async () => {
   if(!ietsInPdf()){ topMelding('fout', 'Nog niets om in de PDF te zetten: leg een beslisschema vast, zoek een pand op of teken een plattegrond in.'); return; }
   const k = $('top-pdf'); k.disabled = true; const oud = k.innerHTML; k.textContent = '⏳ PDF maken…';
-  try{ await downloadPdf(); topMelding('ok', 'PDF gedownload: ' + [log.length ? 'beslisschema\'s' : '', pandMee() ? 'pand analyse' : '', meetMee() ? 'opmeting' : ''].filter(Boolean).join(' + ') + '.'); }
-  catch(e){ topMelding('fout', 'PDF maken mislukt: ' + (e.message||e)); }
+  try{ window.__laatstOpgeslagen = null; await downloadPdf(); if(window.__laatstOpgeslagen){ topMelding('ok', 'PDF opgeslagen: ' + window.__laatstOpgeslagen); return; } topMelding('ok', 'PDF gedownload: ' + [log.length ? 'beslisschema\'s' : '', pandMee() ? 'pand analyse' : '', meetMee() ? 'opmeting' : ''].filter(Boolean).join(' + ') + '.'); }
+  catch(e){ if(e && e.stil) return; topMelding('fout', 'PDF maken mislukt: ' + (e.message||e)); }
   finally{ k.disabled = false; k.innerHTML = oud; }
 };
 window.bagGewijzigd = () => renderLog();
