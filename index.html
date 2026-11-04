@@ -1966,7 +1966,7 @@ function aanzichten3d(b){
     const d=Math.max(22,Math.hypot(Math.max(...xs)-Math.min(...xs),Math.max(...ys)-Math.min(...ys))*1.25,hm*2.2),ty=Math.min(hm/2,8);
     [['Vanaf noord',0,-1],['Vanaf oost',1,0],['Vanaf zuid',0,1],['Vanaf west',-1,0]].forEach(([n,dx,dz])=>{
       camera.position.set(tx+dx*d,ty+d*0.55,tz+dz*d);camera.lookAt(tx,ty,tz);renderer.render(scene,camera);
-      const src=renderer.domElement,ar=88/52;let sw=src.width,sh=src.height;if(sw/sh>ar)sw=sh*ar;else sh=sw/ar;
+      const src=renderer.domElement,ar=88/46;let sw=src.width,sh=src.height;if(sw/sh>ar)sw=sh*ar;else sh=sw/ar;
       const k=document.createElement('canvas');k.width=Math.round(sw);k.height=Math.round(sh);const x=k.getContext('2d');const g=x.createLinearGradient(0,0,0,k.height);g.addColorStop(0,'#dfeef7');g.addColorStop(1,'#f7fbf8');x.fillStyle=g;x.fillRect(0,0,k.width,k.height);
       x.drawImage(src,(src.width-sw)/2,(src.height-sh)/2,sw,sh,0,0,k.width,k.height);uit.push({naam:n,img:k.toDataURL('image/jpeg',.85)})});
   }catch(e){console.error(e)}
@@ -3288,7 +3288,7 @@ function wozPagina(doc, pd, meta){
     doc.setFont('helvetica','normal'); doc.setTextColor(29,42,34); doc.text(pdfTekst(String(t)), PM+112, iy); iy += 5.5; });
   y += 32;
   /* staafgrafiek */
-  const rij = [...r].reverse(), mx = Math.max(...rij.map(x => x.waarde)), gh = 50, bw = PBR / rij.length;
+  const rij = [...r].reverse(), mx = Math.max(...rij.map(x => x.waarde)), gh = 36, bw = PBR / rij.length;
   y = pdfSectie(doc, 'Verloop WOZ-waarde', PM, y, PBR); y += 2;
   rij.forEach((x,i) => { const h = x.waarde/mx*(gh-8), X = PM + i*bw + 1.5, Y = y + gh - h;
     doc.setFillColor(...HEX(i===rij.length-1?'#3cb54a':'#9fd5ae')); doc.rect(X, Y, bw-3, h, 'F');
@@ -3296,7 +3296,7 @@ function wozPagina(doc, pd, meta){
     doc.setTextColor(107,122,115); doc.text(x.peildatum.slice(0,4), X+(bw-3)/2, y+gh+4, {align:'center'}); });
   y += gh + 10;
   y = pdfSectie(doc, 'WOZ-waarden per peildatum', PM, y, PBR);
-  doc.autoTable({theme:'grid', startY:y, margin:{left:PM, right:PM, bottom:24}, styles:{font:'helvetica', fontSize:8.6, cellPadding:1.6, lineColor:[214,226,216], lineWidth:0.2, textColor:[29,42,34]},
+  doc.autoTable({theme:'grid', startY:y, margin:{left:PM, right:PM, bottom:24}, styles:{font:'helvetica', fontSize:8.2, cellPadding:1.1, lineColor:[214,226,216], lineWidth:0.2, textColor:[29,42,34]},
     headStyles:{fillColor:HEX('#e7f3e8'), textColor:HEX('#0B3D2E'), fontStyle:'bold'},
     head:[['Peildatum','WOZ-waarde','Verschil t.o.v. jaar ervoor']],
     body: r.map((x,i) => { const p = r[i+1], d = p ? (x.waarde/p.waarde-1)*100 : null; return [dat(x.peildatum), eur(x.waarde), d==null ? '' : (d>=0?'+':'') + d.toLocaleString('nl-NL',{maximumFractionDigits:1}) + '%']; }),
@@ -3310,7 +3310,7 @@ function earthPagina(doc, pd, meta){
   pg(doc);
   let y = pdfKop(doc, 'Pand analyse — luchtfoto en aanzichten', pd.adres);
   y = pdfMeta(doc, y, meta);
-  const lw = 88;
+  const lw = 72;
   if(e.luchtfoto){ y = pdfSectie(doc, 'Luchtfoto', PM, y, lw); doc.addImage(e.luchtfoto, 'JPEG', PM, y, lw, lw); doc.setDrawColor(...HEX('#dfe7e2')); doc.rect(PM, y, lw, lw, 'S'); }
   const lx = e.luchtfoto ? PM + lw + 8 : PM, lb = PW - PM - lx;
   let ly = pdfSectie(doc, 'Google Earth en Street View (klikbaar)', lx, e.luchtfoto ? y - 6 : y, lb) + 2;
@@ -3320,7 +3320,7 @@ function earthPagina(doc, pd, meta){
   doc.text(uitleg, lx, ly + 1); ly += uitleg.length*3.2 + 2;
   y = Math.max(e.luchtfoto ? y + lw + 8 : y, ly + 4);
   if(e.aanzichten.length){
-    const bw = (PBR-6)/2, bh = bw*52/88;
+    const bw = (PBR-6)/2, bh = bw*46/88;
     if(y + 6 + 2*bh + 12 > PONDER){ doc.addPage(); y = 18; }
     y = pdfSectie(doc, '3D-aanzichten (3D BAG-model)', PM, y, PBR);
     e.aanzichten.forEach((a,i) => { const x = PM + (i%2)*(bw+6), yy = y + Math.floor(i/2)*(bh+8);
