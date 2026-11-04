@@ -393,6 +393,15 @@ body.tab-bag .wrap{max-width:1180px}
 .bag-pick{position:absolute;z-index:1001;top:8px;left:8px;background:rgba(255,255,255,.96);border:2px solid #ff6a00;border-radius:10px;padding:8px 30px 8px 12px;max-width:min(300px,calc(100% - 16px));font-size:.8rem;color:#1d2b25;box-shadow:0 2px 10px rgba(0,0,0,.15)}
 .bag-pickm{font-size:1.5rem;font-weight:800;color:#b33f00;line-height:1.15;margin:2px 0}
 .bag-pickx{position:absolute;top:4px;right:6px;border:0;background:none;font-size:1.2rem;cursor:pointer;color:#555}
+/* beeldvullend op de computer */
+@media(min-width:1000px){
+  .wrap,body.tab-bag .wrap{max-width:none;padding:16px 24px}
+  .bag-views{grid-template-rows:none;grid-template-columns:minmax(0,1fr) minmax(0,1fr);height:max(460px,calc(100vh - 260px))}
+  .bag-views.no3d{grid-template-columns:1fr 0;grid-template-rows:none}
+  .meet-canvas{height:max(520px,calc(100vh - 240px))}
+  .bag-oppkaart{max-width:900px}
+}
+@media(min-width:1600px){.bag-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 #vbs{
   --bg:#F2F4F3; --surface:#FFFFFF; --ink:#18232A; --muted:#5A6870; --line:#D5DCDE; --soft:#E9EEEE;
   --accent:#5B2D86; --accent-ink:#FFFFFF; --accent-soft:#EFE8F6;
