@@ -374,6 +374,18 @@ body.tab-bag .wrap{max-width:1180px}
 .pdf-inhoud b{display:block;margin:0 0 6px;color:#0B3D2E}
 .pdf-inhoud label{display:flex;gap:8px;align-items:center;padding:4px 0;cursor:pointer}
 .pdf-inhoud small{display:block;color:#6b7a73;margin-top:6px;font-size:.72rem}
+
+/* WOZ + Google Earth */
+#woz .woz-kop{display:flex;flex-wrap:wrap;gap:12px 28px;align-items:flex-start;margin:0 0 12px}
+#woz .woz-groot{display:block;font-size:2rem;color:#0B3D2E;line-height:1.1}
+#woz .woz-groei{display:inline-block;margin-top:4px;font-weight:700;font-size:.85rem}
+#woz .op{color:#1e7a3c}#woz .neer{color:#c0392b}
+#woz .woz-meta{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:.85rem}#woz .woz-meta b{color:var(--grijs);font-weight:600}
+#woz .woz-svg{width:100%;max-width:680px;height:auto;margin:4px 0 10px}
+#woz .woz-tab{border-collapse:collapse;font-size:.88rem;min-width:320px}#woz .woz-tab th,#woz .woz-tab td{padding:5px 10px;border-bottom:1px solid #e3ebe5;text-align:left}
+#ge .ge-knoppen{display:flex;flex-wrap:wrap;gap:8px}#ge .ge-knoppen .actie{text-decoration:none}
+#ge .ge-kaart{width:100%;height:420px;border:0;border-radius:10px;margin:14px 0 8px}
+@media(max-width:700px){.hoofdtabs{flex-wrap:wrap}.hoofdtabs button{flex:1 1 30%}}
 #vbs{
   --bg:#F2F4F3; --surface:#FFFFFF; --ink:#18232A; --muted:#5A6870; --line:#D5DCDE; --soft:#E9EEEE;
   --accent:#5B2D86; --accent-ink:#FFFFFF; --accent-soft:#EFE8F6;
@@ -646,6 +658,8 @@ body.tab-bag .wrap{max-width:1180px}
     <button type="button" role="tab" id="tabknop-bag" aria-selected="false" data-tab="bag">🏠 Pand<span class="lang"> analyse (BAG)</span></button>
     <button type="button" role="tab" id="tabknop-meet" aria-selected="false" data-tab="meet">📐 Opmeten</button>
     <button type="button" role="tab" id="tabknop-buurt" aria-selected="false" data-tab="buurt">🏘️ Labels<span class="lang"> buurt</span></button>
+    <button type="button" role="tab" id="tabknop-woz" aria-selected="false" data-tab="woz">💶 WOZ</button>
+    <button type="button" role="tab" id="tabknop-ge" aria-selected="false" data-tab="ge">🌍 Earth</button>
     <button type="button" class="topknop" id="top-pdf" title="Eén PDF met beslisschema's en pand analyse">📄 PDF<span class="lang"> downloaden</span></button>
   </div>
   <div id="top-melding" class="top-melding" hidden></div>
@@ -821,6 +835,14 @@ body.tab-bag .wrap{max-width:1180px}
       <div class="kaart bz-kaartblok"><div id="bz-kaart" hidden></div></div>
       <div class="kaart"><div id="bz-tabel"><p class="klein">Nog niets gezocht.</p></div></div>
     </div>
+  </section>
+
+  <section id="tab-woz" role="tabpanel" hidden>
+    <div class="kaart" id="woz"><h2>WOZ-waarde</h2><div id="woz-inhoud"><p class="klein">—</p></div></div>
+  </section>
+
+  <section id="tab-ge" role="tabpanel" hidden>
+    <div class="kaart" id="ge"><h2>Google Earth – rond het pand kijken</h2><div id="ge-inhoud"><p class="klein">—</p></div></div>
   </section>
 
 
@@ -1556,6 +1578,7 @@ function metaRows(b){const v=vboOf(b)||{};const rows=[['Adres',addrOf(b)],['Pand
   if(v.gebruiksdoel)rows.push(['Gebruiksdoel',v.gebruiksdoel]);
   {const k=v.identificatie||(v.huisnummer?vboZoek(v):null),c=k&&labelCache[k];if(c&&!c.then&&!c.fout)rows.push(['Bestaand energielabel',c.label?labelTekst(c.label)+(c.label.ep2!=null?` · EP2 ${fmt(c.label.ep2,1)} kWh/m²·jr`:''):'geen geregistreerd label (EP-Online)'])}
   if(v.postcode&&verwCache[v.postcode])rows.push(['Verwarming (indicatie)',verwCache[v.postcode].tekst+' — bron: '+verwCache[v.postcode].bron+' open data']);
+  {const wz=window.__woz;if(wz&&wz.waarde&&wz.k===(v.identificatie||addrOf(b)))rows.push(['WOZ-waarde',wz.waarde+' (peildatum '+new Date(wz.peildatum).toLocaleDateString('nl-NL')+')'])}
   rows.push(['Footprint pand',fmt(S.area,0)+' m²']);
   if(b.vbos.length>1)rows.push(['Verblijfsobjecten in pand',b.vbos.length]);
   rows.push(['Daktype',heights(b).dak]);if(heights(b).bron)rows.push(['Bron hoogte',bronLabel(heights(b).route)]);return rows}
@@ -1919,8 +1942,9 @@ return {
   labelApi,
   huidig:()=>{const b=selB();if(!b)return null;const v=vboOf(b);const vk=b.vbos.find(x=>x.p===v);
     const rd=(vk&&vk.xy)||S.addrPt||centroid(b.ring),ll=rd2wgs(rd[0],rd[1]);
-    if(v&&v.postcode)return{straat:v.openbare_ruimte,plaats:v.woonplaats,postcode:v.postcode,ll,adres:addrOf(b)};
-    const m=/^(.*?)\s+\d+\S*,\s*(\d{4}\s?[A-Z]{2})\s+(.+)$/.exec(S.addr||'');return m?{straat:m[1],postcode:m[2].replace(/\s/,''),plaats:m[3],ll,adres:addrOf(b)}:{ll,adres:addrOf(b)}},
+    const cen=rd2wgs(...centroid(b.ring)),lengte=Math.max(...S.edges.map(e=>e.len||0),10);
+    if(v&&v.postcode)return{straat:v.openbare_ruimte,plaats:v.woonplaats,postcode:v.postcode,ll,cen,lengte,hoogte:heights(b).hmax,vbo:v.identificatie||'',huisnummer:v.huisnummer,huisletter:v.huisletter||'',toevoeging:v.toevoeging||'',adres:addrOf(b),bouwjaar:b.bouwjaar};
+    const m=/^(.*?)\s+\d+\S*,\s*(\d{4}\s?[A-Z]{2})\s+(.+)$/.exec(S.addr||'');return m?{straat:m[1],postcode:m[2].replace(/\s/,''),plaats:m[3],ll,cen,lengte,hoogte:heights(b).hmax,adres:addrOf(b)}:{ll,cen,lengte,hoogte:heights(b).hmax,adres:addrOf(b)}},
   adres:()=>{const b=selB();return b?addrOf(b):''},
   samenvatting,
   pdfGegevens,
@@ -2467,6 +2491,82 @@ bind();
 return{toon(){const b=voorstel();if(S.map)setTimeout(()=>S.map.invalidateSize(),30);
   /* automatisch de labels rond het adres van de pand analyse zoeken (één keer per adres) */
   if(b&&b.ll&&b.adres&&S.auto!==b.adres){S.auto=b.adres;zoek(rondQ(b,150))}},zoek};
+})();
+
+</script>
+<script>
+/* ===== WOZ-waardeloket en Google Earth voor het pand van de pand analyse ===== */
+window.EXTRA = (function(){
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const LS='https://api.pdok.nl/bzk/locatieserver/search/v3_1';
+const WOZ='https://api.kadaster.nl/lvwoz/wozwaardeloket-api/v1/wozwaarde/nummeraanduiding/';
+const eur=v=>'€ '+Number(v).toLocaleString('nl-NL');
+const huidig=()=>window.BAG&&BAG.huidig?BAG.huidig():null;
+const wozCache={};let wozVoor=null;
+
+/* ---------- WOZ ---------- */
+async function nummeraanduiding(h){
+  if(h.vbo){const r=await(await fetch(`${LS}/free?q=*:*&fq=type:adres&fq=adresseerbaarobject_id:${encodeURIComponent(h.vbo)}&rows=10&fl=nummeraanduiding_id,weergavenaam,adrestype`)).json();
+    const d=r.response.docs;const hoofd=d.find(x=>x.adrestype==='hoofdadres')||d[0];if(hoofd)return hoofd}
+  const r=await(await fetch(`${LS}/free?q=${encodeURIComponent(h.adres)}&fq=type:adres&rows=1&fl=nummeraanduiding_id,weergavenaam`)).json();
+  return r.response.docs[0]||null;
+}
+async function haalWoz(h){
+  const k=h.vbo||h.adres;if(wozCache[k])return wozCache[k];
+  wozCache[k]=(async()=>{const na=await nummeraanduiding(h);if(!na||!na.nummeraanduiding_id)throw new Error('adres niet gevonden in de BAG');
+    const r=await fetch(WOZ+na.nummeraanduiding_id);if(r.status===404)return{na,geen:true};if(!r.ok)throw new Error('WOZ-waardeloket gaf '+r.status);
+    return{na,...await r.json()}})();
+  try{return await wozCache[k]}catch(e){delete wozCache[k];throw e}
+}
+function wozGrafiek(w){
+  const rij=[...w].sort((a,b)=>a.peildatum.localeCompare(b.peildatum)),mx=Math.max(...rij.map(x=>x.vastgesteldeWaarde)),W=640,H=200,P=36,bw=(W-P*2)/rij.length;
+  return`<svg viewBox="0 0 ${W} ${H+28}" class="woz-svg" role="img" aria-label="WOZ-waarde per peildatum">${rij.map((x,i)=>{const h=(x.vastgesteldeWaarde/mx)*(H-24),X=P+i*bw+4,Y=H-h;
+    return`<rect x="${X}" y="${Y}" width="${bw-8}" height="${h}" rx="3" fill="${i===rij.length-1?'#3cb54a':'#9fd5ae'}"><title>${x.peildatum.slice(0,4)}: ${eur(x.vastgesteldeWaarde)}</title></rect><text x="${X+(bw-8)/2}" y="${H+14}" text-anchor="middle" font-size="11" fill="#6b7a73">${x.peildatum.slice(0,4)}</text>${i===rij.length-1||i%2===0?`<text x="${X+(bw-8)/2}" y="${Y-4}" text-anchor="middle" font-size="10" fill="#1d2a22">${Math.round(x.vastgesteldeWaarde/1000)}k</text>`:''}`}).join('')}</svg>`;
+}
+async function wozToon(){
+  const el=$('woz-inhoud');if(!el)return;const h=huidig();
+  if(!h){el.innerHTML='<p class="klein">Zoek eerst een adres in de pand analyse; de WOZ-waarde van die woning verschijnt dan hier.</p>';return}
+  const k=h.vbo||h.adres;if(wozVoor===k&&el.dataset.klaar)return;wozVoor=k;delete el.dataset.klaar;
+  el.innerHTML=`<p class="klein">WOZ-waarde ophalen voor ${esc(h.adres)}…</p>`;
+  try{const d=await haalWoz(h);if(wozVoor!==k)return;
+    if(d.geen){el.innerHTML=`<p>Geen WOZ-gegevens gevonden voor <b>${esc(d.na.weergavenaam)}</b>.</p>`;return}
+    const o=d.wozObject||{},w=(d.wozWaarden||[]).slice().sort((a,b)=>b.peildatum.localeCompare(a.peildatum)),laatst=w[0],vorig=w[1];
+    const groei=laatst&&vorig?(laatst.vastgesteldeWaarde/vorig.vastgesteldeWaarde-1)*100:null;
+    const per=(d.kadastraleObjecten||[]).map(p=>`${p.kadastraleGemeenteCode} ${p.kadastraleSectie} ${p.kadastraalPerceelNummer}`).join(', ');
+    el.dataset.klaar='1';
+    el.innerHTML=`<div class="woz-kop"><div><span class="klein">WOZ-waarde peildatum ${laatst?new Date(laatst.peildatum).toLocaleDateString('nl-NL'):'–'}</span><b class="woz-groot">${laatst?eur(laatst.vastgesteldeWaarde):'–'}</b>
+        ${groei!=null?`<span class="woz-groei ${groei>=0?'op':'neer'}">${groei>=0?'▲':'▼'} ${groei.toLocaleString('nl-NL',{maximumFractionDigits:1})}% t.o.v. ${vorig.peildatum.slice(0,4)}</span>`:''}</div>
+      <div class="woz-meta"><b>Adres</b><span>${esc(d.na.weergavenaam)}</span><b>WOZ-objectnummer</b><span>${esc(o.wozobjectnummer||'–')}</span><b>Grondoppervlakte</b><span>${o.grondoppervlakte?o.grondoppervlakte+' m²':'–'}</span><b>Kadastraal perceel</b><span>${esc(per||'–')}</span>${o.verbondenAdresseerbareObjecten&&o.verbondenAdresseerbareObjecten.length>1?`<b>Verbonden objecten</b><span>${o.verbondenAdresseerbareObjecten.length}</span>`:''}</div></div>
+      ${w.length?wozGrafiek(w):''}
+      <table class="woz-tab"><thead><tr><th>Peildatum</th><th>WOZ-waarde</th><th>Verschil</th></tr></thead><tbody>${w.map((x,i)=>{const p=w[i+1];const v=p?(x.vastgesteldeWaarde/p.vastgesteldeWaarde-1)*100:null;
+        return`<tr><td>${new Date(x.peildatum).toLocaleDateString('nl-NL')}</td><td><b>${eur(x.vastgesteldeWaarde)}</b></td><td class="${v>=0?'op':'neer'}">${v!=null?(v>=0?'+':'')+v.toLocaleString('nl-NL',{maximumFractionDigits:1})+'%':''}</td></tr>`}).join('')}</tbody></table>
+      <div class="acties"><a class="actie licht" href="https://www.wozwaardeloket.nl/?search=${encodeURIComponent(d.na.weergavenaam)}" target="_blank" rel="noopener">Open in WOZ-waardeloket ↗</a><button class="actie licht" type="button" id="woz-kopie">Kopieer WOZ-waarden</button></div>
+      <p class="klein">Bron: WOZ-waardeloket (Kadaster, Landelijke Voorziening WOZ). De WOZ-waarde is de door de gemeente vastgestelde waarde op de peildatum (1 januari van het jaar ervoor).</p>`;
+    $('woz-kopie').onclick=async()=>{const t=['Peildatum\tWOZ-waarde',...w.map(x=>`${x.peildatum}\t${x.vastgesteldeWaarde}`)].join('\n');try{await navigator.clipboard.writeText(t);$('woz-kopie').textContent='Gekopieerd ✓'}catch(e){}};
+    window.__woz={adres:d.na.weergavenaam,waarde:laatst?eur(laatst.vastgesteldeWaarde):null,peildatum:laatst?laatst.peildatum:null,k};
+    window.bagGewijzigd&&window.bagGewijzigd();
+  }catch(e){if(wozVoor===k)el.innerHTML=`<p class="klein" style="color:#c0392b">WOZ ophalen mislukt: ${esc(e.message||e)}</p>`;}
+}
+
+/* ---------- Google Earth ---------- */
+function earthUrl(lat,lon,afstand,kijkrichting,tilt){return`https://earth.google.com/web/@${lat.toFixed(6)},${lon.toFixed(6)},10a,${Math.round(afstand)}d,35y,${Math.round(kijkrichting)}h,${tilt}t,0r`}
+function earthToon(){
+  const el=$('ge-inhoud');if(!el)return;const h=huidig();
+  if(!h){el.innerHTML='<p class="klein">Zoek eerst een adres in de pand analyse; dit tabblad opent dan Google Earth precies op dat pand.</p>';return}
+  const[lat,lon]=h.cen||h.ll,afst=Math.max(60,(h.lengte||15)*4,(h.hoogte||8)*8);
+  const kant=[['noord',180],['oost',270],['zuid',0],['west',90]];
+  el.innerHTML=`<p><b>${esc(h.adres)}</b></p>
+    <div class="ge-knoppen"><a class="actie" href="${earthUrl(lat,lon,afst,0,65)}" target="_blank" rel="noopener">🌍 Open in Google Earth (3D, rond het pand draaien)</a></div>
+    <p class="klein" style="margin:10px 0 4px">Direct de gevel bekijken vanaf:</p>
+    <div class="ge-knoppen">${kant.map(([n,hd])=>`<a class="actie licht" href="${earthUrl(lat,lon,afst*0.8,hd,70)}" target="_blank" rel="noopener">${n==='noord'?'⬇':n==='oost'?'⬅':n==='zuid'?'⬆':'➡'} vanaf de ${n} (${n==='noord'?'N':n==='oost'?'O':n==='zuid'?'Z':'W'}-gevel)</a>`).join('')}
+      <a class="actie licht" href="${earthUrl(lat,lon,afst*1.6,0,0)}" target="_blank" rel="noopener">⬇ Bovenaanzicht</a></div>
+    <div class="ge-knoppen" style="margin-top:8px"><a class="actie licht" href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat.toFixed(6)},${lon.toFixed(6)}" target="_blank" rel="noopener">🚶 Street View</a>
+      <a class="actie licht" href="https://www.google.com/maps/@${lat.toFixed(6)},${lon.toFixed(6)},${Math.round(afst)}a,35y,0h,60t/data=!3m1!1e3" target="_blank" rel="noopener">🗺️ Google Maps 3D</a></div>
+    <iframe class="ge-kaart" title="Luchtfoto Google Maps" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://maps.google.com/maps?q=${lat.toFixed(6)},${lon.toFixed(6)}&t=k&z=20&output=embed"></iframe>
+    <p class="klein">Google Earth laat zich niet in een andere app insluiten; de knoppen openen Google Earth in een nieuw venster, gericht op het pand. Daar draai je met <b>Shift + slepen</b> (muis) of met twee vingers (tablet) om het pand. In de app zelf kun je ook het eigen 3D-model gebruiken (tab Pand analyse).</p>`;
+}
+return{wozToon,earthToon,woz:()=>window.__woz||null};
 })();
 
 </script>
@@ -3372,8 +3472,9 @@ initMsal();
 /* ============ TABBLADEN + KOPPELING MET PAND ANALYSE ============ */
 function kiesTab(t){
   document.querySelectorAll('.hoofdtabs [data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab===t)));
-  $('tab-bs').hidden = t!=='bs'; $('tab-bag').hidden = t!=='bag'; $('tab-meet').hidden = t!=='meet'; $('tab-buurt').hidden = t!=='buurt';
-  document.body.classList.toggle('tab-bag', t==='bag' || t==='meet' || t==='buurt');
+  $('tab-bs').hidden = t!=='bs'; $('tab-bag').hidden = t!=='bag'; $('tab-meet').hidden = t!=='meet'; $('tab-buurt').hidden = t!=='buurt'; $('tab-woz').hidden = t!=='woz'; $('tab-ge').hidden = t!=='ge';
+  if(t==='woz') EXTRA.wozToon(); if(t==='ge') EXTRA.earthToon();
+  document.body.classList.toggle('tab-bag', ['bag','meet','buurt','woz','ge'].includes(t));
   if(t==='buurt') BUURT.toon();
   if(t==='meet') MEET.toon();
   try{ localStorage.setItem('ee_tab', t); }catch(e){}
@@ -3408,7 +3509,7 @@ window.bagAdresGekozen = naam => {
 window.meetGewijzigd = () => renderLog();
 MEET.laadProject(logSleutel());
 ['projnr','project'].forEach(v => $(v).addEventListener('change', () => MEET.laadProject(logSleutel())));
-try{ const t0 = localStorage.getItem('ee_tab'); if(t0==='bag' || t0==='meet' || t0==='buurt') kiesTab(t0); }catch(e){}
+try{ const t0 = localStorage.getItem('ee_tab'); if(['bag','meet','buurt','woz','ge'].includes(t0)) kiesTab(t0); }catch(e){}
 </script>
 <script>
 (function(){
