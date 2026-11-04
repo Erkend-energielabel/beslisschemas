@@ -3310,7 +3310,7 @@ function earthPagina(doc, pd, meta){
   pg(doc);
   let y = pdfKop(doc, 'Pand analyse — luchtfoto en aanzichten', pd.adres);
   y = pdfMeta(doc, y, meta);
-  const lw = 72;
+  const lw = 66;
   if(e.luchtfoto){ y = pdfSectie(doc, 'Luchtfoto', PM, y, lw); doc.addImage(e.luchtfoto, 'JPEG', PM, y, lw, lw); doc.setDrawColor(...HEX('#dfe7e2')); doc.rect(PM, y, lw, lw, 'S'); }
   const lx = e.luchtfoto ? PM + lw + 8 : PM, lb = PW - PM - lx;
   let ly = pdfSectie(doc, 'Google Earth en Street View (klikbaar)', lx, e.luchtfoto ? y - 6 : y, lb) + 2;
@@ -3318,10 +3318,10 @@ function earthPagina(doc, pd, meta){
   doc.setFont('helvetica','normal'); doc.setFontSize(7.2); doc.setTextColor(120);
   const uitleg = doc.splitTextToSize('Google Earth-beelden mogen niet in een rapport worden overgenomen; met deze links opent Google Earth direct op het pand, met het aanzicht vanaf elke zijde. Draaien: Shift + slepen (muis) of twee vingers (tablet).', lb);
   doc.text(uitleg, lx, ly + 1); ly += uitleg.length*3.2 + 2;
-  y = Math.max(e.luchtfoto ? y + lw + 8 : y, ly + 4);
+  y = Math.max(e.luchtfoto ? y + lw + 6 : y, ly + 3);
   if(e.aanzichten.length){
     const bw = (PBR-6)/2, bh = bw*46/88;
-    if(y + 6 + 2*bh + 12 > PONDER){ doc.addPage(); y = 18; }
+    if(y + 6 + 2*bh + 12 > 297-16){ doc.addPage(); y = 18; }
     y = pdfSectie(doc, '3D-aanzichten (3D BAG-model)', PM, y, PBR);
     e.aanzichten.forEach((a,i) => { const x = PM + (i%2)*(bw+6), yy = y + Math.floor(i/2)*(bh+8);
       doc.addImage(a.img, 'JPEG', x, yy, bw, bh); doc.setDrawColor(...HEX('#dfe7e2')); doc.rect(x, yy, bw, bh, 'S');
