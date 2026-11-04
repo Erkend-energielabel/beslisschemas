@@ -995,7 +995,7 @@ function init(){
   map.on('click focus',()=>map.scrollWheelZoom.enable());map.getContainer().addEventListener('mouseleave',()=>map.scrollWheelZoom.disable());
   layers={lucht:L.tileLayer('https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_orthoHR/EPSG:3857/{z}/{x}/{y}.jpeg',{maxZoom:21,maxNativeZoom:19,attribution:'Luchtfoto © PDOK'}),
     kaart:L.tileLayer('https://service.pdok.nl/brt/achtergrondkaart/wmts/v2_0/standaard/EPSG:3857/{z}/{x}/{y}.png',{maxZoom:21,maxNativeZoom:19,attribution:'BRT © Kadaster/PDOK'})};
-  layers.lucht.addTo(map);
+  layers.lucht.addTo(map);map.on('zoomend',()=>{try{if(selB())renderMap(false)}catch(e){}});
   document.querySelectorAll('#bag [data-l]').forEach(b=>b.onclick=()=>{document.querySelectorAll('#bag [data-l]').forEach(x=>x.classList.remove('on'));b.classList.add('on');Object.values(layers).forEach(l=>map.removeLayer(l));layers[b.dataset.l].addTo(map)});
   grp=L.layerGroup().addTo(map);
   map.on('click',e=>{const[x,y]=wgs2rd(e.latlng.lat,e.latlng.lng);const hit=S.blds.find(b=>inside([x,y],b.ring));
@@ -1539,6 +1539,16 @@ function totals(){const t={};visible().forEach(({e,i})=>{if(role(i)!=='Belendend
 function renderAll(fit){renderMap(fit);build3d(false);renderPand();renderGevels();renderHInfo();renderDak();renderOpp();renderRaming();renderList()}
 function renderGevels(){renderTable();renderRose();renderRes();renderGroepen();renderLegenda()}
 
+/* labels per oriëntatie: midden van het langste geveldeel, naar buiten; schuiven tot ze elkaar niet raken */
+function labelPlaatsen(gr,mpp,wPx,hPx,off0Px){
+  const L=gr.filter(g=>g.dir!=='BEL').map(g=>{const e=S.edges[g.langste];return{dir:g.dir,base:e.mid,n:e.n,off:off0Px*mpp}});
+  const w=wPx*mpp,h=hPx*mpp,pos=l=>[l.base[0]+l.n[0]*l.off,l.base[1]+l.n[1]*l.off];
+  for(let it=0;it<40;it++){let raak=false;
+    for(let i=0;i<L.length;i++)for(let j=i+1;j<L.length;j++){const a=pos(L[i]),b=pos(L[j]);
+      if(Math.abs(a[0]-b[0])<w*1.08&&Math.abs(a[1]-b[1])<h*1.15){raak=true;L[i].off+=h*0.35;L[j].off+=h*0.35}}
+    if(!raak)break}
+  const uit={};L.forEach(l=>uit[l.dir]=pos(l));return uit;
+}
 function renderMap(fit){
   if(!grp)return;grp.clearLayers();if(!S.blds.length)return;
   const orient=S.tab!=='hoogte';
@@ -1551,9 +1561,9 @@ function renderMap(fit){
     visible().forEach(({e,i})=>{const bel=role(i)==='Belendend',sel=i===S.eSel,c=bel?'#8a8f8c':DCOL[e.dir],dim=hl&&(bel?hl!=='BEL':e.dir!==hl);
       L.polyline([e.la,e.lb],{color:c,weight:bel?4:(sel?8:6),opacity:dim?.22:(bel?.85:.95),dashArray:bel?'6 6':null,lineCap:'butt'}).addTo(grp).on('click',ev=>{L.DomEvent.stop(ev);selEdge(i)})});
     // één label per oriëntatie, bij het langste geveldeel
-    gr.filter(g=>g.dir!=='BEL').forEach(g=>{const e=S.edges[g.langste],c=DCOL[g.dir],dim=hl&&hl!==g.dir;
-      const t=e.len>5?0.28:0.5,base=[e.a[0]+(e.c[0]-e.a[0])*t,e.a[1]+(e.c[1]-e.a[1])*t],lp=[base[0]+e.n[0]*2.4,base[1]+e.n[1]*2.4];
-      L.marker(rd2wgs(...lp),{icon:L.divIcon({html:`<span class="bag-lbl" style="border-color:${c};color:${c};opacity:${dim?.35:1}">${g.dir}</span>`,className:'',iconSize:null,iconAnchor:[17,11]})}).addTo(grp).on('click',()=>kiesGroep(g.dir))});
+    const lat=rd2wgs(...selB().ring[0])[0],mpp=156543.03*Math.cos(lat*Math.PI/180)/Math.pow(2,map.getZoom()),lpos=labelPlaatsen(gr,mpp,38,24,20);
+    gr.filter(g=>g.dir!=='BEL').forEach(g=>{const c=DCOL[g.dir],dim=hl&&hl!==g.dir;
+      L.marker(rd2wgs(...lpos[g.dir]),{icon:L.divIcon({html:`<span class="bag-lbl" style="border-color:${c};color:${c};opacity:${dim?.35:1}">${g.dir}</span>`,className:'',iconSize:null,iconAnchor:[17,11]})}).addTo(grp).on('click',()=>kiesGroep(g.dir))});
     // pijl op de geselecteerde gevel, loodrecht naar buiten
     const e=S.edges[S.eSel];
     if(e){const Lp=Math.min(Math.max(e.len*.45,3.5),7),tg=[-e.n[1],e.n[0]],P=(d,s)=>rd2wgs(e.mid[0]+e.n[0]*d+tg[0]*s,e.mid[1]+e.n[1]*d+tg[1]*s);
@@ -1905,8 +1915,8 @@ function planSVG(W,Hh){
   if(es){const Lp=Math.max(34/sc,Math.min(Math.max(es.len*.45,3.5),7)),m=P(es.mid),t=P([es.mid[0]+es.n[0]*Lp,es.mid[1]+es.n[1]*Lp]);
     const dx=t[0]-m[0],dy=t[1]-m[1],l=Math.hypot(dx,dy)||1,ux=dx/l,uy=dy/l,hx=t[0]-ux*13,hy=t[1]-uy*13;
     s+=`<line x1="${m[0]}" y1="${m[1]}" x2="${hx}" y2="${hy}" stroke="#0B3D2E" stroke-width="5"/><polygon points="${t[0]},${t[1]} ${hx-uy*8},${hy+ux*8} ${hx+uy*8},${hy-ux*8}" fill="#0B3D2E"/>`}
-  groepen().filter(g=>g.dir!=='BEL').forEach(g=>{const e=S.edges[g.langste],c=DCOL[g.dir],t=e.len>5?0.28:0.5;
-    const base=[e.a[0]+(e.c[0]-e.a[0])*t,e.a[1]+(e.c[1]-e.a[1])*t],off=Math.max(22/sc,2.4),l=P([base[0]+e.n[0]*off,base[1]+e.n[1]*off]);
+  const lp2=labelPlaatsen(groepen(),1/sc,40,22,24);
+  groepen().filter(g=>g.dir!=='BEL').forEach(g=>{const c=DCOL[g.dir],l=P(lp2[g.dir]);
     s+=`<rect x="${l[0]-20}" y="${l[1]-11}" width="40" height="22" rx="6" fill="#fff" stroke="${c}" stroke-width="2.2"/><text x="${l[0]}" y="${+l[1]+5}" text-anchor="middle" font-size="13" font-weight="700" fill="${c}">${g.dir}</text>`});
   s+=`</g>`;
   s+=`<g transform="translate(${W-34},40)"><polygon points="0,-24 9,8 0,2 -9,8" fill="#0B3D2E"/><text y="24" text-anchor="middle" font-size="14" font-weight="700" fill="#0B3D2E">N</text></g>`;
