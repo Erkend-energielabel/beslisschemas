@@ -1966,7 +1966,7 @@ function aanzichten3d(b){
     const d=Math.max(22,Math.hypot(Math.max(...xs)-Math.min(...xs),Math.max(...ys)-Math.min(...ys))*1.25,hm*2.2),ty=Math.min(hm/2,8);
     [['Vanaf noord',0,-1],['Vanaf oost',1,0],['Vanaf zuid',0,1],['Vanaf west',-1,0]].forEach(([n,dx,dz])=>{
       camera.position.set(tx+dx*d,ty+d*0.55,tz+dz*d);camera.lookAt(tx,ty,tz);renderer.render(scene,camera);
-      const src=renderer.domElement,ar=88/46;let sw=src.width,sh=src.height;if(sw/sh>ar)sw=sh*ar;else sh=sw/ar;
+      const src=renderer.domElement,ar=88/42;let sw=src.width,sh=src.height;if(sw/sh>ar)sw=sh*ar;else sh=sw/ar;
       const k=document.createElement('canvas');k.width=Math.round(sw);k.height=Math.round(sh);const x=k.getContext('2d');const g=x.createLinearGradient(0,0,0,k.height);g.addColorStop(0,'#dfeef7');g.addColorStop(1,'#f7fbf8');x.fillStyle=g;x.fillRect(0,0,k.width,k.height);
       x.drawImage(src,(src.width-sw)/2,(src.height-sh)/2,sw,sh,0,0,k.width,k.height);uit.push({naam:n,img:k.toDataURL('image/jpeg',.85)})});
   }catch(e){console.error(e)}
@@ -3320,13 +3320,13 @@ function earthPagina(doc, pd, meta){
   doc.text(uitleg, lx, ly + 1); ly += uitleg.length*3.2 + 2;
   y = Math.max(e.luchtfoto ? y + lw + 6 : y, ly + 3);
   if(e.aanzichten.length){
-    const bw = (PBR-6)/2, bh = bw*46/88;
+    const bw = (PBR-6)/2, bh = bw*42/88;
     if(y + 6 + 2*bh + 12 > 297-16){ doc.addPage(); y = 18; }
     y = pdfSectie(doc, '3D-aanzichten (3D BAG-model)', PM, y, PBR);
-    e.aanzichten.forEach((a,i) => { const x = PM + (i%2)*(bw+6), yy = y + Math.floor(i/2)*(bh+8);
+    e.aanzichten.forEach((a,i) => { const x = PM + (i%2)*(bw+6), yy = y + Math.floor(i/2)*(bh+7);
       doc.addImage(a.img, 'JPEG', x, yy, bw, bh); doc.setDrawColor(...HEX('#dfe7e2')); doc.rect(x, yy, bw, bh, 'S');
       doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...HEX('#0B3D2E')); doc.text(a.naam, x, yy + bh + 4); });
-    y += 2*(bh+8) + 2;
+    y += 2*(bh+7) + 2;
   }
   pdfDisclaimer(doc, y, 'Luchtfoto: PDOK Luchtfoto Actueel (Beeldmateriaal Nederland), pand oranje omlijnd. 3D-aanzichten uit het eigen 3D-model (3D BAG, TU Delft / 3DGI), indicatief.');
 }
