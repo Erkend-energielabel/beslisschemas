@@ -386,6 +386,8 @@ body.tab-bag .wrap{max-width:1180px}
 #ge .ge-knoppen{display:flex;flex-wrap:wrap;gap:8px}#ge .ge-knoppen .actie{text-decoration:none}
 #ge .ge-kaart{width:100%;height:420px;border:0;border-radius:10px;margin:14px 0 8px}
 @media(max-width:700px){.hoofdtabs{flex-wrap:wrap}.hoofdtabs button{flex:1 1 30%}}
+.hoofdtabs button{white-space:nowrap}
+@media(max-width:1000px){.hoofdtabs button{padding:10px 6px;font-size:.84rem}}
 #vbs{
   --bg:#F2F4F3; --surface:#FFFFFF; --ink:#18232A; --muted:#5A6870; --line:#D5DCDE; --soft:#E9EEEE;
   --accent:#5B2D86; --accent-ink:#FFFFFF; --accent-soft:#EFE8F6;
@@ -655,9 +657,9 @@ body.tab-bag .wrap{max-width:1180px}
 
   <div class="hoofdtabs" role="tablist">
     <button type="button" role="tab" id="tabknop-bs" aria-selected="true" data-tab="bs">📋 Beslisschema's</button>
-    <button type="button" role="tab" id="tabknop-bag" aria-selected="false" data-tab="bag">🏠 Pand<span class="lang"> analyse (BAG)</span></button>
+    <button type="button" role="tab" id="tabknop-bag" aria-selected="false" data-tab="bag">🏠 Pand<span class="lang"> analyse</span></button>
     <button type="button" role="tab" id="tabknop-meet" aria-selected="false" data-tab="meet">📐 Opmeten</button>
-    <button type="button" role="tab" id="tabknop-buurt" aria-selected="false" data-tab="buurt">🏘️ Labels<span class="lang"> buurt</span></button>
+    <button type="button" role="tab" id="tabknop-buurt" aria-selected="false" data-tab="buurt">🏘️ Labels</button>
     <button type="button" role="tab" id="tabknop-woz" aria-selected="false" data-tab="woz">💶 WOZ</button>
     <button type="button" role="tab" id="tabknop-ge" aria-selected="false" data-tab="ge">🌍 Earth</button>
     <button type="button" class="topknop" id="top-pdf" title="Eén PDF met beslisschema's en pand analyse">📄 PDF<span class="lang"> downloaden</span></button>
