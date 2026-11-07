@@ -4995,6 +4995,7 @@ const VOORWAARDEN_STD = [
   'Niet inbegrepen, tenzij vermeld: asbestinventarisatie en -sanering, herstel van verborgen gebreken, vergunningen en leges.',
   'Btw: isolatiewerkzaamheden aan woningen ouder dan 2 jaar 9% over het arbeidsdeel en 21% over materiaal; zonnepanelen bij woningen 0%; overige maatregelen 21%.',
   'De ISDE-subsidie is een indicatie. Wij vragen de subsidie namens u aan als intermediair, na uitvoering en mits u een machtigingsformulier ondertekent; toekenning en bedragen zijn aan de voorwaarden van RVO onderhevig.',
+  'De ISDE-subsidie wordt bepaald door RVO. Erkend-Energielabel.nl heeft geen invloed op de toekenning en de hoogte van het subsidiebedrag.',
   'Betaling volgens de termijnstaat, binnen 14 dagen na factuurdatum.',
   'Deze offerte is vrijblijvend en geldig tot de genoemde datum.'
 ].join('\n');
@@ -5042,6 +5043,7 @@ function gegevens(d){
   if(o.codes == null) o.codes = false;
   if(o.afmelden == null) o.afmelden = false;
   if(o.zakelijk == null) o.zakelijk = false;
+  if(!/bepaald door RVO/.test(o.voorwaarden)){ const ls = String(o.voorwaarden).split('\n'), k = ls.findIndex(l => /ISDE-subsidie is een indicatie/.test(l)); ls.splice(k < 0 ? ls.length : k + 1, 0, 'De ISDE-subsidie wordt bepaald door RVO. Erkend-Energielabel.nl heeft geen invloed op de toekenning en de hoogte van het subsidiebedrag.'); o.voorwaarden = ls.join('\n'); }
   o.voorwaarden = String(o.voorwaarden).replace('U vraagt de subsidie zelf aan bij RVO na uitvoering;', 'Wij vragen de subsidie namens u aan als intermediair, na uitvoering en mits u een machtigingsformulier ondertekent;');
   if(o.labelNu == null) o.labelNu = d.labelNu || '';
   if(o.labelNa == null) o.labelNa = '';
