@@ -5050,7 +5050,7 @@ function voet(doc){
     doc.setFont('helvetica', l ? 'normal' : (j===0?'bold':'normal')); doc.setTextColor(60); doc.text(T(t), x + (l ? doc.getTextWidth(l) : 0), yy); }));
 }
 function stempel(doc){
-  try{ doc.saveGraphicsState(); doc.setGState(new doc.GState({opacity:0.55})); doc.addImage(STEMPEL_IMG, 'JPEG', PW-118, PH-128, 130, 130*484/531); doc.restoreGraphicsState(); }catch(e){}
+  try{ doc.saveGraphicsState(); doc.setGState(new doc.GState({opacity:0.7})); doc.addImage(STEMPEL_IMG, 'JPEG', PW-118, PH-128, 130, 130*484/531); doc.restoreGraphicsState(); }catch(e){}
 }
 function kop(doc, o, d, eerste){
   if(!eerste){ doc.addImage(LOGO_WOORD, 'JPEG', PW-M-46, 8, 46, 46*163/700); doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(120);
@@ -5071,6 +5071,7 @@ function kop(doc, o, d, eerste){
 }
 function maak(d){
   const o = gegevens(d), {jsPDF} = window.jspdf, doc = new jsPDF({unit:'mm', format:'a4'});
+  stempel(doc);
   let y = kop(doc, o, d, true);
   /* klant + betreft */
   doc.setTextColor(29,42,34); doc.setFont('helvetica','normal'); doc.setFontSize(10);
@@ -5102,10 +5103,10 @@ function maak(d){
     columnStyles:{0:{cellWidth:8}, 2:{halign:'right', cellWidth:28}, 3:{halign:'right', cellWidth:27}, 4:{halign:'right', cellWidth:28}},
     didParseCell: c => { if(c.section==='body' && c.column.index===1 && typeof c.cell.raw === 'object' && c.cell.raw && c.cell.raw.content){ c.cell.styles.fontStyle='normal'; } },
     didDrawCell: c => { /* tweede regel omschrijving grijs: overschrijven */ },
-    willDrawPage: dd => { if(dd.pageNumber > 1) kop(doc, o, d, false); }
+    willDrawPage: dd => { if(dd.pageNumber > 1){ stempel(doc); kop(doc, o, d, false); } }
   });
   y = doc.lastAutoTable.finalY + 6;
-  const ruimte = h => { if(y + h > PH - 30){ doc.addPage(); y = kop(doc, o, d, false); } };
+  const ruimte = h => { if(y + h > PH - 30){ doc.addPage(); stempel(doc); y = kop(doc, o, d, false); } };
   /* ISDE */
   if(o.isde && d.isde > 0){
     const regels = doc.splitTextToSize(T(`Op basis van de huidige ISDE-regeling komt u naar verwachting in aanmerking voor circa ${eur0(d.isde)} subsidie${d.isdeDubbel ? ' (verdubbeld bedrag, omdat u twee of meer isolatiemaatregelen combineert)' : ''}. Uw netto investering komt daarmee op circa ${eur0(d.incl - d.isde)} incl. btw. De subsidie vraagt u na uitvoering zelf aan bij RVO; dit is een indicatie, aan het bedrag kunnen geen rechten worden ontleend.`), BR - 10);
@@ -5136,7 +5137,7 @@ function maak(d){
     [['Naam', 4], ['Datum', 12], ['Handtekening', 22]].forEach(([l, dy]) => { doc.text(l, xr, y + dy); doc.line(xr + 22, y + dy + 0.5, M + BR, y + dy + 0.5); }); }
   /* voet + stempel + paginanummers */
   const n = doc.getNumberOfPages();
-  for(let i=1;i<=n;i++){ doc.setPage(i); stempel(doc); voet(doc); doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(140); doc.text(`Pagina ${i} van ${n}`, PW-10, PH-19.5, {align:'right'}); }
+  for(let i=1;i<=n;i++){ doc.setPage(i); voet(doc); doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(140); doc.text(`Pagina ${i} van ${n}`, PW-10, PH-19.5, {align:'right'}); }
   return doc;
 }
 async function opslaan(d){
