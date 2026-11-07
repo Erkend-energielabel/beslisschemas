@@ -1378,7 +1378,7 @@ function isdeCheck(code,k){
   return{s:'?',t:x.rc!=null?'Rd onbekend (Rc '+fmt(x.rc,1)+')':'Rd onbekend'};
 }
 const ISDE_BADGE=i=>`<span class="isde-b isde-b-${i.s==='ja'?'ja':i.s==='nee'?'nee':'vr'}" title="ISDE-check">${i.s==='ja'?'✔':i.s==='nee'?'✖':i.s==='-'?'–':'?'} ${esc(i.t)}</span>`;
-const STAART_STD=[{n:'Verlies',p:10},{n:'Algemene bouwplaatskosten',p:0},{n:'Energielabel',p:0,soort:'eur'},{n:'Schilderwerk',p:0,soort:'eur'},{n:'Winst & risico',p:0},{n:'Onvoorzien',p:0},{n:'Indexatie t.o.v. prijspeil',p:0},{n:'Eigen correctie / korting',p:0}];
+const STAART_STD=[{n:'Verlies',p:10},{n:'Algemene bouwplaatskosten',p:0},{n:'Energielabel',p:0,soort:'eur'},{n:'Schilderwerk',p:0,soort:'eur'},{n:'ISDE-aanvraag',p:150,soort:'eur'},{n:'Winst & risico',p:0},{n:'Onvoorzien',p:0},{n:'Indexatie t.o.v. prijspeil',p:0},{n:'Eigen correctie / korting',p:0}];
 const RVO_VAR=['egw-tus-enk-min','egw-tus-enk-mid','egw-tus-enk-max','egw-tus-pro-min','egw-tus-pro-mid','egw-tus-pro-max','mgw-tus-enk-min','mgw-tus-enk-mid','mgw-tus-enk-max','mgw-tus-pro-min','mgw-tus-pro-mid','mgw-tus-pro-max'];
 const RAM_MAATR=[
   {k:'spouw',naam:'Spouwmuurisolatie',codes:['WB009a','WB009b','WB009c'],bron:'gevelnetto',btw:'iso'},
@@ -1442,10 +1442,10 @@ const PV_OPBR={Z:950,ZO:910,ZW:910,O:820,W:820,plat:860};   /* kWh per kWp per j
 const ramS=(()=>{let o={};try{o=JSON.parse(localStorage.getItem('ee_raming2')||'{}')}catch(e){}
   let st=Array.isArray(o.staart)?o.staart:STAART_STD.map(x=>({...x}));
   /* bestaande opslagen: standaardregels Energielabel en Schilderwerk toevoegen (eenmalig, daarna niet opnieuw) */
-  if(Array.isArray(o.staart)&&o.sv!==5){if(!st.some(x=>x.n==='Verlies'))st.unshift({n:'Verlies',p:10});st.forEach(x=>{if(/^(Energielabel|Schilderwerk)$/.test(x.n))x.soort='eur'});STAART_STD.filter(s=>/^(Energielabel|Schilderwerk)$/.test(s.n)&&!st.some(x=>x.n===s.n)).forEach(s=>{const i=st.findIndex(x=>x.n==='Winst & risico');st.splice(i<0?st.length:i,0,{...s})})}
+  if(Array.isArray(o.staart)&&o.sv!==6){if(!st.some(x=>x.n==='Verlies'))st.unshift({n:'Verlies',p:10});if(!st.some(x=>x.n==='ISDE-aanvraag'))st.push({n:'ISDE-aanvraag',p:150,soort:'eur'});st.forEach(x=>{if(/^(Energielabel|Schilderwerk)$/.test(x.n))x.soort='eur'});STAART_STD.filter(s=>/^(Energielabel|Schilderwerk)$/.test(s.n)&&!st.some(x=>x.n===s.n)).forEach(s=>{const i=st.findIndex(x=>x.n==='Winst & risico');st.splice(i<0?st.length:i,0,{...s})})}
   return{isde:o.isde||{},isdeWp:o.isdeWp||{},glasDir:o.glasDir||{},glas:o.glas??20,verlies:o.verlies??5,btw:o.btw??true,aanpak:o.aanpak||'enk',prijs:o.prijs||{},code:o.code||{},staart:st,type:null,grootte:null,alt:null,altQ:'',altBio:false,
     aan:{},hoev:{}}})();
-const ramBewaar=()=>{try{localStorage.setItem('ee_raming2',JSON.stringify({isde:ramS.isde,isdeWp:ramS.isdeWp,glasDir:ramS.glasDir,glas:ramS.glas,verlies:ramS.verlies,btw:ramS.btw,aanpak:ramS.aanpak,prijs:ramS.prijs,code:ramS.code,staart:ramS.staart,sv:5}))}catch(e){}};
+const ramBewaar=()=>{try{localStorage.setItem('ee_raming2',JSON.stringify({isde:ramS.isde,isdeWp:ramS.isdeWp,glasDir:ramS.glasDir,glas:ramS.glas,verlies:ramS.verlies,btw:ramS.btw,aanpak:ramS.aanpak,prijs:ramS.prijs,code:ramS.code,staart:ramS.staart,sv:6}))}catch(e){}};
 function ramVariant(b){
   const meer=b.vbos.filter(v=>/woon/.test(v.p.gebruiksdoel||'woon')).length>1,type=ramS.type||(meer?'mgw':'egw');
   const ag=+((vboOf(b)||{}).oppervlakte||0),gr=ramS.grootte||(type==='egw'?(ag&&ag<100?'min':ag>160?'max':'mid'):(ag&&ag<60?'min':ag>90?'max':'mid'));
@@ -4994,7 +4994,7 @@ const VOORWAARDEN_STD = [
   'De genoemde bedragen zijn vaste totaalprijzen per onderdeel, inclusief alle bijkomende kosten zoals bouwplaatsvoorzieningen, algemene kosten en winst & risico.',
   'Niet inbegrepen, tenzij vermeld: asbestinventarisatie en -sanering, herstel van verborgen gebreken, vergunningen en leges.',
   'Btw: isolatiewerkzaamheden aan woningen ouder dan 2 jaar 9% over het arbeidsdeel en 21% over materiaal; zonnepanelen bij woningen 0%; overige maatregelen 21%.',
-  'De ISDE-subsidie is een indicatie. U vraagt de subsidie zelf aan bij RVO na uitvoering; toekenning en bedragen zijn aan de voorwaarden van RVO onderhevig.',
+  'De ISDE-subsidie is een indicatie. Wij vragen de subsidie namens u aan als intermediair, na uitvoering en mits u een machtigingsformulier ondertekent; toekenning en bedragen zijn aan de voorwaarden van RVO onderhevig.',
   'Betaling volgens de termijnstaat, binnen 14 dagen na factuurdatum.',
   'Deze offerte is vrijblijvend en geldig tot de genoemde datum.'
 ].join('\n');
@@ -5042,6 +5042,7 @@ function gegevens(d){
   if(o.codes == null) o.codes = false;
   if(o.afmelden == null) o.afmelden = false;
   if(o.zakelijk == null) o.zakelijk = false;
+  o.voorwaarden = String(o.voorwaarden).replace('U vraagt de subsidie zelf aan bij RVO na uitvoering;', 'Wij vragen de subsidie namens u aan als intermediair, na uitvoering en mits u een machtigingsformulier ondertekent;');
   if(o.labelNu == null) o.labelNu = d.labelNu || '';
   if(o.labelNa == null) o.labelNa = '';
   if(o.exclBtw == null) o.exclBtw = false;
@@ -5066,7 +5067,7 @@ function termijnControle(o, d, tm){
   return {tot: Math.round(tot*100)/100, pct, base: Math.round(base*100)/100, ok: Math.abs(tot - base) < 0.01 && Math.abs(pct - 100) < 0.01};
 }
 function isdeUitleg(d){
-  return `${d.isdeDubbel ? 'Het bedrag is verdubbeld, omdat u twee of meer isolatiemaatregelen combineert. ' : ''}De subsidie vraagt u na uitvoering zelf aan bij RVO. Dit is een indicatie; aan het bedrag kunnen geen rechten worden ontleend. Voorwaarde: u bent eigenaar én bewoner van de woning.`;
+  return `${d.isdeDubbel ? 'Het bedrag is verdubbeld, omdat u twee of meer isolatiemaatregelen combineert. ' : ''}Wij vragen de subsidie namens u aan als intermediair, na uitvoering en mits u een machtigingsformulier ondertekent. Dit is een indicatie; aan het bedrag kunnen geen rechten worden ontleend. Voorwaarde: u bent eigenaar én bewoner van de woning.`;
 }
 function render(){
   const el = el_; if(!el) return;
