@@ -1503,9 +1503,14 @@ function BAGhuidig(){const b=selB();if(!b)return null;const v=vboOf(b);const vk=
 /* ===== bewaarde adressen (per browser) ===== */
 const ADR=(()=>{try{return JSON.parse(localStorage.getItem('ee_adressen')||'[]')}catch(e){return[]}})();
 const adrBewaar=()=>{try{localStorage.setItem('ee_adressen',JSON.stringify(ADR))}catch(e){}};
+/* adressen worden standaard bewaard; wat je bewust verwijdert, komt niet vanzelf terug */
+const ADRWEG=(()=>{try{return JSON.parse(localStorage.getItem('ee_adr_weg')||'[]')}catch(e){return[]}})();
+const adrWegBewaar=()=>{try{localStorage.setItem('ee_adr_weg',JSON.stringify(ADRWEG))}catch(e){}};
+const adrNieuw=(b,k)=>({k,adres:addrOf(b),q:addrOf(b),pand:b.id,vbo:S.vboId||null,datum:new Date().toISOString(),projnr:($('projnr')||{}).value||'',klant:''});
 let adrOpen=false;
 function renderBewaard(){
-  const el=$('bag-bewaard');if(!el)return;const b=selB(),k=b?projSleutel(b):null,hier=k&&ADR.find(a=>a.k===k);
+  const el=$('bag-bewaard');if(!el)return;const b=selB(),k=b?projSleutel(b):null;let hier=k&&ADR.find(a=>a.k===k);
+  if(b&&k&&!hier&&!ADRWEG.includes(k)){ADR.push(adrNieuw(b,k));adrBewaar();hier=ADR.find(a=>a.k===k)}
   const sorted=[...ADR].sort((p,q)=>(q.gewijzigd||q.datum||'').localeCompare(p.gewijzigd||p.datum||''));
   el.innerHTML=`<div class="adr-balk">${b?`<button type="button" class="actie ${hier?'':'licht'} klein-knop" id="adr-ster">${hier?'★ Bewaard':'☆ Adres bewaren'}</button>`:''}
     ${ADR.length?`<select id="adr-kies"><option value="">📂 Bewaarde adressen (${ADR.length})…</option>${sorted.map(a=>`<option value="${esc(a.k)}"${a.k===k?' selected':''}>${esc(a.adres)}${a.klant?' – '+esc(a.klant):''}${a.projnr?' ['+esc(a.projnr)+']':''}</option>`).join('')}</select>
@@ -1516,13 +1521,12 @@ function renderBewaard(){
         <td><input data-adrv="notitie" data-k="${esc(a.k)}" value="${esc(a.notitie||'')}" placeholder="—"></td><td class="klein">${a.datum?new Date(a.datum).toLocaleDateString('nl-NL'):''}</td>
         <td><button type="button" class="ram-sdel" data-adrdel="${esc(a.k)}" title="verwijderen">×</button></td></tr>`).join('')}</tbody></table>
       <div class="acties"><button type="button" class="ram-altk" id="adr-csv">⬇️ Lijst (CSV)</button> <span class="klein">De lijst en de keuzes per adres (raming, varianten, offerte) staan in deze browser.</span></div>`:''}`;
-  const st=$('adr-ster');if(st)st.onclick=()=>{if(hier){ADR.splice(ADR.indexOf(hier),1)}else{const h=BAGhuidig()||{};
-      ADR.push({k,adres:addrOf(b),q:addrOf(b),pand:b.id,vbo:S.vboId||null,datum:new Date().toISOString(),projnr:($('projnr')||{}).value||'',klant:''})}adrBewaar();renderBewaard()};
+  const st=$('adr-ster');if(st)st.onclick=()=>{if(hier){ADR.splice(ADR.indexOf(hier),1);if(!ADRWEG.includes(k))ADRWEG.push(k);adrWegBewaar()}else{ADR.push(adrNieuw(b,k));const w=ADRWEG.indexOf(k);if(w>=0){ADRWEG.splice(w,1);adrWegBewaar()}}adrBewaar();renderBewaard()};
   const ks=$('adr-kies');if(ks)ks.onchange=()=>{const a=ADR.find(x=>x.k===ks.value);if(a)adrOpenen(a)};
   const bh=$('adr-beheer');if(bh)bh.onclick=()=>{adrOpen=!adrOpen;renderBewaard()};
   el.querySelectorAll('[data-adropen]').forEach(x=>x.onclick=e=>{e.preventDefault();const a=ADR.find(y=>y.k===x.dataset.adropen);if(a)adrOpenen(a)});
   el.querySelectorAll('[data-adrv]').forEach(x=>x.onchange=()=>{const a=ADR.find(y=>y.k===x.dataset.k);if(a){a[x.dataset.adrv]=x.value;adrBewaar();if(x.dataset.adrv!=='notitie')renderBewaard()}});
-  el.querySelectorAll('[data-adrdel]').forEach(x=>x.onclick=()=>{const i=ADR.findIndex(y=>y.k===x.dataset.adrdel);if(i>=0&&confirm('Adres uit de bewaarde lijst halen?')){ADR.splice(i,1);adrBewaar();renderBewaard()}});
+  el.querySelectorAll('[data-adrdel]').forEach(x=>x.onclick=()=>{const i=ADR.findIndex(y=>y.k===x.dataset.adrdel);if(i>=0&&confirm('Adres uit de bewaarde lijst halen?')){ADR.splice(i,1);if(!ADRWEG.includes(x.dataset.adrdel))ADRWEG.push(x.dataset.adrdel);adrWegBewaar();adrBewaar();renderBewaard()}});
   const cv=$('adr-csv');if(cv)cv.onclick=()=>{const L=[['Adres','Klant','Projectnummer','Notitie','Bewaard','Raming']].concat(sorted.map(a=>[a.adres,a.klant||'',a.projnr||'',a.notitie||'',a.datum?a.datum.slice(0,10):'',a.totaal?Math.round(a.totaal):'']));
     const t='\ufeff'+L.map(r=>r.map(v=>{v=String(v??'');return/[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(';')).join('\r\n');
     const l=document.createElement('a');l.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));l.download='Bewaarde adressen.csv';l.click()};
