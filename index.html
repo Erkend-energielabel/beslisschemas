@@ -435,6 +435,24 @@ body.tab-bag .wrap{max-width:1180px}
 #bag .ram-tab input.ram-snaam{width:100%;max-width:320px;padding:4px 6px;border:1px solid #cfdcd2;border-radius:6px}
 #bag .ram-tab input.ram-sp{width:70px}
 #bag .ram-sdel{border:0;background:none;color:#b3261e;font-size:1.1rem;cursor:pointer}
+/* bewaarde adressen */
+#bag .adr-balk{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+#bag .adr-balk select{flex:1 1 260px;max-width:520px;padding:6px 8px;border-radius:8px;border:1px solid #cfdcd2;font-size:.85rem}
+#bag .adr-tab{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:8px}
+#bag .adr-tab th{text-align:left;font-size:.68rem;text-transform:uppercase;color:var(--grijs);padding:4px 6px;border-bottom:2px solid #cfdcd2}
+#bag .adr-tab td{padding:4px 6px;border-bottom:1px solid #edf2ee}
+#bag .adr-tab td small{display:block;color:var(--grijs)}
+#bag .adr-tab tr.hier td{background:#fff8e6}
+#bag .adr-tab input{width:100%;padding:4px 6px;border:1px solid #dfe7e2;border-radius:6px;font-size:.8rem}
+/* offerte */
+#bag .off-form{border:2px solid #3CB54A;border-radius:12px;padding:12px 14px;margin-top:12px;background:#fbfefb}
+#bag .off-form h3{margin:0 0 8px;font-size:1rem;color:#0B3D2E}
+#bag .off-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 14px}
+#bag .off-grid label{display:flex;flex-direction:column;font-size:.74rem;color:var(--grijs);gap:3px}
+#bag .off-grid input,#bag .off-grid select,#bag .off-form textarea{padding:6px 8px;border:1px solid #cfdcd2;border-radius:7px;font-size:.85rem;color:var(--tekst);font-family:inherit}
+#bag .off-form textarea{width:100%;box-sizing:border-box;min-height:64px}
+#bag .off-vink{display:flex;flex-wrap:wrap;gap:6px 16px;margin:8px 0;font-size:.82rem}
+#bag .off-sam{background:#eef7ef;border-radius:8px;padding:8px 10px;font-size:.84rem;margin:8px 0}
 #vbs{
   --bg:#F2F4F3; --surface:#FFFFFF; --ink:#18232A; --muted:#5A6870; --line:#D5DCDE; --soft:#E9EEEE;
   --accent:#5B2D86; --accent-ink:#FFFFFF; --accent-soft:#EFE8F6;
@@ -771,6 +789,7 @@ body.tab-bag .wrap{max-width:1180px}
         <div id="bag-sugg"></div>
       </div>
       <p class="klein" style="margin:6px 0 0">Gebruikt standaard het adres uit de projectgegevens hierboven. Klik op een pand om het te selecteren, op een gevel om te wisselen, of op een richting om de groep te markeren.</p>
+      <div id="bag-bewaard"></div>
       <div id="bag-status"></div>
       <div class="bag-views" id="bag-views">
         <div class="bag-vw">
@@ -1342,7 +1361,7 @@ async function kkLaad(bestand,vers){
 /* keuzes per project (pand/adres): RVO-code per maatregel en prijspeil */
 const PROJ=(()=>{let o={};try{o=JSON.parse(localStorage.getItem('ee_ram_proj')||'{}')}catch(e){}return o})();
 const projSleutel=b=>b?'p'+b.id+(S.vboId?'-'+S.vboId:''):'';
-const projS=b=>{const k=projSleutel(b);return PROJ[k]=PROJ[k]||{code:{}}};
+const projS=b=>{const k=projSleutel(b),p=PROJ[k]=PROJ[k]||{code:{}};p.code=p.code||{};p.aan=p.aan||{};p.hoev=p.hoev||{};return p};
 const projBewaar=()=>{try{localStorage.setItem('ee_ram_proj',JSON.stringify(PROJ))}catch(e){}};
 function kkZorg(b){const w=projS(b).peil||null;if(KK.laden)return;if(KK.bron==='RVO-Excel'&&(w?KK.bestand===w:KK.bestand===KK.laatst))return;
   KK.laden=kkLaad(w).finally(()=>{KK.laden=null;if(selB()===b)renderRaming()})}
@@ -1447,9 +1466,9 @@ function ramingData(b){
   const regels=RAM_MAATR.map(m=>{
     const pc=projS(b).code[m.k],code=pc&&kkM(pc)?pc:m.codes.includes(ramS.code[m.k])?ramS.code[m.k]:m.codes[0],rp=code?rvoPrijs(code,vr.sleutel):null;
     const excl=ramS.prijs[m.k]!=null?ramS.prijs[m.k]:(rp?rp.excl:m.eigen),f=btwFactor(m.btw,rp?rp.arbeid:0);
-    const prijs=ramS.btw?excl*f:excl,auto=bron[m.bron]||0,h=ramS.hoev[m.k]!=null?ramS.hoev[m.k]:auto;
+    const pp=projS(b),prijs=ramS.btw?excl*f:excl,auto=bron[m.bron]||0,h=pp.hoev[m.k]!=null?pp.hoev[m.k]:auto;
     const eenh=rp?(rp.h==='won'?'woning':rp.h):m.eenh;
-    return{...m,code,alt:!!pc&&!m.codes.includes(pc),varAlt:rp&&rp.alt,omschr:rp?rp.e:'eigen prijs',eenh,auto,hoev:h,excl,prijs,eigenPrijs:ramS.prijs[m.k]!=null,totaal:h*prijs,aan:!!ramS.aan[m.k]&&h>0,
+    return{...m,code,alt:!!pc&&!m.codes.includes(pc),varAlt:rp&&rp.alt,omschr:rp?rp.e:'eigen prijs',eenh,auto,hoev:h,excl,prijs,eigenPrijs:ramS.prijs[m.k]!=null,totaal:h*prijs,aan:!!pp.aan[m.k]&&h>0,
       besteld:/m²/.test(eenh)&&!/^pv/.test(m.k)?h*(1+ramS.verlies/100):null}});
   const sel=regels.filter(r=>r.aan),direct=sel.reduce((s,r)=>s+r.totaal,0),h=heights(b),isde=isdeBereken(b,regels);
   const staart=ramS.staart.map(x=>({...x,bedrag:direct*(+x.p||0)/100})),totaal=direct+staart.reduce((s,x)=>s+x.bedrag,0);
@@ -1467,6 +1486,53 @@ function isdeCel(x,u){
   if(!u.ok)return vink+`<small class="isde-nee">✖ ${esc(u.reden)}</small>`;
   if(u.wp)return vink+`<span class="isde-ja">€ <input type="number" class="ram-p" data-isdewp="${x.k}" step="25" min="0" value="${Math.round(u.bedrag)}"></span><small>meldcodelijst, min. € 500</small>`;
   return vink+`<span class="isde-ja">✔ ${eur(u.bedrag)}</span><small>${fmt(u.m2,1)} m² × € ${fmt(u.tarief,2)}${u.afgetopt?' (max)':''}</small>${u.check?`<small class="ram-let">? ${esc(u.check)} – controleren</small>`:''}`;
+}
+function BAGhuidig(){const b=selB();if(!b)return null;const v=vboOf(b);const vk=b.vbos.find(x=>x.p===v);
+    const rd=(vk&&vk.xy)||S.addrPt||centroid(b.ring),ll=rd2wgs(rd[0],rd[1]);
+    const cen=rd2wgs(...centroid(b.ring)),lengte=Math.max(...S.edges.map(e=>e.len||0),10);
+    if(v&&v.postcode)return{straat:v.openbare_ruimte,plaats:v.woonplaats,postcode:v.postcode,ll,cen,lengte,hoogte:heights(b).hmax,vbo:v.identificatie||'',huisnummer:v.huisnummer,huisletter:v.huisletter||'',toevoeging:v.toevoeging||'',adres:addrOf(b),bouwjaar:b.bouwjaar};
+    const m=/^(.*?)\s+\d+\S*,\s*(\d{4}\s?[A-Z]{2})\s+(.+)$/.exec(S.addr||'');return m?{straat:m[1],postcode:m[2].replace(/\s/,''),plaats:m[3],ll,cen,lengte,hoogte:heights(b).hmax,adres:addrOf(b)}:{ll,cen,lengte,hoogte:heights(b).hmax,adres:addrOf(b)}}
+/* ===== bewaarde adressen (per browser) ===== */
+const ADR=(()=>{try{return JSON.parse(localStorage.getItem('ee_adressen')||'[]')}catch(e){return[]}})();
+const adrBewaar=()=>{try{localStorage.setItem('ee_adressen',JSON.stringify(ADR))}catch(e){}};
+let adrOpen=false;
+function renderBewaard(){
+  const el=$('bag-bewaard');if(!el)return;const b=selB(),k=b?projSleutel(b):null,hier=k&&ADR.find(a=>a.k===k);
+  const sorted=[...ADR].sort((p,q)=>(q.gewijzigd||q.datum||'').localeCompare(p.gewijzigd||p.datum||''));
+  el.innerHTML=`<div class="adr-balk">${b?`<button type="button" class="actie ${hier?'':'licht'} klein-knop" id="adr-ster">${hier?'★ Bewaard':'☆ Adres bewaren'}</button>`:''}
+    ${ADR.length?`<select id="adr-kies"><option value="">📂 Bewaarde adressen (${ADR.length})…</option>${sorted.map(a=>`<option value="${esc(a.k)}"${a.k===k?' selected':''}>${esc(a.adres)}${a.klant?' – '+esc(a.klant):''}${a.projnr?' ['+esc(a.projnr)+']':''}</option>`).join('')}</select>
+    <button type="button" class="ram-altk${adrOpen?' on':''}" id="adr-beheer">${adrOpen?'▲':'▼'} beheren</button>`:''}</div>
+    ${adrOpen&&ADR.length?`<table class="adr-tab"><thead><tr><th>Adres</th><th>Klant / opdrachtgever</th><th>Projectnr.</th><th>Notitie</th><th>Bewaard</th><th></th></tr></thead><tbody>
+      ${sorted.map(a=>`<tr${a.k===k?' class="hier"':''}><td><a href="#" data-adropen="${esc(a.k)}">${esc(a.adres)}</a>${a.totaal?`<small>raming ${eur(a.totaal)}</small>`:''}</td>
+        <td><input data-adrv="klant" data-k="${esc(a.k)}" value="${esc(a.klant||'')}" placeholder="naam"></td><td><input data-adrv="projnr" data-k="${esc(a.k)}" value="${esc(a.projnr||'')}" placeholder="EE26-…" style="width:90px"></td>
+        <td><input data-adrv="notitie" data-k="${esc(a.k)}" value="${esc(a.notitie||'')}" placeholder="—"></td><td class="klein">${a.datum?new Date(a.datum).toLocaleDateString('nl-NL'):''}</td>
+        <td><button type="button" class="ram-sdel" data-adrdel="${esc(a.k)}" title="verwijderen">×</button></td></tr>`).join('')}</tbody></table>
+      <div class="acties"><button type="button" class="ram-altk" id="adr-csv">⬇️ Lijst (CSV)</button> <span class="klein">De lijst en de keuzes per adres (raming, varianten, offerte) staan in deze browser.</span></div>`:''}`;
+  const st=$('adr-ster');if(st)st.onclick=()=>{if(hier){ADR.splice(ADR.indexOf(hier),1)}else{const h=BAGhuidig()||{};
+      ADR.push({k,adres:addrOf(b),q:addrOf(b),pand:b.id,vbo:S.vboId||null,datum:new Date().toISOString(),projnr:($('projnr')||{}).value||'',klant:''})}adrBewaar();renderBewaard()};
+  const ks=$('adr-kies');if(ks)ks.onchange=()=>{const a=ADR.find(x=>x.k===ks.value);if(a)adrOpenen(a)};
+  const bh=$('adr-beheer');if(bh)bh.onclick=()=>{adrOpen=!adrOpen;renderBewaard()};
+  el.querySelectorAll('[data-adropen]').forEach(x=>x.onclick=e=>{e.preventDefault();const a=ADR.find(y=>y.k===x.dataset.adropen);if(a)adrOpenen(a)});
+  el.querySelectorAll('[data-adrv]').forEach(x=>x.onchange=()=>{const a=ADR.find(y=>y.k===x.dataset.k);if(a){a[x.dataset.adrv]=x.value;adrBewaar();if(x.dataset.adrv!=='notitie')renderBewaard()}});
+  el.querySelectorAll('[data-adrdel]').forEach(x=>x.onclick=()=>{const i=ADR.findIndex(y=>y.k===x.dataset.adrdel);if(i>=0&&confirm('Adres uit de bewaarde lijst halen?')){ADR.splice(i,1);adrBewaar();renderBewaard()}});
+  const cv=$('adr-csv');if(cv)cv.onclick=()=>{const L=[['Adres','Klant','Projectnummer','Notitie','Bewaard','Raming']].concat(sorted.map(a=>[a.adres,a.klant||'',a.projnr||'',a.notitie||'',a.datum?a.datum.slice(0,10):'',a.totaal?Math.round(a.totaal):'']));
+    const t='\ufeff'+L.map(r=>r.map(v=>{v=String(v??'');return/[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(';')).join('\r\n');
+    const l=document.createElement('a');l.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));l.download='Bewaarde adressen.csv';l.click()};
+}
+function adrOpenen(a){S.wilVbo=a.vbo||null;$('bag-q').value=a.q||a.adres;search(a.q||a.adres)}
+function adrBijwerken(b,r){const a=ADR.find(x=>x.k===projSleutel(b));if(!a)return;const t=r?Math.round(r.totaal):0;if(a.totaal!==t){a.totaal=t;a.gewijzigd=new Date().toISOString();adrBewaar()}}
+function offerteData(){
+  const b=selB();if(!b)return null;const r=ramingData(b);if(!r)return null;
+  const regels=r.sel.map(x=>{const rp=x.code?rvoPrijs(x.code,r.vr.sleutel):null,a=rp?rp.arbeid:0,ex=x.excl,tot=x.hoev*ex;
+    const b9=x.btw==='iso'?tot*a:0,b21=x.btw==='iso'?tot*(1-a):x.btw==='pv'?0:tot,b0=x.btw==='pv'?tot:0;
+    return{k:x.k,code:x.code,naam:x.naam,omschr:x.omschr,hoev:x.hoev,eenh:x.eenh,excl:ex,totaal:tot,b9,b21,b0,isde:r.isde.uit[x.k]&&r.isde.uit[x.k].ok?r.isde.uit[x.k].bedrag:0}});
+  const sub=regels.reduce((s,x)=>s+x.totaal,0),f=k=>sub?regels.reduce((s,x)=>s+x[k],0)/sub:0,aand={b9:f('b9'),b21:f('b21'),b0:f('b0')};
+  const staart=ramS.staart.filter(x=>+x.p).map(x=>({n:x.n,p:+x.p,totaal:sub*x.p/100}));
+  const excl=sub+staart.reduce((s,x)=>s+x.totaal,0),g9=regels.reduce((s,x)=>s+x.b9,0)+staart.reduce((s,x)=>s+x.totaal*aand.b9,0),g21=regels.reduce((s,x)=>s+x.b21,0)+staart.reduce((s,x)=>s+x.totaal*aand.b21,0);
+  const btw9=g9*0.09,btw21=g21*0.21;
+  return{adres:addrOf(b),huidig:BAGhuidig(),sleutel:projSleutel(b),regels,sub,staart,excl,g9,g21,btw9,btw21,incl:excl+btw9+btw21,
+    isde:r.isde.totaal,isdeDubbel:r.isde.dubbel,isdeMeld:r.isde.meld,peil:r.peil,variant:VARNAAM[r.vr.type]+', '+VARNAAM[r.vr.gr]+', '+VARNAAM[ramS.aanpak],bouwjaar:b.bouwjaar,
+    proj:projS(b)};
 }
 function altPaneel(x,r){
   const q=ramS.altQ.trim().toLowerCase(),subs=new Set(x.codes.map(c=>(kkM(c)||{}).sg).filter(Boolean)),vr=r.vr.sleutel;
@@ -1509,10 +1575,10 @@ function renderRaming(){
       ${r.gevelDirs.map(g=>`<label><span class="bag-pill" style="background:${DCOL[g.dir]||'#9aa59f'}">${g.dir}</span> ${fmt(g.opp,1)} m² <input type="number" data-gdir="${g.dir}" min="0" max="90" step="1" value="${g.pct}"> %${ramS.glasDir[g.dir]!=null?` <a href="#" data-gdirreset="${g.dir}" title="terug naar ${r.glas}%">↺</a>`:''} <span class="klein">= ${fmt(g.opp*g.pct/100,1)} m²</span></label>`).join('')}
       <span class="ram-glastot">Totaal ramen/deuren <b>${fmt(r.glasM2,1)} m²</b> · dichte gevel <b>${fmt(r.o.gevel-r.glasM2,1)} m²</b></span></div></div>
     <table class="ram-tab"><thead><tr><th></th><th>Maatregel (RVO-variant)</th><th>Hoeveelheid</th><th>Prijs p/eenh.</th><th>Totaal</th><th>ISDE</th></tr></thead><tbody>
-    ${r.regels.map(x=>`<tr class="${x.aan?'aan':''}"><td><input type="checkbox" data-aan="${x.k}"${ramS.aan[x.k]?' checked':''}></td>
+    ${r.regels.map(x=>`<tr class="${x.aan?'aan':''}"><td><input type="checkbox" data-aan="${x.k}"${pj.aan[x.k]?' checked':''}></td>
       <td><b>${x.naam}</b>${(()=>{const cs=[...x.codes.filter(kkM)];if(x.code&&!cs.includes(x.code))cs.push(x.code);return cs.length>1?`<select class="ram-code${x.alt?' ram-altgekozen':''}" data-code="${x.k}">${cs.map(c=>`<option value="${c}"${c===x.code?' selected':''}>${x.codes.includes(c)?'':'★ '}${c} · ${esc(kkM(c).e)}</option>`).join('')}</select>`:`<small>${x.code?x.code+' · ':''}${esc(x.omschr)}</small>`})()}
         ${x.codes.length&&KK.groepen?`<button type="button" class="ram-altk${ramS.alt===x.k?' on':''}" data-alt="${x.k}">${ramS.alt===x.k?'▲':'▼'} alternatieven</button>`:''}${x.alt?` <a href="#" data-altreset="${x.k}" class="klein" title="terug naar de standaardkeuze">↺ standaard</a>`:''}${x.varAlt?`<small class="ram-let">prijs uit variant ${esc(x.varAlt)} (niet in RVO voor deze variant)</small>`:''}</td>
-      <td><input type="number" class="ram-h" data-h="${x.k}" step="0.1" min="0" value="${Math.round(x.hoev*10)/10}"> ${x.eenh}${ramS.hoev[x.k]!=null?` <a href="#" data-reset="${x.k}" title="terug naar ${fmt(x.auto,1)}">↺</a>`:''}${ramS.hoev[x.k]==null&&HERK[x.bron]?`<small>${HERK[x.bron](r)}</small>`:''}${x.besteld!=null&&x.aan?`<small>bestellen ± ${fmt(x.besteld,1)} ${x.eenh}</small>`:''}</td>
+      <td><input type="number" class="ram-h" data-h="${x.k}" step="0.1" min="0" value="${Math.round(x.hoev*10)/10}"> ${x.eenh}${pj.hoev[x.k]!=null?` <a href="#" data-reset="${x.k}" title="terug naar ${fmt(x.auto,1)}">↺</a>`:''}${pj.hoev[x.k]==null&&HERK[x.bron]?`<small>${HERK[x.bron](r)}</small>`:''}${x.besteld!=null&&x.aan?`<small>bestellen ± ${fmt(x.besteld,1)} ${x.eenh}</small>`:''}</td>
       <td>€ <input type="number" class="ram-p" data-p="${x.k}" step="0.01" min="0" value="${Math.round(x.prijs*100)/100}">${x.eigenPrijs?` <a href="#" data-preset="${x.k}" title="terug naar RVO-kental">↺</a><small>eigen prijs</small>`:''}</td>
       <td class="m2">${x.aan?eur(x.totaal):'<span class="klein">–</span>'}</td>
       <td class="isde">${isdeCel(x,r.isde.uit[x.k])}</td></tr>${ramS.alt===x.k?`<tr class="ram-altrij"><td></td><td colspan="5">${altPaneel(x,r)}</td></tr>`:''}`).join('')}
@@ -1529,9 +1595,13 @@ function renderRaming(){
       ${r.pv.map(p=>`<tr><td>${p.nr}</td><td><span class="bag-pill" style="background:${p.dir==='plat'?'#9aa59f':DCOL[p.dir]}">${p.dir}</span></td><td>${fmt(p.helling,0)}°</td><td>${p.n}</td><td>${fmt(p.m2,1)}</td><td>${fmt(p.kwp,2)}</td><td>${fmt(p.kwh,0)}</td></tr>`).join('')}
       <tr class="tot"><td colspan="3">Totaal</td><td>${r.panelen}</td><td>${fmt(r.pv.reduce((s,p)=>s+p.m2,0),1)}</td><td>${fmt(r.kwp,2)}</td><td>${fmt(r.kwh,0)}</td></tr></tbody></table>`:'<p class="klein">☀️ Geen geschikt dakvlak voor zonnepanelen gevonden (noordelijk, te klein of geen 3D-model).</p>'}
     <p class="klein">Werkhoogte (nok) ${fm(r.werkhoogte)}${r.goot?` · goothoogte ${fm(r.goot)}`:''}. RVO-variant: ${VARNAAM[r.vr.type]}, ${VARNAAM[r.vr.gr]}, ${VARNAAM[ramS.aanpak]} (automatisch gekozen, aan te passen). Kentallen zijn investeringskosten op structureel kostenniveau, zonder bijkomende kosten, leges, asbest en subsidies (ISDE); nauwkeurigheid volgens RVO −10% tot +25%. Hoeveelheden uit het 3D-model (bruto, buitenwerks), kozijnen = glas ÷ 0,8; zonnepanelen 435 Wp (1,93 m²) per paneel, 70% van hellend en 50% van plat dakvlak benut, opbrengst indicatief.</p>
-    <div class="acties"><button class="actie licht" type="button" id="ram-csv">⬇️ Raming + materiaalstaat (CSV)</button><button class="actie licht" type="button" id="ram-std">Alles terug naar RVO</button></div>`;
+    <div class="acties"><button class="actie" type="button" id="ram-off">📄 Offerte maken</button><button class="actie licht" type="button" id="ram-csv">⬇️ Raming + materiaalstaat (CSV)</button><button class="actie licht" type="button" id="ram-std">Alles terug naar RVO</button></div>
+    <div id="ram-offerte"></div>`;
+  adrBijwerken(b,r);
+  $('ram-off').onclick=()=>{if(!r.sel.length){alert('Vink eerst de maatregelen aan die in de offerte moeten.');return}window.OFFERTE&&OFFERTE.open($('ram-offerte'))};
+  if(window.OFFERTE&&OFFERTE.isOpen())OFFERTE.open($('ram-offerte'));
   const her=()=>{renderRaming();changed()};
-  el.querySelectorAll('[data-aan]').forEach(c=>c.onchange=()=>{ramS.aan[c.dataset.aan]=c.checked;her()});
+  el.querySelectorAll('[data-aan]').forEach(c=>c.onchange=()=>{pj.aan[c.dataset.aan]=c.checked;projBewaar();her()});
   el.querySelectorAll('[data-isde]').forEach(c=>c.onchange=()=>{ramS.isde[c.dataset.isde]=c.checked;ramBewaar();her()});
   el.querySelectorAll('[data-isdewp]').forEach(c=>c.onchange=()=>{const v=parseFloat(c.value);if(!isNaN(v)){ramS.isdeWp[c.dataset.isdewp]=v;ramBewaar()}her()});
   el.querySelectorAll('[data-code]').forEach(c=>c.onchange=()=>{pj.code[c.dataset.code]=c.value;projBewaar();her()});
@@ -1551,8 +1621,8 @@ function renderRaming(){
     renderRaming();const m2=$('ram-kkmsg');if(!m2)return;
     m2.innerHTML=KK.fout?` ⚠️ RVO-prijslijst niet bereikbaar (${esc(KK.fout)}); ingebouwde tabel juni 2026 in gebruik.`:
       ` ✔ ${KK.laatst!==oud&&oud?'<b>Nieuwe prijzen geladen.</b> ':''}Actueel: <b>${esc((KK.lijst.find(x=>x.bestand===KK.laatst)||{}).peildatum||KK.peil)}</b> (${Object.keys(KK.m).length} maatregelen, opgehaald ${dt(KK.opgehaald)}).${st?` Laatst bij RVO gecontroleerd: ${dt(st.gecontroleerd)}.`:''} <a href="https://github.com/Erkend-energielabel/beslisschemas/actions/workflows/kostenkentallen.yml" target="_blank" rel="noopener" title="Op GitHub: Run workflow">Nu bij RVO laten controleren ↗</a>`};
-  el.querySelectorAll('[data-h]').forEach(c=>c.onchange=()=>{const v=parseFloat(String(c.value).replace(',','.'));ramS.hoev[c.dataset.h]=isNaN(v)?null:v;her()});
-  el.querySelectorAll('[data-reset]').forEach(a=>a.onclick=e=>{e.preventDefault();delete ramS.hoev[a.dataset.reset];her()});
+  el.querySelectorAll('[data-h]').forEach(c=>c.onchange=()=>{const v=parseFloat(String(c.value).replace(',','.'));if(isNaN(v))delete pj.hoev[c.dataset.h];else pj.hoev[c.dataset.h]=v;projBewaar();her()});
+  el.querySelectorAll('[data-reset]').forEach(a=>a.onclick=e=>{e.preventDefault();delete pj.hoev[a.dataset.reset];projBewaar();her()});
   el.querySelectorAll('[data-p]').forEach(c=>c.onchange=()=>{const v=parseFloat(String(c.value).replace(',','.'));if(!isNaN(v)){const x=r.regels.find(q=>q.k===c.dataset.p);const f=ramS.btw?btwFactor(x.btw,(rvoPrijs(x.code,r.vr.sleutel)||{}).arbeid||0):1;ramS.prijs[c.dataset.p]=v/f;ramBewaar()}her()});
   el.querySelectorAll('[data-preset]').forEach(a=>a.onclick=e=>{e.preventDefault();delete ramS.prijs[a.dataset.preset];ramBewaar();her()});
   $('ram-type').onchange=e=>{ramS.type=e.target.value;her()};$('ram-gr').onchange=e=>{ramS.grootte=e.target.value;her()};
@@ -1560,7 +1630,7 @@ function renderRaming(){
   el.querySelectorAll('[data-gdir]').forEach(c=>c.onchange=()=>{const v=parseFloat(String(c.value).replace(',','.'));if(!isNaN(v)){ramS.glasDir[c.dataset.gdir]=v;ramBewaar()}her()});
   el.querySelectorAll('[data-gdirreset]').forEach(a=>a.onclick=e=>{e.preventDefault();delete ramS.glasDir[a.dataset.gdirreset];ramBewaar();her()});
   [['ram-glas','glas'],['ram-verlies','verlies']].forEach(([id,k])=>$(id).onchange=()=>{const v=parseFloat($(id).value);if(!isNaN(v)){ramS[k]=v;ramBewaar()}her()});
-  $('ram-std').onclick=()=>{ramS.prijs={};ramS.code={};pj.code={};projBewaar();ramS.type=null;ramS.grootte=null;ramS.aanpak='enk';ramS.glas=20;ramS.glasDir={};ramS.verlies=5;ramS.hoev={};ramBewaar();her()};
+  $('ram-std').onclick=()=>{ramS.prijs={};ramS.code={};pj.code={};projBewaar();ramS.type=null;ramS.grootte=null;ramS.aanpak='enk';ramS.glas=20;ramS.glasDir={};ramS.verlies=5;pj.hoev={};projBewaar();ramBewaar();her()};
   $('ram-csv').onclick=()=>{const L=[['RVO-code','Maatregel','Omschrijving RVO','Hoeveelheid','Eenheid','Bestellen (incl. snijverlies)','Prijs p/eenheid ('+(r.btw?'incl.':'excl.')+' btw)','Totaal']];
     r.sel.forEach(x=>L.push([x.code||'',x.naam,x.omschr,fmt(x.hoev,1),x.eenh,x.besteld!=null?fmt(x.besteld,1):'',fmt(x.prijs,2),fmt(x.totaal,0)]));
     L.push(['','Subtotaal maatregelen','','','','','',fmt(r.direct,0)]);r.staart.filter(x=>x.p).forEach(x=>L.push(['',x.n,'',fmt(x.p,1)+'%','','','',fmt(x.bedrag,0)]));
@@ -1662,7 +1732,7 @@ const role=i=>S.roles[i]||'Gevel';
 function totals(){const t={};visible().forEach(({e,i})=>{if(role(i)!=='Belendend')t[e.dir]=(t[e.dir]||0)+e.len});return t}
 
 /* ===== Render ===== */
-function renderAll(fit){renderMap(fit);build3d(false);renderPand();renderGevels();renderHInfo();renderDak();renderOpp();renderRaming();renderList()}
+function renderAll(fit){renderMap(fit);build3d(false);renderPand();renderGevels();renderHInfo();renderDak();renderOpp();renderRaming();renderList();renderBewaard()}
 function renderGevels(){renderTable();renderRose();renderRes();renderGroepen();renderLegenda()}
 
 /* labels per oriëntatie: bij de eigen gevel, naar buiten; nooit over elkaar en altijd dichter bij de eigen gevel dan bij een andere richting */
@@ -2173,11 +2243,9 @@ return {
   heeftPand:()=>!!selB(),
   zoek:q=>search(q),
   labelApi,
-  huidig:()=>{const b=selB();if(!b)return null;const v=vboOf(b);const vk=b.vbos.find(x=>x.p===v);
-    const rd=(vk&&vk.xy)||S.addrPt||centroid(b.ring),ll=rd2wgs(rd[0],rd[1]);
-    const cen=rd2wgs(...centroid(b.ring)),lengte=Math.max(...S.edges.map(e=>e.len||0),10);
-    if(v&&v.postcode)return{straat:v.openbare_ruimte,plaats:v.woonplaats,postcode:v.postcode,ll,cen,lengte,hoogte:heights(b).hmax,vbo:v.identificatie||'',huisnummer:v.huisnummer,huisletter:v.huisletter||'',toevoeging:v.toevoeging||'',adres:addrOf(b),bouwjaar:b.bouwjaar};
-    const m=/^(.*?)\s+\d+\S*,\s*(\d{4}\s?[A-Z]{2})\s+(.+)$/.exec(S.addr||'');return m?{straat:m[1],postcode:m[2].replace(/\s/,''),plaats:m[3],ll,cen,lengte,hoogte:heights(b).hmax,adres:addrOf(b)}:{ll,cen,lengte,hoogte:heights(b).hmax,adres:addrOf(b)}},
+  offerte:()=>offerteData(),
+  projBewaar,
+  huidig:()=>BAGhuidig(),
   adres:()=>{const b=selB();return b?addrOf(b):''},
   samenvatting,
   pdfGegevens,
@@ -4894,6 +4962,204 @@ if(OD){
 }
 render();
 })();
+</script>
+<script>
+const STEMPEL_IMG='data:image/jpeg;base64,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zmpIpImIdSPwpldNIiyDDAEfSs+500NloTg+lS4szcGtihb3csHCsSPQ81r2t7HPwflb0NYksTxMRICKYM9c80k2hKTR0zosikMAQaybzT2jy0OSvJx6UWeoNH8suSvY1rRusi7lIIqtGi9JI5k56Eciitq9sVlBePAcZPHeseRGjcqwIPSoasQ42G0+M4cGmUUloStHc04GxitK3fgc1iQSZwM81owSdOa2WqN07o10bgU+qkUnvVhW96Bj6KM0ZoAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooARjgVWmfGankPBrPuGoAimm5PNVy5J61HI2TilHAwKxrVOVWQDifWgt9KZRXG5NgOzSUlFIApyqzMAoJJoVSzYHU1oQQiMZONxrSnTcwEghEYB/ip8sgjXLYpJpRGuT1PSs+SRpGJY/Suic1TVkA6aZpDyeO1RUDOcCrlvbdGk/AVzRjKowIYYGkOTwtXo4ljHA/Gn9uKK7IUlEAooorQAooooAKKKKACiikdgilnIAAyT7UALRWautWTTCNZOv8WOK0FZXUFSCCOxoAhnvLeAgSSKGPanXUxhtnlVd5AyBnFcp4gha31AuM7WwRXRadIt5pyg46bTQBzVzqd5eS7UJTJ4RKkTRb2RCxwCeeSaqzK1lf8APBRs128LiSJHU5DKCKAOJDXWm3IBLI3XGeuK63S7xb21WQY39x6GqniS3EtkZcfMnPSs3wrMVuZIyTtYZH1oA6miiigAooooAjliSVdsigisq70948tFll7+1bNFJpMTjc5c9SCOantrmS3bKkle4rTvLBZcvHhX+nWseRGjcq4II9qhqxk04nQW1wk6ZU8+npTLy1S4TsGHOaw4ZXhcOhOf51uWd0twnHDDGRVJp7lqV9zDljeGTY45H60yt+8tluI+fv8AY1hSxtFIyN1BxUtWIlGwittORVyCYEDmqVKPaknYIyaNqGb3q2k3vXPxzsuO4qwl5jGQatSRoppm8so9aeslY0d2pwM1YWeqvcq9zUDCn5qhHNnFWo3zQBLRQKKACiiigAooooAKKKKACiiigAooooAKKKKACg0UUARS9Kzro1oy9Kz7kdaAM/8Ajp1Mfh6dXJiFqAUUUVzgFKMk47npSVcs4cDe3U1UIczsBJbQ+WuT96nzSCNST17e9Odwi7iazpZD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tFoOtRmE56UAUwpz0qWNPap1hNWIoaAEt4+laMS4FRRR4A4qyooAcKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKADFGKKKADAoxRRQAYoxRRQA1lqGSPINWKawyDQBlTx9aoSrg1tTJkHis64j68UAVUfselPyD0xUTqRTee1YzoKTuBOSMckU1nGMDOaiGT1qREJpRoJbgM5Y96cEPpVhIT6VOkHTitkraICj5Z9KPL9q0hBx0pGg9qYGYVpASpq88FQSRkUmk1qAisGHHWioSCvSlEhFcssPreIE1NY7epGajZyelIMk8044fuAoyzVZhjzTYUya0II+ldKVlZAEMPTirKxDinxoBjipQBTAjEY9KDGPSpcUYoArtGPSmGGreKTbQBWEPtT1jqbbS4oAaq06iigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKDRRQBG65FVJos1fIqNkzQBjSw8nioTEfSth4ge1RGD2oAzlhOasRw9OKtrCM9KmSMDtQBDHCBUyx1KFxT8UARbB6UGPPapcUYoArPFxVWWGtIgVG6AigDFki61A0ZzWzJDmq7Qe1AGb5Z9KljiPHFWxB7VNHD7UARwRVeiTGOKSOPHap1FACgUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFBFFFADSKTAoooAAKcBRRQAtFFFABRRRQAUEUUUAMYVGVGaKKAAKPSnqooooAcBTqKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAP//Z';
+/* ===== Offerte verduurzamingsmaatregelen – namens Erkend-Energielabel.nl ===== */
+window.OFFERTE = (function(){
+const BEDRIJF = {naam:'Erkend-Energielabel.nl', adres:'Aelbert Cuyplaan 45', pcplaats:'3343 DA Hendrik Ido Ambacht', tel:'06 51 63 08 96',
+  mail:'Info@Erkend-Energielabel.nl', web:'www.Erkend-Energielabel.nl', kvk:'42070461', btw:'NL869571655B01', bank:'KNAB', iban:'NL77 KNAB 0259 8692 79', bic:'KNABNL2H'};
+const VOORWAARDEN_STD = [
+  'Hoeveelheden zijn bepaald op basis van de opname en het 3D-model van de woning; bij uitvoering wordt definitief ingemeten en verrekend op basis van de eenheidsprijzen.',
+  'Niet inbegrepen, tenzij vermeld: asbestinventarisatie en -sanering, herstel van verborgen gebreken, vergunningen en leges.',
+  'Btw: isolatiewerkzaamheden aan woningen ouder dan 2 jaar 9% over het arbeidsdeel en 21% over materiaal; zonnepanelen bij woningen 0%; overige maatregelen 21%.',
+  'De ISDE-subsidie is een indicatie. U vraagt de subsidie zelf aan bij RVO na uitvoering; toekenning en bedragen zijn aan de voorwaarden van RVO onderhevig.',
+  'Betaling binnen 14 dagen na factuurdatum.',
+  'Deze offerte is vrijblijvend en geldig tot de genoemde datum.'
+].join('\n');
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const eur = v => '€ ' + Number(v||0).toLocaleString('nl-NL', {minimumFractionDigits:2, maximumFractionDigits:2});
+const eur0 = v => '€ ' + Math.round(v||0).toLocaleString('nl-NL');
+const n1 = v => Number(v||0).toLocaleString('nl-NL', {maximumFractionDigits:1});
+const vandaag = () => new Date().toISOString().slice(0,10);
+const nlDatum = d => d ? new Date(d + 'T12:00').toLocaleDateString('nl-NL', {day:'numeric', month:'long', year:'numeric'}) : '';
+let open_ = false, el_ = null;
+
+function volgnummer(){
+  const jj = String(new Date().getFullYear()).slice(2); let t = {};
+  try{ t = JSON.parse(localStorage.getItem('ee_off_teller') || '{}'); }catch(e){}
+  return {jj, n: (t[jj] || 0) + 1};
+}
+function nummerVastleggen(nr){
+  const m = /^OF(\d{2})-(\d+)$/.exec(nr || ''); if(!m) return; let t = {};
+  try{ t = JSON.parse(localStorage.getItem('ee_off_teller') || '{}'); }catch(e){}
+  if((t[m[1]] || 0) < +m[2]){ t[m[1]] = +m[2]; try{ localStorage.setItem('ee_off_teller', JSON.stringify(t)); }catch(e){} }
+}
+function gegevens(d){
+  const p = d.proj, o = p.offerte = p.offerte || {}, h = d.huidig || {};
+  if(!o.nummer){ const v = volgnummer(); o.nummer = 'OF' + v.jj + '-' + String(v.n).padStart(3,'0'); }
+  o.datum = o.datum || vandaag(); o.geldig = o.geldig || 30;
+  if(o.klantAdres == null) o.klantAdres = h.straat ? `${h.straat} ${h.huisnummer||''}${h.huisletter||''}${h.toevoeging?'-'+h.toevoeging:''}`.trim() : d.adres.split(',')[0];
+  if(o.klantPc == null) o.klantPc = h.postcode ? `${String(h.postcode).replace(/^(\d{4})\s?([A-Z]{2})$/,'$1 $2')} ${h.plaats||''}`.trim() : (d.adres.split(',')[1]||'').trim();
+  if(o.klant == null) o.klant = '';
+  if(o.aanhef == null) o.aanhef = 'Geachte heer/mevrouw,';
+  if(o.intro == null) o.intro = `Hartelijk dank voor uw interesse in het verduurzamen van uw woning. Naar aanleiding van onze opname bieden wij u hierbij vrijblijvend de onderstaande maatregelen aan voor de woning aan ${d.adres.split(',')[0]}.`;
+  if(o.voorwaarden == null) o.voorwaarden = VOORWAARDEN_STD;
+  ['eenheid','isde','teken'].forEach(k => { if(o[k] == null) o[k] = true; });
+  if(o.codes == null) o.codes = false;
+  return o;
+}
+function render(){
+  const el = el_; if(!el) return;
+  const d = BAG.offerte(); if(!d){ el.innerHTML = ''; return; }
+  const o = gegevens(d), tot = new Date(new Date(o.datum + 'T12:00').getTime() + o.geldig*864e5);
+  const veld = (k, label, type='text', extra='') => `<label>${label}<input type="${type}" data-of="${k}" value="${esc(o[k])}" ${extra}></label>`;
+  el.innerHTML = `<div class="off-form"><h3>📄 Offerte verduurzamingsmaatregelen — namens Erkend-Energielabel.nl</h3>
+    <div class="off-grid">${veld('nummer','Offertenummer')}${veld('datum','Datum','date')}${veld('geldig','Geldig (dagen)','number','min="1" step="1"')}
+      ${veld('klant','Klant (naam)','text','placeholder="Dhr./mevr. …"')}${veld('klantAdres','Adres klant')}${veld('klantPc','Postcode en plaats')}${veld('mail','E-mail klant (optioneel)','email')}</div>
+    <label class="klein" style="display:block;margin-top:8px">Aanhef<input type="text" data-of="aanhef" value="${esc(o.aanhef)}" style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #cfdcd2;border-radius:7px"></label>
+    <label class="klein" style="display:block;margin-top:6px">Inleiding<textarea data-of="intro">${esc(o.intro)}</textarea></label>
+    <div class="off-vink"><label><input type="checkbox" data-ofv="eenheid"${o.eenheid?' checked':''}> eenheidsprijzen tonen</label><label><input type="checkbox" data-ofv="codes"${o.codes?' checked':''}> RVO-codes tonen</label>
+      <label><input type="checkbox" data-ofv="isde"${o.isde?' checked':''}> ISDE-indicatie tonen</label><label><input type="checkbox" data-ofv="teken"${o.teken?' checked':''}> akkoordverklaring (handtekening)</label></div>
+    <label class="klein" style="display:block">Voorwaarden en uitgangspunten (één per regel)<textarea data-of="voorwaarden" style="min-height:110px">${esc(o.voorwaarden)}</textarea></label>
+    <div class="off-sam">${d.regels.length} maatregel${d.regels.length===1?'':'en'} · totaal excl. btw <b>${eur0(d.excl)}</b> · btw ${eur0(d.btw9+d.btw21)} · <b>incl. btw ${eur0(d.incl)}</b>${o.isde&&d.isde?` · ISDE-indicatie ${eur0(d.isde)}`:''} · geldig t/m ${tot.toLocaleDateString('nl-NL')}<br><span class="klein">Bedragen volgen de raming hierboven (hoeveelheden, prijzen, staartblad). Wijzig daar en maak de offerte opnieuw.</span></div>
+    <div class="acties"><button type="button" class="actie" id="off-pdf">📄 Offerte als PDF</button><button type="button" class="actie licht" id="off-std">Teksten terug naar standaard</button><button type="button" class="actie licht" id="off-dicht">Sluiten</button><span id="off-msg" class="klein"></span></div></div>`;
+  el.querySelectorAll('[data-of]').forEach(i => i.onchange = () => { o[i.dataset.of] = i.type === 'number' ? (+i.value || 30) : i.value; BAG.projBewaar(); if(['datum','geldig'].includes(i.dataset.of)) render(); });
+  el.querySelectorAll('[data-ofv]').forEach(i => i.onchange = () => { o[i.dataset.ofv] = i.checked; BAG.projBewaar(); render(); });
+  $('off-std').onclick = () => { delete o.intro; delete o.voorwaarden; delete o.aanhef; BAG.projBewaar(); render(); };
+  $('off-dicht').onclick = () => { open_ = false; el.innerHTML = ''; };
+  $('off-pdf').onclick = async () => { const m = $('off-msg'); m.textContent = ' PDF maken…';
+    try{ const r = await opslaan(BAG.offerte()); m.textContent = r ? ' ✔ ' + r : ''; }catch(e){ m.textContent = e.stil ? '' : ' ⚠️ ' + (e.message || e); console.error(e); } };
+}
+
+/* ---------- PDF ---------- */
+const PW = 210, PH = 297, M = 15, BR = PW - 2*M;
+const H = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+const T = s => String(s ?? '').replace(/²/g,'2').replace(/³/g,'3').replace(/≥/g,'>=').replace(/≤/g,'<=').replace(/[–—]/g,'-').replace(/[^\x00-\xFF‘’“”•…€]/g,'');
+function voet(doc){
+  const y = PH - 17; doc.setDrawColor(...H('#7AB648')); doc.setLineWidth(0.4); doc.line(10, y, PW-10, y);
+  const kol = [
+    [['', BEDRIJF.naam], ['', BEDRIJF.adres], ['', BEDRIJF.pcplaats]],
+    [['T ', BEDRIJF.tel], ['E ', BEDRIJF.mail], ['W ', BEDRIJF.web]],
+    [['KvK ', BEDRIJF.kvk], ['btw ', BEDRIJF.btw]],
+    [['Bank ', BEDRIJF.bank], ['IBAN ', BEDRIJF.iban], ['BIC ', BEDRIJF.bic]]];
+  const bw = (PW-20)/4; doc.setFontSize(7.2);
+  kol.forEach((k,i) => k.forEach(([l,t],j) => { const x = 10 + i*bw, yy = y + 4.2 + j*3.5;
+    doc.setFont('helvetica','bold'); doc.setTextColor(...H('#5c9c2e')); doc.text(l, x, yy);
+    doc.setFont('helvetica', l ? 'normal' : (j===0?'bold':'normal')); doc.setTextColor(60); doc.text(T(t), x + (l ? doc.getTextWidth(l) : 0), yy); }));
+}
+function stempel(doc){
+  try{ doc.saveGraphicsState(); doc.setGState(new doc.GState({opacity:0.55})); doc.addImage(STEMPEL_IMG, 'JPEG', PW-118, PH-128, 130, 130*484/531); doc.restoreGraphicsState(); }catch(e){}
+}
+function kop(doc, o, d, eerste){
+  if(!eerste){ doc.addImage(LOGO_WOORD, 'JPEG', PW-M-46, 8, 46, 46*163/700); doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(120);
+    doc.text(T('Offerte ' + o.nummer + ' - ' + d.adres.split(',')[0]), M, 13); return 22; }
+  const h0 = 44, a = H('#0B3D2E'), b = H('#3CB54A'), st = 80;
+  for(let i=0;i<st;i++){ const f=i/(st-1); doc.setFillColor(...a.map((v,j)=>Math.round(v+(b[j]-v)*f))); doc.rect(PW*i/st, 0, PW/st+0.3, h0, 'F'); }
+  doc.setFillColor(255,255,255); doc.roundedRect(PW-M-58, 9, 58, 22, 3, 3, 'F'); doc.addImage(LOGO_WOORD, 'JPEG', PW-M-55, 13.5, 52, 52*163/700);
+  doc.setTextColor(255); doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setCharSpace(1.2); doc.text('ERKEND-ENERGIELABEL.NL', M, 13); doc.setCharSpace(0);
+  doc.setFontSize(22); doc.text('Offerte', M, 25);
+  doc.setFont('helvetica','normal'); doc.setFontSize(10.5); doc.text(T('Verduurzamingsmaatregelen - ' + d.adres), M, 32, {maxWidth: PW-2*M-62});
+  /* donkere infobalk */
+  const y = h0; doc.setFillColor(...H('#0B3D2E')); doc.rect(0, y, PW, 15, 'F');
+  const tot = new Date(new Date(o.datum + 'T12:00').getTime() + o.geldig*864e5).toISOString().slice(0,10);
+  [['OFFERTENUMMER', o.nummer], ['DATUM', nlDatum(o.datum)], ['GELDIG TOT', nlDatum(tot)], ['OPGESTELD DOOR', 'J.J. de Laat']].forEach((c,i) => {
+    const x = M + i*(BR/4); doc.setFont('helvetica','bold'); doc.setFontSize(6.6); doc.setTextColor(...H('#8fd69a')); doc.text(c[0], x, y+5.5);
+    doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(255); doc.text(T(c[1]), x, y+11); });
+  return y + 23;
+}
+function maak(d){
+  const o = gegevens(d), {jsPDF} = window.jspdf, doc = new jsPDF({unit:'mm', format:'a4'});
+  let y = kop(doc, o, d, true);
+  /* klant + betreft */
+  doc.setTextColor(29,42,34); doc.setFont('helvetica','normal'); doc.setFontSize(10);
+  const aan = [o.klant, o.klantAdres, o.klantPc, o.mail].filter(Boolean);
+  doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(...H('#3CB54A')); doc.text('AAN', M, y); doc.text('BETREFT', M + BR/2 + 6, y);
+  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(29,42,34);
+  aan.forEach((t,i) => doc.text(T(t), M, y + 5 + i*4.6));
+  const betreft = ['Verduurzaming woning', d.adres.split(',')[0], (d.adres.split(',')[1]||'').trim(), d.bouwjaar ? 'Bouwjaar ' + d.bouwjaar : ''].filter(Boolean);
+  betreft.forEach((t,i) => doc.text(T(t), M + BR/2 + 6, y + 5 + i*4.6));
+  y += 6 + Math.max(aan.length, betreft.length)*4.6 + 4;
+  /* aanhef + intro */
+  doc.text(T(o.aanhef), M, y); y += 6;
+  const intro = doc.splitTextToSize(T(o.intro), BR); doc.text(intro, M, y); y += intro.length*4.4 + 4;
+  /* tabel */
+  const body = d.regels.map((x,i) => {
+    const oms = (o.codes && x.code ? x.code + ' - ' : '') + x.omschr;
+    return [String(i+1), {content: T(x.naam) + '\n' + T(oms)}, T(n1(x.hoev) + ' ' + x.eenh), o.eenheid ? T(eur(x.excl)) : '', T(eur(x.totaal))]; });
+  const kopR = ['#', 'Omschrijving', 'Hoeveelheid', o.eenheid ? 'Prijs p/eenh.' : '', 'Totaal'];
+  const som = (label, bedrag, st={}) => [{content:T(label), colSpan:4, styles:{halign:'right', ...st}}, {content:T(bedrag), styles:{halign:'right', ...st}}];
+  if(d.staart.length){ body.push(som('Subtotaal maatregelen', eur(d.sub), {fontStyle:'bold'})); d.staart.forEach(s => body.push(som(s.n + ' (' + n1(s.p) + '%)', eur(s.totaal), {textColor:H('#55645c')}))); }
+  body.push(som('Totaal excl. btw', eur(d.excl), {fontStyle:'bold', fillColor:H('#eef7ef')}));
+  if(d.btw9) body.push(som('Btw 9% over ' + eur(d.g9) + ' (arbeid isolatie)', eur(d.btw9)));
+  if(d.btw21) body.push(som('Btw 21% over ' + eur(d.g21), eur(d.btw21)));
+  if(d.excl - d.g9 - d.g21 > 0.5) body.push(som('Btw 0% over ' + eur(d.excl - d.g9 - d.g21) + ' (zonnepanelen)', eur(0)));
+  body.push(som('Totaal incl. btw', eur(d.incl), {fontStyle:'bold', fontSize:10.5, fillColor:H('#0B3D2E'), textColor:[255,255,255]}));
+  doc.autoTable({startY:y, margin:{left:M, right:M, top:26, bottom:30}, theme:'plain', head:[kopR], body,
+    styles:{font:'helvetica', fontSize:8.8, cellPadding:{top:1.8, bottom:1.8, left:2, right:2}, textColor:[29,42,34], lineColor:H('#e1e9e3'), lineWidth:{bottom:0.2}},
+    headStyles:{fillColor:H('#3CB54A'), textColor:[255,255,255], fontStyle:'bold', fontSize:8.2},
+    columnStyles:{0:{cellWidth:8}, 2:{halign:'right', cellWidth:28}, 3:{halign:'right', cellWidth:27}, 4:{halign:'right', cellWidth:28}},
+    didParseCell: c => { if(c.section==='body' && c.column.index===1 && typeof c.cell.raw === 'object' && c.cell.raw && c.cell.raw.content){ c.cell.styles.fontStyle='normal'; } },
+    didDrawCell: c => { /* tweede regel omschrijving grijs: overschrijven */ },
+    willDrawPage: dd => { if(dd.pageNumber > 1) kop(doc, o, d, false); }
+  });
+  y = doc.lastAutoTable.finalY + 6;
+  const ruimte = h => { if(y + h > PH - 30){ doc.addPage(); y = kop(doc, o, d, false); } };
+  /* ISDE */
+  if(o.isde && d.isde > 0){
+    const regels = doc.splitTextToSize(T(`Op basis van de huidige ISDE-regeling komt u naar verwachting in aanmerking voor circa ${eur0(d.isde)} subsidie${d.isdeDubbel ? ' (verdubbeld bedrag, omdat u twee of meer isolatiemaatregelen combineert)' : ''}. Uw netto investering komt daarmee op circa ${eur0(d.incl - d.isde)} incl. btw. De subsidie vraagt u na uitvoering zelf aan bij RVO; dit is een indicatie, aan het bedrag kunnen geen rechten worden ontleend.`), BR - 10);
+    const hh = 8 + regels.length*4.2; ruimte(hh + 4);
+    doc.setFillColor(...H('#ecf8ef')); doc.setDrawColor(...H('#3CB54A')); doc.setLineWidth(0.4); doc.roundedRect(M, y, BR, hh, 2, 2, 'FD');
+    doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(...H('#1e7a3c')); doc.text('Subsidie (ISDE) - indicatie', M+5, y+5.5);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.6); doc.setTextColor(29,42,34); doc.text(regels, M+5, y+10.5);
+    y += hh + 6;
+  }
+  /* voorwaarden */
+  const vw = String(o.voorwaarden||'').split('\n').map(s => s.trim()).filter(Boolean);
+  if(vw.length){
+    ruimte(16); doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...H('#0B3D2E')); doc.text('Voorwaarden en uitgangspunten', M, y);
+    doc.setDrawColor(...H('#3CB54A')); doc.setLineWidth(0.5); doc.line(M, y+1.6, M+BR, y+1.6); y += 6;
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.4); doc.setTextColor(50);
+    vw.forEach(t => { const l = doc.splitTextToSize(T(t), BR-5); ruimte(l.length*3.8 + 1); doc.setFillColor(...H('#3CB54A')); doc.circle(M+1.2, y-1, 0.8, 'F'); doc.text(l, M+4, y); y += l.length*3.8 + 1.2; });
+    y += 4;
+  }
+  /* afsluiting + akkoord */
+  ruimte(o.teken ? 46 : 22);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(29,42,34);
+  doc.text(T('Wij vertrouwen erop u hiermee een passende aanbieding te hebben gedaan. Heeft u vragen, neem dan gerust contact met ons op.'), M, y, {maxWidth: BR}); y += 9;
+  const xr = M + BR/2 + 6;
+  doc.text('Met vriendelijke groet,', M, y); if(o.teken) doc.text('Voor akkoord opdrachtgever,', xr, y); y += 5;
+  doc.setFont('helvetica','bold'); doc.text('J.J. de Laat', M, y + 12); doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(90);
+  doc.text('Erkend-Energielabel.nl', M, y + 16.5); doc.text('Bouwkundig ingenieur & energieprestatieadviseur', M, y + 20.5);
+  if(o.teken){ doc.setDrawColor(150); doc.setLineWidth(0.2); doc.setTextColor(90);
+    [['Naam', 4], ['Datum', 12], ['Handtekening', 22]].forEach(([l, dy]) => { doc.text(l, xr, y + dy); doc.line(xr + 22, y + dy + 0.5, M + BR, y + dy + 0.5); }); }
+  /* voet + stempel + paginanummers */
+  const n = doc.getNumberOfPages();
+  for(let i=1;i<=n;i++){ doc.setPage(i); stempel(doc); voet(doc); doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(140); doc.text(`Pagina ${i} van ${n}`, PW-10, PH-19.5, {align:'right'}); }
+  return doc;
+}
+async function opslaan(d){
+  if(!d) throw new Error('Geen raming');
+  if(!window.jspdf) throw new Error('PDF-bibliotheek niet geladen (geen internet?)');
+  const o = gegevens(d), doc = maak(d), naam = `Offerte ${o.nummer} - ${d.adres.replace(/[\\/:*?"<>|]/g,'')}.pdf`.replace(/\s+/g,' ');
+  nummerVastleggen(o.nummer); o.gemaakt = new Date().toISOString(); BAG.projBewaar();
+  if(window.showSaveFilePicker && typeof OPSLAG !== 'undefined'){
+    let fh; const root = await OPSLAG.get('root').catch(()=>null), sub = root ? await projectSubmap(root).catch(()=>null) : null;
+    try{ fh = await showSaveFilePicker({suggestedName: naam, id: 'ee-pdf', startIn: sub || root || 'documents', types:[{description:'PDF-document', accept:{'application/pdf':['.pdf']}}]}); }
+    catch(e){ if(e && e.name === 'AbortError') throw Object.assign(new Error('geannuleerd'), {stil:true}); fh = null; }
+    if(fh){ const w = await fh.createWritable(); await w.write(doc.output('blob')); await w.close(); return 'Opgeslagen: ' + (sub ? sub.name + ' / ' : '') + fh.name; }
+  }
+  doc.save(naam); return 'Gedownload: ' + naam;
+}
+return {
+  open(el){ el_ = el; open_ = true; render(); if(el && el.scrollIntoView && !el.__gezien){ el.__gezien = true; setTimeout(() => el.scrollIntoView({behavior:'smooth', block:'start'}), 50); } },
+  isOpen: () => open_,
+  maak: () => maak(BAG.offerte()),
+  _gegevens: () => { const d = BAG.offerte(); return d && gegevens(d); }
+};
+})();
+
 </script>
 <script>
 if('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')){
