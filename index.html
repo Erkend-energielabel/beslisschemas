@@ -1377,7 +1377,7 @@ function isdeCheck(code,k){
   return{s:'?',t:x.rc!=null?'Rd onbekend (Rc '+fmt(x.rc,1)+')':'Rd onbekend'};
 }
 const ISDE_BADGE=i=>`<span class="isde-b isde-b-${i.s==='ja'?'ja':i.s==='nee'?'nee':'vr'}" title="ISDE-check">${i.s==='ja'?'✔':i.s==='nee'?'✖':i.s==='-'?'–':'?'} ${esc(i.t)}</span>`;
-const STAART_STD=[{n:'Algemene bouwplaatskosten',p:0},{n:'Energielabel',p:0,soort:'eur'},{n:'Schilderwerk',p:0,soort:'eur'},{n:'Winst & risico',p:0},{n:'Onvoorzien',p:0},{n:'Indexatie t.o.v. prijspeil',p:0},{n:'Eigen correctie / korting',p:0}];
+const STAART_STD=[{n:'Verlies',p:10},{n:'Algemene bouwplaatskosten',p:0},{n:'Energielabel',p:0,soort:'eur'},{n:'Schilderwerk',p:0,soort:'eur'},{n:'Winst & risico',p:0},{n:'Onvoorzien',p:0},{n:'Indexatie t.o.v. prijspeil',p:0},{n:'Eigen correctie / korting',p:0}];
 const RVO_VAR=['egw-tus-enk-min','egw-tus-enk-mid','egw-tus-enk-max','egw-tus-pro-min','egw-tus-pro-mid','egw-tus-pro-max','mgw-tus-enk-min','mgw-tus-enk-mid','mgw-tus-enk-max','mgw-tus-pro-min','mgw-tus-pro-mid','mgw-tus-pro-max'];
 const RAM_MAATR=[
   {k:'spouw',naam:'Spouwmuurisolatie',codes:['WB009a','WB009b','WB009c'],bron:'gevelnetto',btw:'iso'},
@@ -1441,10 +1441,10 @@ const PV_OPBR={Z:950,ZO:910,ZW:910,O:820,W:820,plat:860};   /* kWh per kWp per j
 const ramS=(()=>{let o={};try{o=JSON.parse(localStorage.getItem('ee_raming2')||'{}')}catch(e){}
   let st=Array.isArray(o.staart)?o.staart:STAART_STD.map(x=>({...x}));
   /* bestaande opslagen: standaardregels Energielabel en Schilderwerk toevoegen (eenmalig, daarna niet opnieuw) */
-  if(Array.isArray(o.staart)&&o.sv!==4){st.forEach(x=>{if(/^(Energielabel|Schilderwerk)$/.test(x.n))x.soort='eur'});STAART_STD.filter(s=>/^(Energielabel|Schilderwerk)$/.test(s.n)&&!st.some(x=>x.n===s.n)).forEach(s=>{const i=st.findIndex(x=>x.n==='Winst & risico');st.splice(i<0?st.length:i,0,{...s})})}
+  if(Array.isArray(o.staart)&&o.sv!==5){if(!st.some(x=>x.n==='Verlies'))st.unshift({n:'Verlies',p:10});st.forEach(x=>{if(/^(Energielabel|Schilderwerk)$/.test(x.n))x.soort='eur'});STAART_STD.filter(s=>/^(Energielabel|Schilderwerk)$/.test(s.n)&&!st.some(x=>x.n===s.n)).forEach(s=>{const i=st.findIndex(x=>x.n==='Winst & risico');st.splice(i<0?st.length:i,0,{...s})})}
   return{isde:o.isde||{},isdeWp:o.isdeWp||{},glasDir:o.glasDir||{},glas:o.glas??20,verlies:o.verlies??5,btw:o.btw??true,aanpak:o.aanpak||'enk',prijs:o.prijs||{},code:o.code||{},staart:st,type:null,grootte:null,alt:null,altQ:'',altBio:false,
     aan:{},hoev:{}}})();
-const ramBewaar=()=>{try{localStorage.setItem('ee_raming2',JSON.stringify({isde:ramS.isde,isdeWp:ramS.isdeWp,glasDir:ramS.glasDir,glas:ramS.glas,verlies:ramS.verlies,btw:ramS.btw,aanpak:ramS.aanpak,prijs:ramS.prijs,code:ramS.code,staart:ramS.staart,sv:4}))}catch(e){}};
+const ramBewaar=()=>{try{localStorage.setItem('ee_raming2',JSON.stringify({isde:ramS.isde,isdeWp:ramS.isdeWp,glasDir:ramS.glasDir,glas:ramS.glas,verlies:ramS.verlies,btw:ramS.btw,aanpak:ramS.aanpak,prijs:ramS.prijs,code:ramS.code,staart:ramS.staart,sv:5}))}catch(e){}};
 function ramVariant(b){
   const meer=b.vbos.filter(v=>/woon/.test(v.p.gebruiksdoel||'woon')).length>1,type=ramS.type||(meer?'mgw':'egw');
   const ag=+((vboOf(b)||{}).oppervlakte||0),gr=ramS.grootte||(type==='egw'?(ag&&ag<100?'min':ag>160?'max':'mid'):(ag&&ag<60?'min':ag>90?'max':'mid'));
@@ -1632,7 +1632,7 @@ function renderRaming(){
   $('ram-sadd').onclick=()=>{ramS.staart.push({n:'Nieuwe opslag',p:0});ramBewaar();her()};
   $('ram-sadde').onclick=()=>{ramS.staart.push({n:'Nieuwe regel',p:0,soort:'eur'});ramBewaar();her()};
   el.querySelectorAll('[data-ssoort]').forEach(c=>c.onchange=()=>{ramS.staart[+c.dataset.ssoort].soort=c.value;ramBewaar();her()});
-  $('ram-snul').onclick=()=>{ramS.staart.forEach(x=>x.p=0);ramBewaar();her()};
+  $('ram-snul').onclick=()=>{ramS.staart.forEach(x=>{if(x.n!=='Verlies')x.p=0});ramBewaar();her()};
   if($('ram-peil'))$('ram-peil').onchange=e=>{pj.peil=e.target.value===KK.laatst?undefined:e.target.value;projBewaar();kkLaad(e.target.value).then(her)};
   $('ram-kkchk').onclick=async()=>{const m=$('ram-kkmsg');m.textContent=' controleren…';const oud=KK.laatst;await kkLaad(pj.peil,true);
     const st=KK.status,dt=d=>d?new Date(d).toLocaleDateString('nl-NL',{day:'numeric',month:'long',year:'numeric'}):'?';
