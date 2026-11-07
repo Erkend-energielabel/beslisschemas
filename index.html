@@ -1376,7 +1376,7 @@ function isdeCheck(code,k){
   return{s:'?',t:x.rc!=null?'Rd onbekend (Rc '+fmt(x.rc,1)+')':'Rd onbekend'};
 }
 const ISDE_BADGE=i=>`<span class="isde-b isde-b-${i.s==='ja'?'ja':i.s==='nee'?'nee':'vr'}" title="ISDE-check">${i.s==='ja'?'✔':i.s==='nee'?'✖':i.s==='-'?'–':'?'} ${esc(i.t)}</span>`;
-const STAART_STD=[{n:'Algemene bouwplaatskosten',p:0},{n:'Winst & risico',p:0},{n:'Onvoorzien',p:0},{n:'Indexatie t.o.v. prijspeil',p:0},{n:'Eigen correctie / korting',p:0}];
+const STAART_STD=[{n:'Algemene bouwplaatskosten',p:0},{n:'Energielabel',p:0},{n:'Schilderwerk',p:0},{n:'Winst & risico',p:0},{n:'Onvoorzien',p:0},{n:'Indexatie t.o.v. prijspeil',p:0},{n:'Eigen correctie / korting',p:0}];
 const RVO_VAR=['egw-tus-enk-min','egw-tus-enk-mid','egw-tus-enk-max','egw-tus-pro-min','egw-tus-pro-mid','egw-tus-pro-max','mgw-tus-enk-min','mgw-tus-enk-mid','mgw-tus-enk-max','mgw-tus-pro-min','mgw-tus-pro-mid','mgw-tus-pro-max'];
 const RAM_MAATR=[
   {k:'spouw',naam:'Spouwmuurisolatie',codes:['WB009a','WB009b','WB009c'],bron:'gevelnetto',btw:'iso'},
@@ -1394,6 +1394,7 @@ const RAM_MAATR=[
   {k:'pvh',naam:'Zonnepanelen hellend dak',codes:['WB419'],bron:'pvh',btw:'pv'},
   {k:'pvp',naam:'Zonnepanelen plat dak',codes:['WB406'],bron:'pvp',btw:'pv'},
   {k:'luchtdicht',naam:'Kierdichting / luchtdichtheid',codes:['WB438a'],bron:'woning',btw:'iso'},
+  {k:'vent',naam:'Ventilatie – decentrale WTW-box, CO2-gestuurd (woonkamer + slaapkamer)',codes:['WB405','WB404','WB233'],bron:'woning',btw:'std'},
   {k:'ketel',naam:'Ketelvervanging (HR-107 combiketel)',codes:['WB163','WB042b','WB042a','WB032b','WB032a','WB179'],bron:'woning',btw:'std'},
   {k:'hybride',naam:'Hybride warmtepomp',codes:['WB199'],bron:'woning',btw:'std'},
   {k:'wp',naam:'Volledige warmtepomp (lucht/water)',codes:['WB149b'],bron:'woning',btw:'std'},
@@ -1435,9 +1436,12 @@ function isdeBereken(b,regels){
 }
 const PV_OPBR={Z:950,ZO:910,ZW:910,O:820,W:820,plat:860};   /* kWh per kWp per jaar (indicatief) */
 const ramS=(()=>{let o={};try{o=JSON.parse(localStorage.getItem('ee_raming2')||'{}')}catch(e){}
-  return{isde:o.isde||{},isdeWp:o.isdeWp||{},glasDir:o.glasDir||{},glas:o.glas??20,verlies:o.verlies??5,btw:o.btw??true,aanpak:o.aanpak||'enk',prijs:o.prijs||{},code:o.code||{},staart:Array.isArray(o.staart)?o.staart:STAART_STD.map(x=>({...x})),type:null,grootte:null,alt:null,altQ:'',altBio:false,
+  let st=Array.isArray(o.staart)?o.staart:STAART_STD.map(x=>({...x}));
+  /* bestaande opslagen: standaardregels Energielabel en Schilderwerk toevoegen (eenmalig, daarna niet opnieuw) */
+  if(Array.isArray(o.staart)&&o.sv!==2)STAART_STD.filter(s=>/^(Energielabel|Schilderwerk)$/.test(s.n)&&!st.some(x=>x.n===s.n)).forEach(s=>{const i=st.findIndex(x=>x.n==='Winst & risico');st.splice(i<0?st.length:i,0,{...s})});
+  return{isde:o.isde||{},isdeWp:o.isdeWp||{},glasDir:o.glasDir||{},glas:o.glas??20,verlies:o.verlies??5,btw:o.btw??true,aanpak:o.aanpak||'enk',prijs:o.prijs||{},code:o.code||{},staart:st,type:null,grootte:null,alt:null,altQ:'',altBio:false,
     aan:{},hoev:{}}})();
-const ramBewaar=()=>{try{localStorage.setItem('ee_raming2',JSON.stringify({isde:ramS.isde,isdeWp:ramS.isdeWp,glasDir:ramS.glasDir,glas:ramS.glas,verlies:ramS.verlies,btw:ramS.btw,aanpak:ramS.aanpak,prijs:ramS.prijs,code:ramS.code,staart:ramS.staart}))}catch(e){}};
+const ramBewaar=()=>{try{localStorage.setItem('ee_raming2',JSON.stringify({isde:ramS.isde,isdeWp:ramS.isdeWp,glasDir:ramS.glasDir,glas:ramS.glas,verlies:ramS.verlies,btw:ramS.btw,aanpak:ramS.aanpak,prijs:ramS.prijs,code:ramS.code,staart:ramS.staart,sv:2}))}catch(e){}};
 function ramVariant(b){
   const meer=b.vbos.filter(v=>/woon/.test(v.p.gebruiksdoel||'woon')).length>1,type=ramS.type||(meer?'mgw':'egw');
   const ag=+((vboOf(b)||{}).oppervlakte||0),gr=ramS.grootte||(type==='egw'?(ag&&ag<100?'min':ag>160?'max':'mid'):(ag&&ag<60?'min':ag>90?'max':'mid'));
@@ -5009,6 +5013,7 @@ function gegevens(d){
   o.voorwaarden = String(o.voorwaarden).replace('Hoeveelheden zijn bepaald op basis van de opname en het 3D-model van de woning; bij uitvoering wordt definitief ingemeten en verrekend op basis van de eenheidsprijzen.', VOORWAARDEN_STD.split('\n')[0]);
   ['isde','teken'].forEach(k => { if(o[k] == null) o[k] = true; });
   if(o.codes == null) o.codes = false;
+  if(o.afmelden == null) o.afmelden = false;
   return o;
 }
 function render(){
@@ -5022,7 +5027,7 @@ function render(){
     <label class="klein" style="display:block;margin-top:8px">Aanhef<input type="text" data-of="aanhef" value="${esc(o.aanhef)}" style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #cfdcd2;border-radius:7px"></label>
     <label class="klein" style="display:block;margin-top:6px">Inleiding<textarea data-of="intro">${esc(o.intro)}</textarea></label>
     <div class="off-vink"><label><input type="checkbox" data-ofv="codes"${o.codes?' checked':''}> RVO-codes tonen</label>
-      <label><input type="checkbox" data-ofv="isde"${o.isde?' checked':''}> ISDE-indicatie tonen</label><label><input type="checkbox" data-ofv="teken"${o.teken?' checked':''}> akkoordverklaring (handtekening)</label></div>
+      <label><input type="checkbox" data-ofv="isde"${o.isde?' checked':''}> ISDE-indicatie tonen</label><label><input type="checkbox" data-ofv="afmelden"${o.afmelden?' checked':''}> tekst afmelden energielabel tonen</label><label><input type="checkbox" data-ofv="teken"${o.teken?' checked':''}> akkoordverklaring (handtekening)</label></div>
     <label class="klein" style="display:block">Voorwaarden en uitgangspunten (één per regel)<textarea data-of="voorwaarden" style="min-height:110px">${esc(o.voorwaarden)}</textarea></label>
     <div class="off-sam">${d.regels.length} maatregel${d.regels.length===1?'':'en'} · totaal excl. btw <b>${eur0(d.excl)}</b> · btw ${eur0(d.btw9+d.btw21)} · <b>incl. btw ${eur0(d.incl)}</b>${o.isde&&d.isde?` · ISDE-indicatie ${eur0(d.isde)}`:''} · geldig t/m ${tot.toLocaleDateString('nl-NL')}<br><span class="klein">Alleen totaalprijzen per onderdeel; het staartblad is naar rato in de onderdelen verwerkt (geen m²- of eenheidsprijzen in de offerte). Bedragen volgen de raming hierboven: wijzig daar en maak de offerte opnieuw.</span></div>
     <div class="acties"><button type="button" class="actie" id="off-pdf">📄 Offerte als PDF</button><button type="button" class="actie licht" id="off-std">Teksten terug naar standaard</button><button type="button" class="actie licht" id="off-dicht">Sluiten</button><span id="off-msg" class="klein"></span></div></div>`;
@@ -5108,13 +5113,28 @@ function maak(d){
   });
   y = doc.lastAutoTable.finalY + 6;
   const ruimte = h => { if(y + h > PH - 30){ doc.addPage(); stempel(doc); y = kop(doc, o, d, false); } };
-  /* ISDE */
+  /* afmelden energielabel (inbegrepen in de prijs) */
+  if(o.afmelden){
+    const t = doc.splitTextToSize(T('Na de verduurzaming kan het energielabel worden afgemeld. Het afmelden van het energielabel is inbegrepen in de bovengenoemde prijs.'), BR - 10);
+    const hh = 7 + t.length*4.2; ruimte(hh + 4);
+    doc.setFillColor(...H('#f4f8f5')); doc.roundedRect(M, y, BR, hh, 2, 2, 'F');
+    doc.setFillColor(...H('#3CB54A')); doc.rect(M, y, 1.2, hh, 'F');
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.8); doc.setTextColor(29,42,34); doc.text(t, M+5, y+5.2);
+    y += hh + 5;
+  }
+  /* investering en subsidie (ISDE) */
   if(o.isde && d.isde > 0){
-    const regels = doc.splitTextToSize(T(`Op basis van de huidige ISDE-regeling komt u naar verwachting in aanmerking voor circa ${eur0(d.isde)} subsidie${d.isdeDubbel ? ' (verdubbeld bedrag, omdat u twee of meer isolatiemaatregelen combineert)' : ''}. Uw netto investering komt daarmee op circa ${eur0(d.incl - d.isde)} incl. btw. De subsidie vraagt u na uitvoering zelf aan bij RVO; dit is een indicatie, aan het bedrag kunnen geen rechten worden ontleend.`), BR - 10);
-    const hh = 8 + regels.length*4.2; ruimte(hh + 4);
+    const uitleg = doc.splitTextToSize(T(`${d.isdeDubbel ? 'Het bedrag is verdubbeld, omdat u twee of meer isolatiemaatregelen combineert. ' : ''}De subsidie vraagt u na uitvoering zelf aan bij RVO. Dit is een indicatie; aan het bedrag kunnen geen rechten worden ontleend.`), BR - 10);
+    const hh = 9 + 3*5.6 + 3 + uitleg.length*4.2 + 2; ruimte(hh + 4);
     doc.setFillColor(...H('#ecf8ef')); doc.setDrawColor(...H('#3CB54A')); doc.setLineWidth(0.4); doc.roundedRect(M, y, BR, hh, 2, 2, 'FD');
-    doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(...H('#1e7a3c')); doc.text('Subsidie (ISDE) - indicatie', M+5, y+5.5);
-    doc.setFont('helvetica','normal'); doc.setFontSize(8.6); doc.setTextColor(29,42,34); doc.text(regels, M+5, y+10.5);
+    doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(...H('#1e7a3c')); doc.text('Investering en subsidie (ISDE) - indicatie', M+5, y+5.8);
+    const rij = (lb, bd, st) => { doc.setFont('helvetica', st||'normal'); doc.setFontSize(9); doc.setTextColor(29,42,34); doc.text(T(lb), M+5, y+ry); doc.text(T(bd), M+BR-5, y+ry, {align:'right'}); ry += 5.6; };
+    let ry = 13;
+    rij('Totaal investering incl. btw', eur(d.incl));
+    rij('Subsidie ISDE (indicatie)', '- ' + eur(d.isde));
+    doc.setDrawColor(...H('#3CB54A')); doc.setLineWidth(0.3); doc.line(M+5, y+ry-3.6, M+BR-5, y+ry-3.6);
+    rij('Netto investering na subsidie', eur(d.incl - d.isde), 'bold');
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.2); doc.setTextColor(70); doc.text(uitleg, M+5, y+ry+1.5);
     y += hh + 6;
   }
   /* voorwaarden */
