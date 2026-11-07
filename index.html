@@ -5058,7 +5058,7 @@ function render(){
   const o = gegevens(d), tot = new Date(new Date(o.datum + 'T12:00').getTime() + o.geldig*864e5);
   const veld = (k, label, type='text', extra='') => `<label>${label}<input type="${type}" data-of="${k}" value="${esc(o[k])}" ${extra}></label>`;
   const som = o.termijnen.reduce((s,x) => s + (+x.p || 0), 0);
-  el.innerHTML = `<div class="off-form"><h3>📄 Offerte verduurzamingsmaatregelen — namens Erkend-Energielabel.nl</h3>
+  el.innerHTML = `<div class="off-form"><h3>📄 Offerte-raming (indicatie) verduurzamingsmaatregelen — namens Erkend-Energielabel.nl</h3>
     <div class="off-grid"><label>Huidig energielabel<select data-ofs="labelNu">${LABEL_KL.map(k => `<option value="${k}"${o.labelNu===k?' selected':''}>${k}</option>`).join('')}<option value=""${o.labelNu?'':' selected'}>–</option></select></label><label>Verwacht energielabel na uitvoering<select data-ofs="labelNa">${LABEL_KL.map(k => `<option value="${k}"${o.labelNa===k?' selected':''}>${k}</option>`).join('')}<option value=""${o.labelNa?'':' selected'}>nog in te vullen</option></select></label></div>
     <div class="off-grid">${veld('nummer','Offertenummer')}${veld('datum','Datum','date')}${veld('geldig','Geldig (dagen)','number','min="1" step="1"')}
       ${veld('klant','Klant (naam)','text','placeholder="Dhr./mevr. …"')}${veld('klantAdres','Adres klant')}${veld('klantPc','Postcode en plaats')}${veld('mail','E-mail klant (optioneel)','email')}</div>
@@ -5112,12 +5112,12 @@ function stempel(doc){
 }
 function kop(doc, o, d, eerste){
   if(!eerste){ doc.addImage(LOGO_WOORD, 'JPEG', PW-M-46, 8, 46, 46*163/700); doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(120);
-    doc.text(T('Offerte ' + o.nummer + ' - ' + d.adres.split(',')[0]), M, 13); return 22; }
+    doc.text(T('Offerte-raming ' + o.nummer + ' - ' + d.adres.split(',')[0]), M, 13); return 22; }
   const h0 = 44, a = H('#0B3D2E'), b = H('#3CB54A'), st = 80;
   for(let i=0;i<st;i++){ const f=i/(st-1); doc.setFillColor(...a.map((v,j)=>Math.round(v+(b[j]-v)*f))); doc.rect(PW*i/st, 0, PW/st+0.3, h0, 'F'); }
   doc.setFillColor(255,255,255); doc.roundedRect(PW-M-58, 9, 58, 22, 3, 3, 'F'); doc.addImage(LOGO_WOORD, 'JPEG', PW-M-55, 13.5, 52, 52*163/700);
   doc.setTextColor(255); doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setCharSpace(1.2); doc.text('ERKEND-ENERGIELABEL.NL', M, 13); doc.setCharSpace(0);
-  doc.setFontSize(22); doc.text('Offerte', M, 25);
+  doc.setFontSize(20); doc.text('Offerte-raming (indicatie)', M, 25);
   doc.setFont('helvetica','normal'); doc.setFontSize(10.5); doc.text(T('Verduurzamingsmaatregelen - ' + d.adres), M, 32, {maxWidth: PW-2*M-62});
   /* donkere infobalk */
   const y = h0; doc.setFillColor(...H('#0B3D2E')); doc.rect(0, y, PW, 15, 'F');
@@ -5249,7 +5249,7 @@ function maak(d){
   /* afsluiting + akkoord */
   ruimte(o.teken ? 46 : 22);
   doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(29,42,34);
-  doc.text(T('Wij vertrouwen erop u hiermee een passende aanbieding te hebben gedaan. Heeft u vragen, neem dan gerust contact met ons op.'), M, y, {maxWidth: BR}); y += 9;
+  doc.text(T('Deze offerte-raming is een indicatie. Heeft u interesse, dan onderzoeken wij graag samen de mogelijkheden verder. Heeft u vragen, neem dan gerust contact met ons op.'), M, y, {maxWidth: BR}); y += 9;
   const xr = M + BR/2 + 6;
   doc.text('Met vriendelijke groet,', M, y); if(o.teken) doc.text('Voor akkoord opdrachtgever,', xr, y); y += 5;
   doc.setFont('helvetica','bold'); doc.text('J.J. de Laat', M, y + 12); doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(90);
@@ -5280,7 +5280,7 @@ function docxMaak(d){
   const kids = [];
   /* logo + titel */
   kids.push(new D.Paragraph({spacing:{after:120}, children:[new D.ImageRun({type:'jpg', data:b64naarBytes(LOGO_WOORD), transformation:{width:200, height:200*163/700}})]}));
-  kids.push(P('Offerte', {b:true, sz:44, c:'0B3D2E', na:0}));
+  kids.push(P('Offerte-raming (indicatie)', {b:true, sz:40, c:'0B3D2E', na:0}));
   kids.push(P('Verduurzamingsmaatregelen - ' + d.adres, {sz:22, c:'3CB54A', na:160}));
   /* infobalk */
   const info = [['OFFERTENUMMER', o.nummer], ['DATUM', nlDatum(o.datum)], ['GELDIG TOT', nlDatum(new Date(new Date(o.datum + 'T12:00').getTime() + o.geldig*864e5).toISOString().slice(0,10))], ['OPGESTELD DOOR', 'J.J. de Laat']];
@@ -5350,12 +5350,12 @@ function docxMaak(d){
   const vw = String(o.voorwaarden||'').split('\n').map(s => s.trim()).filter(Boolean);
   if(vw.length){ kids.push(kopje('Voorwaarden en uitgangspunten')); vw.forEach(t => kids.push(P('•  ' + t, {sz:17, na:60}))); }
   /* afsluiting + akkoord */
-  kids.push(P('Wij vertrouwen erop u hiermee een passende aanbieding te hebben gedaan. Heeft u vragen, neem dan gerust contact met ons op.', {voor:240, na:200}));
+  kids.push(P('Deze offerte-raming is een indicatie. Heeft u interesse, dan onderzoeken wij graag samen de mogelijkheden verder. Heeft u vragen, neem dan gerust contact met ons op.', {voor:240, na:200}));
   const sluit = [P('Met vriendelijke groet,', {na:520}), P('J.J. de Laat', {b:true, na:0}), P('Erkend-Energielabel.nl', {sz:17, c:'5A6B60', na:0}), P('Bouwkundig ingenieur & energieprestatieadviseur', {sz:17, c:'5A6B60', na:0})];
   const akkoord = o.teken ? [P('Voor akkoord opdrachtgever,', {na:520}), P('Naam: ______________________________', {na:200}), P('Datum: _____________________________', {na:200}), P('Handtekening: ______________________', {na:0})] : [P('')];
   kids.push(TB([5103, 5103], [[C(5103, sluit, {borders:zonderRand}), C(5103, akkoord, {borders:zonderRand})]]));
   const voetTekst = `${BEDRIJF.naam} · ${BEDRIJF.adres}, ${BEDRIJF.pcplaats} · KvK ${BEDRIJF.kvk} · btw ${BEDRIJF.btw} · IBAN ${BEDRIJF.iban} · ${BEDRIJF.mail}`;
-  return new D.Document({creator:'J.J. de Laat', title:'Offerte ' + o.nummer + ' - ' + d.adres.split(',')[0],
+  return new D.Document({creator:'J.J. de Laat', title:'Offerte-raming ' + o.nummer + ' - ' + d.adres.split(',')[0],
     styles:{default:{document:{run:{font:'Arial', size:19}}}},
     sections:[{properties:{page:{size:{width:11906, height:16838}, margin:{top:850, bottom:1100, left:850, right:850, footer:400}}},
       footers:{default: new D.Footer({children:[new D.Paragraph({alignment:D.AlignmentType.CENTER, children:[
@@ -5368,7 +5368,7 @@ function docxMaak(d){
 
 async function opslaan(d, soort){
   if(!d) throw new Error('Geen raming');
-  const o = gegevens(d), base = `Offerte ${o.nummer} - ${d.adres.replace(/[\\/:*?"<>|]/g,'')}`.replace(/\s+/g,' ');
+  const o = gegevens(d), base = `Offerte-raming ${o.nummer} - ${d.adres.replace(/[\\/:*?"<>|]/g,'')}`.replace(/\s+/g,' ');
   let blob, naam, mime;
   if(soort === 'word'){
     if(!window.docx) throw new Error('Word-bibliotheek niet geladen (geen internet?)');
