@@ -1,5 +1,5 @@
 /* Service worker EE Beslisschema – verhoog VERSIE bij elke nieuwe upload */
-const VERSIE = 'ee-bs-2026-11-07f';
+const VERSIE = 'ee-bs-2026-11-07g';
 const APP = ['./', './index.html', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png'];
 const LIBS = [
