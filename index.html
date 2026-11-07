@@ -5004,6 +5004,7 @@ const ZAK_TXT = 'U treedt op als zakelijke investeerder. De ISDE-subsidie voor w
 const LABEL_KL = ['A++++','A+++','A++','A+','A','B','C','D','E','F','G'];
 const LABEL_KLEUR = {'A++++':'#006837','A+++':'#1a8c48','A++':'#39a935','A+':'#8cc63f','A':'#c8d32c','B':'#ffe600','C':'#fdb913','D':'#f7941d','E':'#ef7c1e','F':'#e5532b','G':'#c83b24'};
 const LABEL_LICHT = ['A++++','A+++','A++','F','G'];
+const MAIL_STD = 'Beste {klant},\n\nHartelijk dank voor uw interesse in ons bedrijf. In de bijlage vindt u onze offerte-raming (indicatie) voor de verduurzamingsmaatregelen aan uw woning.\n\nHeeft u vragen, of wilt u de mogelijkheden samen verder onderzoeken? Neem dan gerust contact met ons op.\n\nMet vriendelijke groet,\nJ.J. de Laat\nErkend-Energielabel.nl\nT 06 51 63 08 96';
 const AFMELD_TXT = 'Na de verduurzaming kan het energielabel worden afgemeld. Het afmelden van het energielabel is inbegrepen in de bovengenoemde prijs.';
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -5044,6 +5045,7 @@ function gegevens(d){
   if(o.labelNu == null) o.labelNu = d.labelNu || '';
   if(o.labelNa == null) o.labelNa = '';
   if(o.exclBtw == null) o.exclBtw = false;
+  if(o.mailTekst == null) o.mailTekst = MAIL_STD;
   return o;
 }
 /* staartblad naar rato in de onderdelen; afronden op centen, verschil in het grootste onderdeel */
@@ -5073,6 +5075,8 @@ function render(){
       ${veld('klant','Klant (naam)','text','placeholder="Dhr./mevr. …"')}${veld('klantAdres','Adres klant')}${veld('klantPc','Postcode en plaats')}${veld('mail','E-mail klant (optioneel)','email')}</div>
     <label class="klein" style="display:block;margin-top:8px">Aanhef<input type="text" data-of="aanhef" value="${esc(o.aanhef)}" style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #cfdcd2;border-radius:7px"></label>
     <label class="klein" style="display:block;margin-top:6px">Inleiding<textarea data-of="intro">${esc(o.intro)}</textarea></label>
+    <label class="klein" style="display:block;margin-top:6px">Standaard mailtekst (bij "Mail opstellen"; {klant} wordt de klantnaam)<textarea data-of="mailTekst" style="min-height:120px">${esc(o.mailTekst)}</textarea></label>
+    <div class="acties" style="margin-top:6px"><button type="button" class="actie licht" id="off-mail">✉️ Mail opstellen</button><span class="klein">Opent uw mailprogramma met de tekst. De PDF of Word-versie voegt u zelf als bijlage toe.</span></div>
     <div class="off-vink"><label><input type="checkbox" data-ofv="codes"${o.codes?' checked':''}> RVO-codes tonen</label>
       <label><input type="checkbox" data-ofv="isde"${o.isde?' checked':''}> ISDE-indicatie tonen</label><label><input type="checkbox" data-ofv="afmelden"${o.afmelden?' checked':''}> tekst afmelden energielabel tonen</label><label><input type="checkbox" data-ofv="exclBtw"${o.exclBtw?' checked':''}> offerte excl. btw (zonder btw-regels)</label><label><input type="checkbox" data-ofv="zakelijk"${o.zakelijk?' checked':''}> klant is zakelijke investeerder (ISDE-tekst)</label><label><input type="checkbox" data-ofv="teken"${o.teken?' checked':''}> akkoordverklaring (handtekening)</label></div>
     <div class="off-term" style="margin-top:8px"><b>Termijnstaat</b> <span class="klein">percentage van het totaal incl. btw</span>
@@ -5087,7 +5091,11 @@ function render(){
   el.querySelectorAll('[data-ofv]').forEach(i => i.onchange = () => { o[i.dataset.ofv] = i.checked; BAG.projBewaar(); render(); });
   el.querySelectorAll('[data-ofs]').forEach(i => i.onchange = () => { o[i.dataset.ofs] = i.value; BAG.projBewaar(); render(); });
   el.querySelectorAll('[data-oft]').forEach(i => i.onchange = () => { const t = o.termijnen[+i.dataset.oft]; t[i.dataset.oftk] = i.dataset.oftk === 'p' ? (+i.value || 0) : i.value; BAG.projBewaar(); render(); });
-  $('off-std').onclick = () => { delete o.intro; delete o.voorwaarden; delete o.aanhef; delete o.termijnen; delete o.fin; delete o.finAan; BAG.projBewaar(); render(); };
+  $('off-mail').onclick = () => { const g = gegevens(BAG.offerte() || {}); if(!g || !g.nummer) return;
+    const naam = (o.klant || '').trim() || 'heer/mevrouw', body = String(o.mailTekst || MAIL_STD).replace(/\{klant\}/g, naam);
+    const subj = 'Offerte-raming (indicatie) ' + o.nummer + ' - ' + BAG.offerte().adres.split(',')[0];
+    location.href = 'mailto:' + encodeURIComponent(o.mail || '') + '?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body); };
+  $('off-std').onclick = () => { delete o.mailTekst; delete o.intro; delete o.voorwaarden; delete o.aanhef; delete o.termijnen; delete o.fin; delete o.finAan; BAG.projBewaar(); render(); };
   $('off-dicht').onclick = () => { open_ = false; el.innerHTML = ''; };
   const knop = (id, soort) => $(id).onclick = async () => { const m = $('off-msg'); m.textContent = ' Maken…';
     try{ const r = await opslaan(BAG.offerte(), soort); m.textContent = r ? ' ✔ ' + r : ''; }catch(e){ m.textContent = e.stil ? '' : ' ⚠️ ' + (e.message || e); console.error(e); } };
