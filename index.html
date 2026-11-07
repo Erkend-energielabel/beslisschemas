@@ -1538,7 +1538,7 @@ function offerteData(){
   const staart=ramS.staart.filter(x=>+x.p).map(x=>({n:x.n,p:+x.p,soort:x.soort,totaal:x.soort==='eur'?+x.p:sub*x.p/100}));
   const excl=sub+staart.reduce((s,x)=>s+x.totaal,0),g9=regels.reduce((s,x)=>s+x.b9,0)+staart.reduce((s,x)=>s+x.totaal*aand.b9,0),g21=regels.reduce((s,x)=>s+x.b21,0)+staart.reduce((s,x)=>s+x.totaal*aand.b21,0);
   const btw9=g9*0.09,btw21=g21*0.21;
-  return{adres:addrOf(b),huidig:BAGhuidig(),sleutel:projSleutel(b),regels,sub,staart,excl,g9,g21,btw9,btw21,incl:excl+btw9+btw21,
+  return{adres:addrOf(b),huidig:BAGhuidig(),sleutel:projSleutel(b),regels,labelNu:(b.vbos||[]).map(v=>{const l=labelVan(v.p||v);return l&&l.klasse?String(l.klasse).trim().toUpperCase():null}).find(Boolean)||null,sub,staart,excl,g9,g21,btw9,btw21,incl:excl+btw9+btw21,
     isde:r.isde.totaal,isdeDubbel:r.isde.dubbel,isdeMeld:r.isde.meld,peil:r.peil,variant:VARNAAM[r.vr.type]+', '+VARNAAM[r.vr.gr]+', '+VARNAAM[ramS.aanpak],bouwjaar:b.bouwjaar,
     proj:projS(b)};
 }
@@ -4992,6 +4992,9 @@ const VOORWAARDEN_STD = [
 const TERMIJNEN_STD = [{n:'Bij opdracht', p:10}, {n:'Bij aanvang straatwerkzaamheden', p:40}, {n:'Bij oplevering', p:50}];
 const FIN_STD = 'Bij uw hypotheekverstrekker kunnen extra voordelige leningen rondom verduurzaming mogelijk zijn, zoals een energiebesparende hypotheek of een verbeterlening. Wij adviseren u dit na te vragen bij uw hypotheekverstrekker of financieel adviseur; wij zijn geen financieel adviseur.';
 const ZAK_TXT = 'U treedt op als zakelijke investeerder. De ISDE-subsidie voor woningeigenaren geldt alleen voor eigenaar-bewoners; zakelijke aanvragers kunnen voor isolatiemaatregelen geen ISDE-subsidie aanvragen. Voor verhuurde woningen kan mogelijk de SVOH-regeling gelden; wij adviseren u dit na te gaan bij RVO.';
+const LABEL_KL = ['A++++','A+++','A++','A+','A','B','C','D','E','F','G'];
+const LABEL_KLEUR = {'A++++':'#006837','A+++':'#1a8c48','A++':'#39a935','A+':'#8cc63f','A':'#c8d32c','B':'#ffe600','C':'#fdb913','D':'#f7941d','E':'#ef7c1e','F':'#e5532b','G':'#c83b24'};
+const LABEL_LICHT = ['A++++','A+++','A++','F','G'];
 const AFMELD_TXT = 'Na de verduurzaming kan het energielabel worden afgemeld. Het afmelden van het energielabel is inbegrepen in de bovengenoemde prijs.';
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -5029,6 +5032,8 @@ function gegevens(d){
   if(o.codes == null) o.codes = false;
   if(o.afmelden == null) o.afmelden = false;
   if(o.zakelijk == null) o.zakelijk = false;
+  if(o.labelNu == null) o.labelNu = d.labelNu || '';
+  if(o.labelNa == null) o.labelNa = '';
   if(o.exclBtw == null) o.exclBtw = false;
   return o;
 }
@@ -5054,6 +5059,7 @@ function render(){
   const veld = (k, label, type='text', extra='') => `<label>${label}<input type="${type}" data-of="${k}" value="${esc(o[k])}" ${extra}></label>`;
   const som = o.termijnen.reduce((s,x) => s + (+x.p || 0), 0);
   el.innerHTML = `<div class="off-form"><h3>📄 Offerte verduurzamingsmaatregelen — namens Erkend-Energielabel.nl</h3>
+    <div class="off-grid"><label>Huidig energielabel<select data-ofs="labelNu">${LABEL_KL.map(k => `<option value="${k}"${o.labelNu===k?' selected':''}>${k}</option>`).join('')}<option value=""${o.labelNu?'':' selected'}>–</option></select></label><label>Verwacht energielabel na uitvoering<select data-ofs="labelNa">${LABEL_KL.map(k => `<option value="${k}"${o.labelNa===k?' selected':''}>${k}</option>`).join('')}<option value=""${o.labelNa?'':' selected'}>nog in te vullen</option></select></label></div>
     <div class="off-grid">${veld('nummer','Offertenummer')}${veld('datum','Datum','date')}${veld('geldig','Geldig (dagen)','number','min="1" step="1"')}
       ${veld('klant','Klant (naam)','text','placeholder="Dhr./mevr. …"')}${veld('klantAdres','Adres klant')}${veld('klantPc','Postcode en plaats')}${veld('mail','E-mail klant (optioneel)','email')}</div>
     <label class="klein" style="display:block;margin-top:8px">Aanhef<input type="text" data-of="aanhef" value="${esc(o.aanhef)}" style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #cfdcd2;border-radius:7px"></label>
@@ -5066,10 +5072,11 @@ function render(){
     <label class="klein" style="display:block;margin-top:8px"><input type="checkbox" data-ofv="finAan"${o.finAan?' checked':''}> tekst financiering (hypotheek) tonen</label>
     <label class="klein" style="display:block">Tekst financiering<textarea data-of="fin">${esc(o.fin)}</textarea></label>
     <label class="klein" style="display:block;margin-top:6px">Voorwaarden en uitgangspunten (één per regel)<textarea data-of="voorwaarden" style="min-height:110px">${esc(o.voorwaarden)}</textarea></label>
-    <div class="off-sam">${d.regels.length} maatregel${d.regels.length===1?'':'en'} · totaal excl. btw <b>${eur0(d.excl)}</b> · btw ${eur0(d.btw9+d.btw21)} · <b>incl. btw ${eur0(d.incl)}</b>${o.exclBtw?' · <b>offerte excl. btw</b>':''}${o.isde&&d.isde&&!o.exclBtw?` · ISDE-indicatie ${eur0(d.isde)}`:''} · geldig t/m ${tot.toLocaleDateString('nl-NL')}<br><span class="klein">Alleen totaalprijzen per onderdeel; het staartblad is naar rato in de onderdelen verwerkt (geen m²- of eenheidsprijzen in de offerte). Bedragen volgen de raming hierboven: wijzig daar en maak de offerte opnieuw.</span></div>
+    <div class="off-sam">${d.regels.length} maatregel${d.regels.length===1?'':'en'} · totaal excl. btw <b>${eur0(d.excl)}</b> · btw ${eur0(d.btw9+d.btw21)} · <b>incl. btw ${eur0(d.incl)}</b>${o.exclBtw?' · <b>offerte excl. btw</b>':''}${o.labelNa?'':' · <b>let op:</b> verwacht energielabel nog niet ingevuld'}${o.isde&&d.isde&&!o.exclBtw?` · ISDE-indicatie ${eur0(d.isde)}`:''} · geldig t/m ${tot.toLocaleDateString('nl-NL')}<br><span class="klein">Alleen totaalprijzen per onderdeel; het staartblad is naar rato in de onderdelen verwerkt (geen m²- of eenheidsprijzen in de offerte). Bedragen volgen de raming hierboven: wijzig daar en maak de offerte opnieuw.</span></div>
     <div class="acties"><button type="button" class="actie licht" id="off-voor">👁 Voorbeeld tonen</button><button type="button" class="actie" id="off-pdf">📄 Offerte als PDF</button><button type="button" class="actie" id="off-word">📝 Offerte als Word</button><button type="button" class="actie licht" id="off-std">Teksten terug naar standaard</button><button type="button" class="actie licht" id="off-dicht">Sluiten</button><span id="off-msg" class="klein"></span></div><div id="off-prev"></div></div>`;
   el.querySelectorAll('[data-of]').forEach(i => i.onchange = () => { o[i.dataset.of] = i.type === 'number' ? (+i.value || 30) : i.value; BAG.projBewaar(); if(['datum','geldig'].includes(i.dataset.of)) render(); });
   el.querySelectorAll('[data-ofv]').forEach(i => i.onchange = () => { o[i.dataset.ofv] = i.checked; BAG.projBewaar(); render(); });
+  el.querySelectorAll('[data-ofs]').forEach(i => i.onchange = () => { o[i.dataset.ofs] = i.value; BAG.projBewaar(); render(); });
   el.querySelectorAll('[data-oft]').forEach(i => i.onchange = () => { const t = o.termijnen[+i.dataset.oft]; t[i.dataset.oftk] = i.dataset.oftk === 'p' ? (+i.value || 0) : i.value; BAG.projBewaar(); render(); });
   $('off-std').onclick = () => { delete o.intro; delete o.voorwaarden; delete o.aanhef; delete o.termijnen; delete o.fin; delete o.finAan; BAG.projBewaar(); render(); };
   $('off-dicht').onclick = () => { open_ = false; el.innerHTML = ''; };
@@ -5136,6 +5143,23 @@ function maak(d){
   /* aanhef + intro */
   doc.text(T(o.aanhef), M, y); y += 6;
   const intro = doc.splitTextToSize(T(o.intro), BR); doc.text(intro, M, y); y += intro.length*4.4 + 4;
+  /* energielabel: huidig → na uitvoering */
+  if(o.labelNu || o.labelNa){
+    const hh = 30; const bad = (x, k, lbl) => {
+      doc.setFont('helvetica','bold'); doc.setFontSize(7); doc.setTextColor(90); doc.text(lbl, x, y+8);
+      const kl = k || '?', kleur = H(LABEL_KLEUR[kl] || '#cfd6d1');
+      doc.setFillColor(...kleur); doc.roundedRect(x, y+11, 22, 15, 2, 2, 'F');
+      doc.setFont('helvetica','bold'); doc.setFontSize(kl.length > 2 ? 12 : 17); doc.setTextColor(...(LABEL_LICHT.includes(kl) ? [255,255,255] : [29,42,34]));
+      doc.text(kl, x + 11, y+21.6, {align:'center'}); };
+    doc.setFillColor(...H('#f4f8f5')); doc.roundedRect(M, y, BR, hh, 3, 3, 'F');
+    bad(M+6, o.labelNu, 'HUIDIG LABEL');
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...H('#0B3D2E')); doc.text('naar', M+38, y+19, {align:'center'});
+    bad(M+52, o.labelNa, 'NA UITVOERING');
+    doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(...H('#0B3D2E'));
+    const tek = o.labelNu && o.labelNa ? `Met de voorgestelde maatregelen gaat uw woning van energielabel ${o.labelNu} naar energielabel ${o.labelNa}.` : 'Met de voorgestelde maatregelen verbetert uw energielabel aanzienlijk.';
+    doc.text(doc.splitTextToSize(T(tek), BR - 88), M+84, y+14);
+    y += hh + 6;
+  }
   /* tabel: alleen totaal per onderdeel */
   const regels = verdeel(d);
   const body = regels.map((x,i) => [String(i+1), {content: T(x.naam) + '\n' + T((o.codes && x.code ? x.code + ' - ' : '') + x.omschr)}, T(eur(x.prijs))]);
@@ -5270,6 +5294,12 @@ function docxMaak(d){
     C(5103, [P('BETREFT', {sz:14, b:true, c:'3CB54A', na:40}), ...betreft.map(t => P(t, {na:20}))], {borders:zonderRand})]]));
   kids.push(P(o.aanhef, {voor:240, na:100}));
   kids.push(P(o.intro, {na:160}));
+  if(o.labelNu || o.labelNa){
+    const lb = (k, t) => C(2300, [P(t, {sz:14, b:true, c:'5A6B60', na:20}), P(k || '?', {sz:k && k.length > 2 ? 24 : 36, b:true, c:(LABEL_LICHT.includes(k) ? 'FFFFFF' : '1D2A22'), na:0})], {fill: LABEL_KLEUR[k || '?'] || 'CFD6D1'});
+    const tek = o.labelNu && o.labelNa ? `Met de voorgestelde maatregelen gaat uw woning van energielabel ${o.labelNu} naar energielabel ${o.labelNa}.` : 'Met de voorgestelde maatregelen verbetert uw energielabel aanzienlijk.';
+    kids.push(TB([2300, 700, 2300, 4906], [[lb(o.labelNu, 'HUIDIG LABEL'), C(700, [P('naar', {sz:18, b:true, c:'0B3D2E', r:false})], {borders:zonderRand}), lb(o.labelNa, 'NA UITVOERING'), C(4906, [P(tek, {sz:21, b:true, c:'0B3D2E', na:0})], {borders:zonderRand})]]));
+    kids.push(new D.Paragraph({spacing:{after:120}, children:[]}));
+  }
   /* regels: alleen totaal per onderdeel */
   const kw = [600, 7106, 2500];
   const regelRijen = [new D.TableRow({tableHeader:true, children:[C(kw[0], [P('#', {b:true, c:'FFFFFF'})], {fill:'3CB54A'}), C(kw[1], [P('Onderdeel', {b:true, c:'FFFFFF'})], {fill:'3CB54A'}), C(kw[2], [P('Prijs', {b:true, c:'FFFFFF', r:true})], {fill:'3CB54A'})]})];
