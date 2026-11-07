@@ -1582,12 +1582,12 @@ function renderRaming(){
       <div class="ram-glasrij"><label>Alle gevels <input type="number" id="ram-glas" min="0" max="90" step="1" value="${r.glas}"> %</label>
       ${r.gevelDirs.map(g=>`<label><span class="bag-pill" style="background:${DCOL[g.dir]||'#9aa59f'}">${g.dir}</span> ${fmt(g.opp,1)} m² <input type="number" data-gdir="${g.dir}" min="0" max="90" step="1" value="${g.pct}"> %${ramS.glasDir[g.dir]!=null?` <a href="#" data-gdirreset="${g.dir}" title="terug naar ${r.glas}%">↺</a>`:''} <span class="klein">= ${fmt(g.opp*g.pct/100,1)} m²</span></label>`).join('')}
       <span class="ram-glastot">Totaal ramen/deuren <b>${fmt(r.glasM2,1)} m²</b> · dichte gevel <b>${fmt(r.o.gevel-r.glasM2,1)} m²</b></span></div></div>
-    <table class="ram-tab"><thead><tr><th></th><th>Maatregel (RVO-variant)</th><th>Hoeveelheid</th><th>Prijs p/eenh.</th><th>Totaal</th><th>ISDE</th></tr></thead><tbody>
+    <table class="ram-tab"><thead><tr><th></th><th>Maatregel (RVO-variant)</th><th>Hoeveelheid</th><th>Prijs p/eenh. excl. btw</th><th>Totaal</th><th>ISDE</th></tr></thead><tbody>
     ${r.regels.map(x=>`<tr class="${x.aan?'aan':''}"><td><input type="checkbox" data-aan="${x.k}"${pj.aan[x.k]?' checked':''}></td>
       <td><b>${x.naam}</b>${(()=>{const cs=[...x.codes.filter(kkM)];if(x.code&&!cs.includes(x.code))cs.push(x.code);return cs.length>1?`<select class="ram-code${x.alt?' ram-altgekozen':''}" data-code="${x.k}">${cs.map(c=>`<option value="${c}"${c===x.code?' selected':''}>${x.codes.includes(c)?'':'★ '}${c} · ${esc(kkM(c).e)}</option>`).join('')}</select>`:`<small>${x.code?x.code+' · ':''}${esc(x.omschr)}</small>`})()}
         ${x.codes.length&&KK.groepen?`<button type="button" class="ram-altk${ramS.alt===x.k?' on':''}" data-alt="${x.k}">${ramS.alt===x.k?'▲':'▼'} alternatieven</button>`:''}${x.alt?` <a href="#" data-altreset="${x.k}" class="klein" title="terug naar de standaardkeuze">↺ standaard</a>`:''}${x.varAlt?`<small class="ram-let">prijs uit variant ${esc(x.varAlt)} (niet in RVO voor deze variant)</small>`:''}</td>
       <td><input type="number" class="ram-h" data-h="${x.k}" step="0.1" min="0" value="${Math.round(x.hoev*10)/10}"> ${x.eenh}${pj.hoev[x.k]!=null?` <a href="#" data-reset="${x.k}" title="terug naar ${fmt(x.auto,1)}">↺</a>`:''}${pj.hoev[x.k]==null&&HERK[x.bron]?`<small>${HERK[x.bron](r)}</small>`:''}${x.besteld!=null&&x.aan?`<small>bestellen ± ${fmt(x.besteld,1)} ${x.eenh}</small>`:''}</td>
-      <td>€ <input type="number" class="ram-p" data-p="${x.k}" step="0.01" min="0" value="${Math.round(x.prijs*100)/100}">${x.eigenPrijs?` <a href="#" data-preset="${x.k}" title="terug naar RVO-kental">↺</a><small>eigen prijs</small>`:''}</td>
+      <td>€ <input type="number" class="ram-p" data-p="${x.k}" step="0.01" min="0" value="${Math.round(x.excl*100)/100}"> <small>excl. btw</small>${x.eigenPrijs?` <a href="#" data-preset="${x.k}" title="terug naar RVO-kental">↺</a><small>eigen prijs</small>`:''}</td>
       <td class="m2">${x.aan?eur(x.totaal):'<span class="klein">–</span>'}</td>
       <td class="isde">${isdeCel(x,r.isde.uit[x.k])}</td></tr>${ramS.alt===x.k?`<tr class="ram-altrij"><td></td><td colspan="5">${altPaneel(x,r)}</td></tr>`:''}`).join('')}
     <tr class="sub"><td></td><td colspan="3">Subtotaal maatregelen</td><td class="m2">${eur(r.direct)}</td><td></td></tr>
@@ -1635,7 +1635,7 @@ function renderRaming(){
       ` ✔ ${KK.laatst!==oud&&oud?'<b>Nieuwe prijzen geladen.</b> ':''}Actueel: <b>${esc((KK.lijst.find(x=>x.bestand===KK.laatst)||{}).peildatum||KK.peil)}</b> (${Object.keys(KK.m).length} maatregelen, opgehaald ${dt(KK.opgehaald)}).${st?` Laatst bij RVO gecontroleerd: ${dt(st.gecontroleerd)}.`:''} <a href="https://github.com/Erkend-energielabel/beslisschemas/actions/workflows/kostenkentallen.yml" target="_blank" rel="noopener" title="Op GitHub: Run workflow">Nu bij RVO laten controleren ↗</a>`};
   el.querySelectorAll('[data-h]').forEach(c=>c.onchange=()=>{const v=parseFloat(String(c.value).replace(',','.'));if(isNaN(v))delete pj.hoev[c.dataset.h];else pj.hoev[c.dataset.h]=v;projBewaar();her()});
   el.querySelectorAll('[data-reset]').forEach(a=>a.onclick=e=>{e.preventDefault();delete pj.hoev[a.dataset.reset];projBewaar();her()});
-  el.querySelectorAll('[data-p]').forEach(c=>c.onchange=()=>{const v=parseFloat(String(c.value).replace(',','.'));if(!isNaN(v)){const x=r.regels.find(q=>q.k===c.dataset.p);const f=ramS.btw?btwFactor(x.btw,(rvoPrijs(x.code,r.vr.sleutel)||{}).arbeid||0):1;ramS.prijs[c.dataset.p]=v/f;ramBewaar()}her()});
+  el.querySelectorAll('[data-p]').forEach(c=>c.onchange=()=>{const v=parseFloat(String(c.value).replace(',','.'));if(!isNaN(v)){const x=r.regels.find(q=>q.k===c.dataset.p);ramS.prijs[c.dataset.p]=v;ramBewaar()}her()});
   el.querySelectorAll('[data-preset]').forEach(a=>a.onclick=e=>{e.preventDefault();delete ramS.prijs[a.dataset.preset];ramBewaar();her()});
   $('ram-type').onchange=e=>{ramS.type=e.target.value;her()};$('ram-gr').onchange=e=>{ramS.grootte=e.target.value;her()};
   $('ram-aanpak').onchange=e=>{ramS.aanpak=e.target.value;ramBewaar();her()};$('ram-btw').onchange=e=>{ramS.btw=e.target.checked;ramBewaar();her()};
@@ -5160,10 +5160,11 @@ function maak(d){
     doc.text(doc.splitTextToSize(T(tek), BR - 88), M+84, y+14);
     y += hh + 6;
   }
+  doc.setFont('helvetica','italic'); doc.setFontSize(8.5); doc.setTextColor(90); doc.text(T(o.exclBtw ? 'Alle bedragen in deze offerte zijn exclusief btw.' : 'Alle onderdeelprijzen zijn exclusief btw; de btw wordt hieronder berekend.'), M, y); y += 5;
   /* tabel: alleen totaal per onderdeel */
   const regels = verdeel(d);
   const body = regels.map((x,i) => [String(i+1), {content: T(x.naam) + '\n' + T((o.codes && x.code ? x.code + ' - ' : '') + x.omschr)}, T(eur(x.prijs))]);
-  const kopR = ['#', 'Onderdeel', 'Prijs'];
+  const kopR = ['#', 'Onderdeel', 'Prijs excl. btw'];
   const som = (label, bedrag, st={}) => [{content:T(label), colSpan:2, styles:{halign:'right', ...st}}, {content:T(bedrag), styles:{halign:'right', ...st}}];
   body.push(som('Totaal excl. btw', eur(d.excl), {fontStyle:'bold', fillColor:H('#eef7ef')}));
   if(!o.exclBtw && d.btw9) body.push(som('Btw 9% over ' + eur(d.g9) + ' (arbeid isolatie)', eur(d.btw9)));
@@ -5300,9 +5301,10 @@ function docxMaak(d){
     kids.push(TB([2300, 700, 2300, 4906], [[lb(o.labelNu, 'HUIDIG LABEL'), C(700, [P('naar', {sz:18, b:true, c:'0B3D2E', r:false})], {borders:zonderRand}), lb(o.labelNa, 'NA UITVOERING'), C(4906, [P(tek, {sz:21, b:true, c:'0B3D2E', na:0})], {borders:zonderRand})]]));
     kids.push(new D.Paragraph({spacing:{after:120}, children:[]}));
   }
+  kids.push(P(o.exclBtw ? 'Alle bedragen in deze offerte zijn exclusief btw.' : 'Alle onderdeelprijzen zijn exclusief btw; de btw wordt hieronder berekend.', {sz:17, i:true, c:'5A6B60', na:80}));
   /* regels: alleen totaal per onderdeel */
   const kw = [600, 7106, 2500];
-  const regelRijen = [new D.TableRow({tableHeader:true, children:[C(kw[0], [P('#', {b:true, c:'FFFFFF'})], {fill:'3CB54A'}), C(kw[1], [P('Onderdeel', {b:true, c:'FFFFFF'})], {fill:'3CB54A'}), C(kw[2], [P('Prijs', {b:true, c:'FFFFFF', r:true})], {fill:'3CB54A'})]})];
+  const regelRijen = [new D.TableRow({tableHeader:true, children:[C(kw[0], [P('#', {b:true, c:'FFFFFF'})], {fill:'3CB54A'}), C(kw[1], [P('Onderdeel', {b:true, c:'FFFFFF'})], {fill:'3CB54A'}), C(kw[2], [P('Prijs excl. btw', {b:true, c:'FFFFFF', r:true})], {fill:'3CB54A'})]})];
   regels.forEach((x,i) => regelRijen.push(new D.TableRow({cantSplit:true, children:[
     C(kw[0], [P(String(i+1))]),
     C(kw[1], [P(x.naam, {b:true, na:20}), P((o.codes && x.code ? x.code + ' - ' : '') + (x.omschr||''), {sz:16, c:'5A6B60', na:0})]),
