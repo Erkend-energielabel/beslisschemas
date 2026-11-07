@@ -1440,10 +1440,10 @@ const PV_OPBR={Z:950,ZO:910,ZW:910,O:820,W:820,plat:860};   /* kWh per kWp per j
 const ramS=(()=>{let o={};try{o=JSON.parse(localStorage.getItem('ee_raming2')||'{}')}catch(e){}
   let st=Array.isArray(o.staart)?o.staart:STAART_STD.map(x=>({...x}));
   /* bestaande opslagen: standaardregels Energielabel en Schilderwerk toevoegen (eenmalig, daarna niet opnieuw) */
-  if(Array.isArray(o.staart)&&o.sv!==3){st.forEach(x=>{if(/^(Energielabel|Schilderwerk)$/.test(x.n))x.soort='eur'});STAART_STD.filter(s=>/^(Energielabel|Schilderwerk)$/.test(s.n)&&!st.some(x=>x.n===s.n)).forEach(s=>{const i=st.findIndex(x=>x.n==='Winst & risico');st.splice(i<0?st.length:i,0,{...s})})}
+  if(Array.isArray(o.staart)&&o.sv!==4){st.forEach(x=>{if(/^(Energielabel|Schilderwerk)$/.test(x.n))x.soort='eur'});STAART_STD.filter(s=>/^(Energielabel|Schilderwerk)$/.test(s.n)&&!st.some(x=>x.n===s.n)).forEach(s=>{const i=st.findIndex(x=>x.n==='Winst & risico');st.splice(i<0?st.length:i,0,{...s})})}
   return{isde:o.isde||{},isdeWp:o.isdeWp||{},glasDir:o.glasDir||{},glas:o.glas??20,verlies:o.verlies??5,btw:o.btw??true,aanpak:o.aanpak||'enk',prijs:o.prijs||{},code:o.code||{},staart:st,type:null,grootte:null,alt:null,altQ:'',altBio:false,
     aan:{},hoev:{}}})();
-const ramBewaar=()=>{try{localStorage.setItem('ee_raming2',JSON.stringify({isde:ramS.isde,isdeWp:ramS.isdeWp,glasDir:ramS.glasDir,glas:ramS.glas,verlies:ramS.verlies,btw:ramS.btw,aanpak:ramS.aanpak,prijs:ramS.prijs,code:ramS.code,staart:ramS.staart,sv:3}))}catch(e){}};
+const ramBewaar=()=>{try{localStorage.setItem('ee_raming2',JSON.stringify({isde:ramS.isde,isdeWp:ramS.isdeWp,glasDir:ramS.glasDir,glas:ramS.glas,verlies:ramS.verlies,btw:ramS.btw,aanpak:ramS.aanpak,prijs:ramS.prijs,code:ramS.code,staart:ramS.staart,sv:4}))}catch(e){}};
 function ramVariant(b){
   const meer=b.vbos.filter(v=>/woon/.test(v.p.gebruiksdoel||'woon')).length>1,type=ramS.type||(meer?'mgw':'egw');
   const ag=+((vboOf(b)||{}).oppervlakte||0),gr=ramS.grootte||(type==='egw'?(ag&&ag<100?'min':ag>160?'max':'mid'):(ag&&ag<60?'min':ag>90?'max':'mid'));
@@ -1591,8 +1591,8 @@ function renderRaming(){
     <tr class="sub"><td></td><td colspan="3">Subtotaal maatregelen</td><td class="m2">${eur(r.direct)}</td><td></td></tr>
     <tr class="staartkop"><td></td><td colspan="5"><b>Staartblad</b> <span class="klein">— percentage over het subtotaal; RVO-prijzen zijn al incl. opslagen, vul hier alleen extra opslagen of correcties in (negatief = korting)</span></td></tr>
     ${r.staart.map((x,i)=>`<tr class="staart"><td><button type="button" class="ram-sdel" data-sdel="${i}" title="regel verwijderen">×</button></td><td><input type="text" class="ram-snaam" data-snaam="${i}" value="${esc(x.n)}"></td><td></td>
-      <td>${x.soort==='eur'?`€ <input type="number" class="ram-sp" data-sp="${i}" step="25" value="${x.p}">`:`<input type="number" class="ram-sp" data-sp="${i}" step="0.5" value="${x.p}"> %`}</td><td class="m2">${x.p?eur(x.bedrag):'<span class="klein">–</span>'}</td><td></td></tr>`).join('')}
-    <tr class="staart"><td></td><td colspan="5"><button type="button" class="ram-altk" id="ram-sadd">＋ regel toevoegen</button> <button type="button" class="ram-altk" id="ram-snul">alles op 0%</button></td></tr>
+      <td><select class="ram-ssoort" data-ssoort="${i}"><option value="pct"${x.soort==='eur'?'':' selected'}>%</option><option value="eur"${x.soort==='eur'?' selected':''}>€</option></select> <input type="number" class="ram-sp" data-sp="${i}" step="${x.soort==='eur'?25:0.5}" value="${x.p}"></td><td class="m2">${x.p?eur(x.bedrag):'<span class="klein">–</span>'}</td><td></td></tr>`).join('')}
+    <tr class="staart"><td></td><td colspan="5"><button type="button" class="ram-altk" id="ram-sadd">＋ regel toevoegen (%)</button> <button type="button" class="ram-altk" id="ram-sadde">＋ regel toevoegen (€)</button> <button type="button" class="ram-altk" id="ram-snul">alles op 0%</button></td></tr>
     <tr class="tot"><td></td><td colspan="3">Totaal maatregelen + staartblad (${r.btw?'incl.':'excl.'} btw, indicatief)</td><td class="m2">${eur(r.totaal)}</td><td></td></tr>
     <tr class="isde-tot"><td></td><td colspan="3">ISDE-subsidie (indicatie)${r.isde.dubbel?' <span class="isde-x2">×2 verdubbeld</span>':''}</td><td class="m2">− ${eur(r.isde.totaal)}</td><td></td></tr>
     <tr class="tot"><td></td><td colspan="3">Netto investering na ISDE</td><td class="m2">${eur(r.totaal-r.isde.totaal)}</td><td></td></tr></tbody></table>
@@ -1620,6 +1620,8 @@ function renderRaming(){
   el.querySelectorAll('[data-snaam]').forEach(c=>c.onchange=()=>{ramS.staart[+c.dataset.snaam].n=c.value;ramBewaar();changed()});
   el.querySelectorAll('[data-sdel]').forEach(c=>c.onclick=()=>{ramS.staart.splice(+c.dataset.sdel,1);ramBewaar();her()});
   $('ram-sadd').onclick=()=>{ramS.staart.push({n:'Nieuwe opslag',p:0});ramBewaar();her()};
+  $('ram-sadde').onclick=()=>{ramS.staart.push({n:'Nieuwe regel',p:0,soort:'eur'});ramBewaar();her()};
+  el.querySelectorAll('[data-ssoort]').forEach(c=>c.onchange=()=>{ramS.staart[+c.dataset.ssoort].soort=c.value;ramBewaar();her()});
   $('ram-snul').onclick=()=>{ramS.staart.forEach(x=>x.p=0);ramBewaar();her()};
   if($('ram-peil'))$('ram-peil').onchange=e=>{pj.peil=e.target.value===KK.laatst?undefined:e.target.value;projBewaar();kkLaad(e.target.value).then(her)};
   $('ram-kkchk').onclick=async()=>{const m=$('ram-kkmsg');m.textContent=' controleren…';const oud=KK.laatst;await kkLaad(pj.peil,true);
