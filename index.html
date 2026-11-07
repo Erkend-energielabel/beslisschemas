@@ -5102,7 +5102,7 @@ function maak(d){
     styles:{font:'helvetica', fontSize:8.8, cellPadding:{top:1.8, bottom:1.8, left:2, right:2}, textColor:[29,42,34], lineColor:H('#e1e9e3'), lineWidth:{bottom:0.2}},
     headStyles:{fillColor:H('#3CB54A'), textColor:[255,255,255], fontStyle:'bold', fontSize:8.2},
     columnStyles:{0:{cellWidth:8}, 2:{halign:'right', cellWidth:32}},
-    didParseCell: c => { if(c.section==='body' && c.column.index===1 && typeof c.cell.raw === 'object' && c.cell.raw && c.cell.raw.content){ c.cell.styles.fontStyle='normal'; } },
+    didParseCell: c => { if(c.section==='head' && c.column.index===2) c.cell.styles.halign='right'; if(c.section==='body' && c.column.index===1 && typeof c.cell.raw === 'object' && c.cell.raw && c.cell.raw.content){ c.cell.styles.fontStyle='normal'; } },
     didDrawCell: c => { /* tweede regel omschrijving grijs: overschrijven */ },
     willDrawPage: dd => { if(dd.pageNumber > 1){ stempel(doc); kop(doc, o, d, false); } }
   });
