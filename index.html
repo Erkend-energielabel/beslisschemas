@@ -5004,7 +5004,7 @@ const ZAK_TXT = 'U treedt op als zakelijke investeerder. De ISDE-subsidie voor w
 const LABEL_KL = ['A++++','A+++','A++','A+','A','B','C','D','E','F','G'];
 const LABEL_KLEUR = {'A++++':'#006837','A+++':'#1a8c48','A++':'#39a935','A+':'#8cc63f','A':'#c8d32c','B':'#ffe600','C':'#fdb913','D':'#f7941d','E':'#ef7c1e','F':'#e5532b','G':'#c83b24'};
 const LABEL_LICHT = ['A++++','A+++','A++','F','G'];
-const MAIL_STD = 'Beste {klant},\n\nHartelijk dank voor uw interesse in ons bedrijf. In de bijlage vindt u onze offerte-raming (indicatie) voor de verduurzamingsmaatregelen aan uw woning.\n\nHeeft u vragen, of wilt u de mogelijkheden samen verder onderzoeken? Neem dan gerust contact met ons op.\n\nMet vriendelijke groet,\nJ.J. de Laat\nErkend-Energielabel.nl\nT 06 51 63 08 96';
+const MAIL_STD = 'Beste {klant},\n\nHartelijk dank voor uw interesse in ons bedrijf. In de bijlage vindt u onze kostenraming ter indicatie voor de verduurzamingsmaatregelen aan uw woning. Deze kan in overleg samen verder worden uitgewerkt tot een definitieve opdracht. Erkend-Energielabel.nl kan u daarbij ontzorgen.\n\nHeeft u vragen, neem dan gerust contact met ons op.\n\nMet vriendelijke groet,\nJ.J. de Laat\nErkend-Energielabel.nl\nT 06 51 63 08 96';
 const AFMELD_TXT = 'Na de verduurzaming kan het energielabel worden afgemeld. Het afmelden van het energielabel is inbegrepen in de bovengenoemde prijs.';
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -5045,7 +5045,7 @@ function gegevens(d){
   if(o.labelNu == null) o.labelNu = d.labelNu || '';
   if(o.labelNa == null) o.labelNa = '';
   if(o.exclBtw == null) o.exclBtw = false;
-  if(o.mailTekst == null) o.mailTekst = MAIL_STD;
+  if(o.mailTekst == null || /onze offerte-raming/.test(o.mailTekst)) o.mailTekst = MAIL_STD;
   return o;
 }
 /* staartblad naar rato in de onderdelen; afronden op centen, verschil in het grootste onderdeel */
@@ -5098,7 +5098,7 @@ function render(){
   el.querySelectorAll('[data-oft]').forEach(i => i.onchange = () => { const t = o.termijnen[+i.dataset.oft]; t[i.dataset.oftk] = i.dataset.oftk === 'p' ? (+i.value || 0) : i.value; BAG.projBewaar(); render(); });
   $('off-mail').onclick = () => { const g = gegevens(BAG.offerte() || {}); if(!g || !g.nummer) return;
     const naam = (o.klant || '').trim() || 'heer/mevrouw', body = String(o.mailTekst || MAIL_STD).replace(/\{klant\}/g, naam);
-    const subj = 'Offerte-raming (indicatie) ' + o.nummer + ' - ' + BAG.offerte().adres.split(',')[0];
+    const subj = 'Kostenraming (indicatie) ' + o.nummer + ' - ' + BAG.offerte().adres.split(',')[0];
     location.href = 'mailto:' + encodeURIComponent(o.mail || '') + '?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body); };
   $('off-std').onclick = () => { delete o.mailTekst; delete o.intro; delete o.voorwaarden; delete o.aanhef; delete o.termijnen; delete o.fin; delete o.finAan; BAG.projBewaar(); render(); };
   $('off-dicht').onclick = () => { open_ = false; el.innerHTML = ''; };
@@ -5283,7 +5283,7 @@ function maak(d){
   /* afsluiting + akkoord */
   ruimte(o.teken ? 46 : 22);
   doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(29,42,34);
-  doc.text(T('Deze offerte-raming is een indicatie. Heeft u interesse, dan onderzoeken wij graag samen de mogelijkheden verder. Heeft u vragen, neem dan gerust contact met ons op.'), M, y, {maxWidth: BR}); y += 9;
+  doc.text(T('Dit is een kostenraming ter indicatie. In overleg kan deze samen verder worden uitgewerkt tot een definitieve opdracht. Erkend-Energielabel.nl kan u ontzorgen bij het verduurzamen van uw woning. Heeft u vragen, neem dan gerust contact met ons op.'), M, y, {maxWidth: BR}); y += 9;
   const xr = M + BR/2 + 6;
   doc.text('Met vriendelijke groet,', M, y); if(o.teken) doc.text('Voor akkoord opdrachtgever,', xr, y); y += 5;
   doc.setFont('helvetica','bold'); doc.text('J.J. de Laat', M, y + 12); doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(90);
@@ -5388,7 +5388,7 @@ function docxMaak(d){
   const vw = [...String(o.voorwaarden||'').split('\n').map(s => s.trim()).filter(Boolean), ...extraVw(d)];
   if(vw.length){ kids.push(kopje('Voorwaarden en uitgangspunten')); vw.forEach(t => kids.push(P('•  ' + t, {sz:17, na:60}))); }
   /* afsluiting + akkoord */
-  kids.push(P('Deze offerte-raming is een indicatie. Heeft u interesse, dan onderzoeken wij graag samen de mogelijkheden verder. Heeft u vragen, neem dan gerust contact met ons op.', {voor:240, na:200}));
+  kids.push(P('Dit is een kostenraming ter indicatie. In overleg kan deze samen verder worden uitgewerkt tot een definitieve opdracht. Erkend-Energielabel.nl kan u ontzorgen bij het verduurzamen van uw woning. Heeft u vragen, neem dan gerust contact met ons op.', {voor:240, na:200}));
   const sluit = [P('Met vriendelijke groet,', {na:520}), P('J.J. de Laat', {b:true, na:0}), P('Erkend-Energielabel.nl', {sz:17, c:'5A6B60', na:0}), P('Bouwkundig ingenieur & energieprestatieadviseur', {sz:17, c:'5A6B60', na:0})];
   const akkoord = o.teken ? [P('Voor akkoord opdrachtgever,', {na:520}), P('Naam: ______________________________', {na:200}), P('Datum: _____________________________', {na:200}), P('Handtekening: ______________________', {na:0})] : [P('')];
   kids.push(TB([5103, 5103], [[C(5103, sluit, {borders:zonderRand}), C(5103, akkoord, {borders:zonderRand})]]));
