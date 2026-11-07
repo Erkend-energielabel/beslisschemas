@@ -1474,11 +1474,12 @@ function ramingData(b){
     const excl=ramS.prijs[m.k]!=null?ramS.prijs[m.k]:(rp?rp.excl:m.eigen),f=btwFactor(m.btw,rp?rp.arbeid:0);
     const pp=projS(b),prijs=ramS.btw?excl*f:excl,auto=bron[m.bron]||0,h=pp.hoev[m.k]!=null?pp.hoev[m.k]:auto;
     const eenh=rp?(rp.h==='won'?'woning':rp.h):m.eenh;
-    return{...m,code,alt:!!pc&&!m.codes.includes(pc),varAlt:rp&&rp.alt,omschr:rp?rp.e:'eigen prijs',eenh,auto,hoev:h,excl,prijs,eigenPrijs:ramS.prijs[m.k]!=null,totaal:h*prijs,aan:!!pp.aan[m.k]&&h>0,
+    return{...m,code,alt:!!pc&&!m.codes.includes(pc),varAlt:rp&&rp.alt,omschr:rp?rp.e:'eigen prijs',eenh,auto,hoev:h,excl,prijs,btwF:f,eigenPrijs:ramS.prijs[m.k]!=null,totaal:h*prijs,aan:!!pp.aan[m.k]&&h>0,
       besteld:/m²/.test(eenh)&&!/^pv/.test(m.k)?h*(1+ramS.verlies/100):null}});
   const sel=regels.filter(r=>r.aan),direct=sel.reduce((s,r)=>s+r.totaal,0),h=heights(b),isde=isdeBereken(b,regels);
   const staart=ramS.staart.map(x=>({...x,bedrag:x.soort==='eur'?(+x.p||0):direct*(+x.p||0)/100})),totaal=direct+staart.reduce((s,x)=>s+x.bedrag,0);
-  return{o,vr,gevelDirs,glasM2,regels,sel,direct,staart,totaal,isde,pv,peil:KK.peil,kkBron:KK.bron,kwp:pv.reduce((s,x)=>s+x.kwp,0),kwh:pv.reduce((s,x)=>s+x.kwh,0),panelen:pv.reduce((s,x)=>s+x.n,0),
+  const exD=sel.reduce((s,x)=>s+x.hoev*x.excl,0),inD=sel.reduce((s,x)=>s+x.hoev*x.excl*(x.btwF||1),0),ratio=exD?inD/exD:1,staEx=ramS.staart.reduce((s,x)=>s+(x.soort==='eur'?(+x.p||0):exD*(+x.p||0)/100),0),exTot=exD+staEx,inTot=inD+staEx*ratio,btwB=inTot-exTot;
+  return{o,vr,gevelDirs,glasM2,regels,sel,direct,staart,totaal,exTot,inTot,btwB,isde,pv,peil:KK.peil,kkBron:KK.bron,kwp:pv.reduce((s,x)=>s+x.kwp,0),kwh:pv.reduce((s,x)=>s+x.kwh,0),panelen:pv.reduce((s,x)=>s+x.n,0),
     glas:ramS.glas,verlies:ramS.verlies,btw:ramS.btw,werkhoogte:h.hmax,goot:Math.max(0,...vlakkenVan(b).filter(v=>!v.plat).map(v=>v.goot))||null};
 }
 const eur=v=>'€ '+Math.round(v).toLocaleString('nl-NL');
@@ -1593,7 +1594,9 @@ function renderRaming(){
     ${r.staart.map((x,i)=>`<tr class="staart"><td><button type="button" class="ram-sdel" data-sdel="${i}" title="regel verwijderen">×</button></td><td><input type="text" class="ram-snaam" data-snaam="${i}" value="${esc(x.n)}"></td><td></td>
       <td><select class="ram-ssoort" data-ssoort="${i}"><option value="pct"${x.soort==='eur'?'':' selected'}>%</option><option value="eur"${x.soort==='eur'?' selected':''}>€</option></select> <input type="number" class="ram-sp" data-sp="${i}" step="${x.soort==='eur'?25:0.5}" value="${x.p}"></td><td class="m2">${x.p?eur(x.bedrag):'<span class="klein">–</span>'}</td><td></td></tr>`).join('')}
     <tr class="staart"><td></td><td colspan="5"><button type="button" class="ram-altk" id="ram-sadd">＋ regel toevoegen (%)</button> <button type="button" class="ram-altk" id="ram-sadde">＋ regel toevoegen (€)</button> <button type="button" class="ram-altk" id="ram-snul">alles op 0%</button></td></tr>
-    <tr class="tot"><td></td><td colspan="3">Totaal maatregelen + staartblad (${r.btw?'incl.':'excl.'} btw, indicatief)</td><td class="m2">${eur(r.totaal)}</td><td></td></tr>
+    <tr class="tot"><td></td><td colspan="3">Totaal excl. btw (maatregelen + staartblad)</td><td class="m2">${eur(r.exTot)}</td><td></td></tr>
+    <tr class="sub"><td></td><td colspan="3">Btw (9% arbeid isolatie / 21% / 0% zonnepanelen)</td><td class="m2">${eur(r.btwB)}</td><td></td></tr>
+    <tr class="tot"><td></td><td colspan="3">Totaal incl. btw (maatregelen + staartblad)</td><td class="m2">${eur(r.inTot)}</td><td></td></tr>
     <tr class="isde-tot"><td></td><td colspan="3">ISDE-subsidie (indicatie)${r.isde.dubbel?' <span class="isde-x2">×2 verdubbeld</span>':''}</td><td class="m2">− ${eur(r.isde.totaal)}</td><td></td></tr>
     <tr class="tot"><td></td><td colspan="3">Netto investering na ISDE</td><td class="m2">${eur(r.totaal-r.isde.totaal)}</td><td></td></tr></tbody></table>
     <div class="isde-box"><b>ISDE – waar heb je recht op?</b><ul>${r.isde.meld.map(m=>`<li>${esc(m)}</li>`).join('')}<li>Bedragen ISDE woningeigenaren 2026 (uitvoering 2025 of later): spouw € 5,25 · gevel € 20,25 · dak € 16,25 · vloer € 5,50 · bodem € 3 per m²; HR++/triple glas € 25 en triple in nieuwe kozijnen € 111 per m² (glas samen min. 3, max. 45 m²). Isolatie: Rd ≥ 3,5 (spouw ≥ 1,1), uitvoering door een bedrijf, aanvragen binnen 24 maanden. Zonnepanelen en kierdichting: geen ISDE. Biobased-bonus niet meegerekend.</li></ul></div>
@@ -5025,6 +5028,7 @@ function gegevens(d){
   if(o.codes == null) o.codes = false;
   if(o.afmelden == null) o.afmelden = false;
   if(o.zakelijk == null) o.zakelijk = false;
+  if(o.exclBtw == null) o.exclBtw = false;
   return o;
 }
 /* staartblad naar rato in de onderdelen; afronden op centen, verschil in het grootste onderdeel */
@@ -5035,8 +5039,8 @@ function verdeel(d){
 }
 /* termijnen: percentage van het totaal incl. btw; de laatste termijn is de rest (afronding op centen) */
 function termijnen(o, d){
-  const t = (o.termijnen || []).filter(x => +x.p > 0), bed = t.map(x => Math.round(d.incl * (+x.p) / 100 * 100) / 100);
-  if(t.length) bed[t.length-1] = Math.round((d.incl - bed.slice(0,-1).reduce((s,v) => s + v, 0)) * 100) / 100;
+  const tot = o.exclBtw ? d.excl : d.incl, t = (o.termijnen || []).filter(x => +x.p > 0), bed = t.map(x => Math.round(tot * (+x.p) / 100 * 100) / 100);
+  if(t.length) bed[t.length-1] = Math.round((tot - bed.slice(0,-1).reduce((s,v) => s + v, 0)) * 100) / 100;
   return t.map((x,i) => ({n: x.n, p: +x.p, bedrag: bed[i]}));
 }
 function isdeUitleg(d){
@@ -5054,14 +5058,14 @@ function render(){
     <label class="klein" style="display:block;margin-top:8px">Aanhef<input type="text" data-of="aanhef" value="${esc(o.aanhef)}" style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #cfdcd2;border-radius:7px"></label>
     <label class="klein" style="display:block;margin-top:6px">Inleiding<textarea data-of="intro">${esc(o.intro)}</textarea></label>
     <div class="off-vink"><label><input type="checkbox" data-ofv="codes"${o.codes?' checked':''}> RVO-codes tonen</label>
-      <label><input type="checkbox" data-ofv="isde"${o.isde?' checked':''}> ISDE-indicatie tonen</label><label><input type="checkbox" data-ofv="afmelden"${o.afmelden?' checked':''}> tekst afmelden energielabel tonen</label><label><input type="checkbox" data-ofv="zakelijk"${o.zakelijk?' checked':''}> klant is zakelijke investeerder (ISDE-tekst)</label><label><input type="checkbox" data-ofv="teken"${o.teken?' checked':''}> akkoordverklaring (handtekening)</label></div>
+      <label><input type="checkbox" data-ofv="isde"${o.isde?' checked':''}> ISDE-indicatie tonen</label><label><input type="checkbox" data-ofv="afmelden"${o.afmelden?' checked':''}> tekst afmelden energielabel tonen</label><label><input type="checkbox" data-ofv="exclBtw"${o.exclBtw?' checked':''}> offerte excl. btw (zonder btw-regels)</label><label><input type="checkbox" data-ofv="zakelijk"${o.zakelijk?' checked':''}> klant is zakelijke investeerder (ISDE-tekst)</label><label><input type="checkbox" data-ofv="teken"${o.teken?' checked':''}> akkoordverklaring (handtekening)</label></div>
     <div class="off-term" style="margin-top:8px"><b>Termijnstaat</b> <span class="klein">percentage van het totaal incl. btw</span>
       ${o.termijnen.map((x,i) => `<div class="off-trow" style="display:flex;gap:6px;align-items:center;margin-top:4px"><input type="text" data-oft="${i}" data-oftk="n" value="${esc(x.n)}" style="flex:1;padding:5px 7px;border:1px solid #cfdcd2;border-radius:7px"><input type="number" data-oft="${i}" data-oftk="p" value="${x.p}" min="0" max="100" step="1" style="width:80px;padding:5px 7px;border:1px solid #cfdcd2;border-radius:7px"> %</div>`).join('')}
       <span class="klein">${som === 100 ? 'Totaal 100% ✔' : '<b>Let op:</b> termijnen tellen op tot ' + som + '%'}</span></div>
     <label class="klein" style="display:block;margin-top:8px"><input type="checkbox" data-ofv="finAan"${o.finAan?' checked':''}> tekst financiering (hypotheek) tonen</label>
     <label class="klein" style="display:block">Tekst financiering<textarea data-of="fin">${esc(o.fin)}</textarea></label>
     <label class="klein" style="display:block;margin-top:6px">Voorwaarden en uitgangspunten (één per regel)<textarea data-of="voorwaarden" style="min-height:110px">${esc(o.voorwaarden)}</textarea></label>
-    <div class="off-sam">${d.regels.length} maatregel${d.regels.length===1?'':'en'} · totaal excl. btw <b>${eur0(d.excl)}</b> · btw ${eur0(d.btw9+d.btw21)} · <b>incl. btw ${eur0(d.incl)}</b>${o.isde&&d.isde?` · ISDE-indicatie ${eur0(d.isde)}`:''} · geldig t/m ${tot.toLocaleDateString('nl-NL')}<br><span class="klein">Alleen totaalprijzen per onderdeel; het staartblad is naar rato in de onderdelen verwerkt (geen m²- of eenheidsprijzen in de offerte). Bedragen volgen de raming hierboven: wijzig daar en maak de offerte opnieuw.</span></div>
+    <div class="off-sam">${d.regels.length} maatregel${d.regels.length===1?'':'en'} · totaal excl. btw <b>${eur0(d.excl)}</b> · btw ${eur0(d.btw9+d.btw21)} · <b>incl. btw ${eur0(d.incl)}</b>${o.exclBtw?' · <b>offerte excl. btw</b>':''}${o.isde&&d.isde&&!o.exclBtw?` · ISDE-indicatie ${eur0(d.isde)}`:''} · geldig t/m ${tot.toLocaleDateString('nl-NL')}<br><span class="klein">Alleen totaalprijzen per onderdeel; het staartblad is naar rato in de onderdelen verwerkt (geen m²- of eenheidsprijzen in de offerte). Bedragen volgen de raming hierboven: wijzig daar en maak de offerte opnieuw.</span></div>
     <div class="acties"><button type="button" class="actie" id="off-pdf">📄 Offerte als PDF</button><button type="button" class="actie" id="off-word">📝 Offerte als Word</button><button type="button" class="actie licht" id="off-std">Teksten terug naar standaard</button><button type="button" class="actie licht" id="off-dicht">Sluiten</button><span id="off-msg" class="klein"></span></div></div>`;
   el.querySelectorAll('[data-of]').forEach(i => i.onchange = () => { o[i.dataset.of] = i.type === 'number' ? (+i.value || 30) : i.value; BAG.projBewaar(); if(['datum','geldig'].includes(i.dataset.of)) render(); });
   el.querySelectorAll('[data-ofv]').forEach(i => i.onchange = () => { o[i.dataset.ofv] = i.checked; BAG.projBewaar(); render(); });
@@ -5131,10 +5135,10 @@ function maak(d){
   const kopR = ['#', 'Onderdeel', 'Prijs'];
   const som = (label, bedrag, st={}) => [{content:T(label), colSpan:2, styles:{halign:'right', ...st}}, {content:T(bedrag), styles:{halign:'right', ...st}}];
   body.push(som('Totaal excl. btw', eur(d.excl), {fontStyle:'bold', fillColor:H('#eef7ef')}));
-  if(d.btw9) body.push(som('Btw 9% over ' + eur(d.g9) + ' (arbeid isolatie)', eur(d.btw9)));
-  if(d.btw21) body.push(som('Btw 21% over ' + eur(d.g21), eur(d.btw21)));
-  if(d.excl - d.g9 - d.g21 > 0.5) body.push(som('Btw 0% over ' + eur(d.excl - d.g9 - d.g21) + ' (zonnepanelen)', eur(0)));
-  body.push(som('Totaal incl. btw', eur(d.incl), {fontStyle:'bold', fontSize:10.5, fillColor:H('#0B3D2E'), textColor:[255,255,255]}));
+  if(!o.exclBtw && d.btw9) body.push(som('Btw 9% over ' + eur(d.g9) + ' (arbeid isolatie)', eur(d.btw9)));
+  if(!o.exclBtw && d.btw21) body.push(som('Btw 21% over ' + eur(d.g21), eur(d.btw21)));
+  if(!o.exclBtw && d.excl - d.g9 - d.g21 > 0.5) body.push(som('Btw 0% over ' + eur(d.excl - d.g9 - d.g21) + ' (zonnepanelen)', eur(0)));
+  if(!o.exclBtw) body.push(som('Totaal incl. btw', eur(d.incl), {fontStyle:'bold', fontSize:10.5, fillColor:H('#0B3D2E'), textColor:[255,255,255]}));
   doc.autoTable({startY:y, margin:{left:M, right:M, top:26, bottom:30}, theme:'plain', head:[kopR], body,
     styles:{font:'helvetica', fontSize:8.8, cellPadding:{top:1.8, bottom:1.8, left:2, right:2}, textColor:[29,42,34], lineColor:H('#e1e9e3'), lineWidth:{bottom:0.2}},
     headStyles:{fillColor:H('#3CB54A'), textColor:[255,255,255], fontStyle:'bold', fontSize:8.2},
@@ -5154,7 +5158,7 @@ function maak(d){
     y += hh + 5;
   }
   /* investering en subsidie (ISDE): duidelijk overzicht */
-  if(o.isde && d.isde > 0 && !o.zakelijk){
+  if(o.isde && d.isde > 0 && !o.zakelijk && !o.exclBtw){
     const uitleg = doc.splitTextToSize(T(isdeUitleg(d)), BR - 10);
     const hh = 9 + 3*5.6 + 3 + uitleg.length*4.2 + 2; ruimte(hh + 4);
     doc.setFillColor(...H('#ecf8ef')); doc.setDrawColor(...H('#3CB54A')); doc.setLineWidth(0.4); doc.roundedRect(M, y, BR, hh, 2, 2, 'FD');
@@ -5192,7 +5196,7 @@ function maak(d){
     ruimte(26);
     doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...H('#0B3D2E')); doc.text('Betaling in termijnen', M, y);
     doc.setDrawColor(...H('#3CB54A')); doc.setLineWidth(0.5); doc.line(M, y+1.6, M+BR, y+1.6); y += 4;
-    doc.autoTable({startY:y, margin:{left:M, right:M, top:26, bottom:30}, theme:'plain', head:[['Termijn', '%', 'Bedrag incl. btw']],
+    doc.autoTable({startY:y, margin:{left:M, right:M, top:26, bottom:30}, theme:'plain', head:[['Termijn', '%', o.exclBtw ? 'Bedrag excl. btw' : 'Bedrag incl. btw']],
       body: tm.map(x => [T(x.n), x.p + '%', T(eur(x.bedrag))]),
       styles:{font:'helvetica', fontSize:8.8, cellPadding:{top:1.6, bottom:1.6, left:2, right:2}, textColor:[29,42,34], lineColor:H('#e1e9e3'), lineWidth:{bottom:0.2}},
       headStyles:{fillColor:H('#3CB54A'), textColor:[255,255,255], fontStyle:'bold', fontSize:8.2},
@@ -5270,16 +5274,16 @@ function docxMaak(d){
     C(kw[0] + kw[1], [P(label, {r:true, b:s.b, c:s.c, sz:s.sz})], {span:2, fill:s.fill}),
     C(kw[2], [P(bedrag, {r:true, b:s.b, c:s.c, sz:s.sz})], {fill:s.fill})]});
   regelRijen.push(sommen('Totaal excl. btw', eur(d.excl), {b:true, fill:'EEF7EF'}));
-  if(d.btw9) regelRijen.push(sommen('Btw 9% over ' + eur(d.g9) + ' (arbeid isolatie)', eur(d.btw9)));
-  if(d.btw21) regelRijen.push(sommen('Btw 21% over ' + eur(d.g21), eur(d.btw21)));
-  if(d.excl - d.g9 - d.g21 > 0.5) regelRijen.push(sommen('Btw 0% over ' + eur(d.excl - d.g9 - d.g21) + ' (zonnepanelen)', eur(0)));
-  regelRijen.push(sommen('Totaal incl. btw', eur(d.incl), {b:true, c:'FFFFFF', sz:21, fill:'0B3D2E'}));
+  if(!o.exclBtw && d.btw9) regelRijen.push(sommen('Btw 9% over ' + eur(d.g9) + ' (arbeid isolatie)', eur(d.btw9)));
+  if(!o.exclBtw && d.btw21) regelRijen.push(sommen('Btw 21% over ' + eur(d.g21), eur(d.btw21)));
+  if(!o.exclBtw && d.excl - d.g9 - d.g21 > 0.5) regelRijen.push(sommen('Btw 0% over ' + eur(d.excl - d.g9 - d.g21) + ' (zonnepanelen)', eur(0)));
+  if(!o.exclBtw) regelRijen.push(sommen('Totaal incl. btw', eur(d.incl), {b:true, c:'FFFFFF', sz:21, fill:'0B3D2E'}));
   kids.push(new D.Table({width:{size:W, type:D.WidthType.DXA}, columnWidths:kw, borders:{top:lijnBoven, bottom:geen, left:geen, right:geen, insideHorizontal:{style:D.BorderStyle.SINGLE, size:4, color:'E1E9EF'}, insideVertical:geen}, rows:regelRijen}));
   kids.push(new D.Paragraph({spacing:{after:120}, children:[]}));
   /* afmelden */
   if(o.afmelden) kids.push(TB([W], [[C(W, [P(AFMELD_TXT, {sz:18, na:0})], {fill:'F4F8F5'})]]));
   /* ISDE */
-  if(o.isde && d.isde > 0 && !o.zakelijk){
+  if(o.isde && d.isde > 0 && !o.zakelijk && !o.exclBtw){
     kids.push(new D.Paragraph({spacing:{after:120}, children:[]}));
     kids.push(TB([W], [[C(W, [
       P('Investering en subsidie (ISDE) - indicatie', {b:true, sz:21, c:'1E7A3C', na:80}),
@@ -5302,7 +5306,7 @@ function docxMaak(d){
   if(tm.length){
     kids.push(kopje('Betaling in termijnen'));
     kids.push(new D.Table({width:{size:W, type:D.WidthType.DXA}, columnWidths:[6606, 1200, 2400], borders:{top:geen, bottom:geen, left:geen, right:geen, insideHorizontal:{style:D.BorderStyle.SINGLE, size:4, color:'E1E9EF'}, insideVertical:geen},
-      rows:[new D.TableRow({tableHeader:true, children:[C(6606, [P('Termijn', {b:true, c:'FFFFFF'})], {fill:'3CB54A'}), C(1200, [P('%', {b:true, c:'FFFFFF', r:true})], {fill:'3CB54A'}), C(2400, [P('Bedrag incl. btw', {b:true, c:'FFFFFF', r:true})], {fill:'3CB54A'})]}),
+      rows:[new D.TableRow({tableHeader:true, children:[C(6606, [P('Termijn', {b:true, c:'FFFFFF'})], {fill:'3CB54A'}), C(1200, [P('%', {b:true, c:'FFFFFF', r:true})], {fill:'3CB54A'}), C(2400, [P(o.exclBtw ? 'Bedrag excl. btw' : 'Bedrag incl. btw', {b:true, c:'FFFFFF', r:true})], {fill:'3CB54A'})]}),
         ...tm.map(x => new D.TableRow({cantSplit:true, children:[C(6606, [P(x.n)]), C(1200, [P(x.p + '%', {r:true})]), C(2400, [P(eur(x.bedrag), {r:true})])]}))]}));
   }
   /* voorwaarden */
