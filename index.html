@@ -5098,6 +5098,7 @@ function render(){
     <label class="klein" style="display:block">Tekst financiering<textarea data-of="fin">${esc(o.fin)}</textarea></label>
     <label class="klein" style="display:block;margin-top:6px">Voorwaarden en uitgangspunten (één per regel)<textarea data-of="voorwaarden" style="min-height:110px">${esc(o.voorwaarden)}</textarea></label>
     <div class="off-sam">${d.regels.length} maatregel${d.regels.length===1?'':'en'} · totaal excl. btw <b>${eur0(d.excl)}</b> · btw ${eur0(d.btw9+d.btw21)} · <b>incl. btw ${eur0(d.incl)}</b>${o.exclBtw?' · <b>offerte excl. btw</b>':''}${o.labelNa?'':' · <b>let op:</b> verwacht energielabel nog niet ingevuld'}${o.isde&&d.isde&&!o.exclBtw?` · ISDE-indicatie ${eur0(d.isde)}`:''} · geldig t/m ${tot.toLocaleDateString('nl-NL')}<br><span class="klein">Alleen totaalprijzen per onderdeel; het staartblad is naar rato in de onderdelen verwerkt (geen m²- of eenheidsprijzen in de offerte). Bedragen volgen de raming hierboven: wijzig daar en maak de offerte opnieuw.</span></div>
+    <div class="acties"><button type="button" class="actie licht" id="off-map">📁 Projectmap kiezen (bv. OneDrive)</button><span class="klein" id="off-mapnaam"></span></div>
     <div class="acties"><button type="button" class="actie licht" id="off-voor">👁 Voorbeeld tonen</button><button type="button" class="actie" id="off-pdf">📄 Offerte als PDF</button><button type="button" class="actie" id="off-word">📝 Offerte als Word</button><button type="button" class="actie licht" id="off-std">Teksten terug naar standaard</button><button type="button" class="actie licht" id="off-dicht">Sluiten</button><span id="off-msg" class="klein"></span></div><div id="off-prev"></div></div>`;
   el.querySelectorAll('[data-of]').forEach(i => i.onchange = () => { o[i.dataset.of] = i.type === 'number' ? (+i.value || 30) : i.value; BAG.projBewaar(); if(['datum','geldig'].includes(i.dataset.of)) render(); });
   el.querySelectorAll('[data-ofv]').forEach(i => i.onchange = () => { o[i.dataset.ofv] = i.checked; BAG.projBewaar(); render(); });
@@ -5112,6 +5113,8 @@ function render(){
   const knop = (id, soort) => $(id).onclick = async () => { const m = $('off-msg'); m.textContent = ' Maken…';
     try{ const r = await opslaan(BAG.offerte(), soort); m.textContent = r ? ' ✔ ' + r : ''; }catch(e){ m.textContent = e.stil ? '' : ' ⚠️ ' + (e.message || e); console.error(e); } };
   knop('off-pdf', 'pdf'); knop('off-word', 'word');
+  if(typeof OPSLAG !== 'undefined') OPSLAG.get('root').then(h => { const e = $('off-mapnaam'); if(e) e.textContent = h ? 'Nu: ' + h.name + ' (opslaan gaat naar de submap van dit project)' : 'Nog geen projectmap gekozen; het opslaan-venster opent dan in Documenten.'; });
+  $('off-map').onclick = async () => { if(typeof kiesProjectmapRoot === 'function') await kiesProjectmapRoot(); render(); };
   $('off-voor').onclick = () => { const m = $('off-msg');
     try{ const d = BAG.offerte(); if(!d) return;
       const u = URL.createObjectURL(maak(d).output('blob'));
