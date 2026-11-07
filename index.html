@@ -402,6 +402,39 @@ body.tab-bag .wrap{max-width:1180px}
   .bag-oppkaart{max-width:900px}
 }
 @media(min-width:1600px){.bag-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+/* kostenkentallen, alternatieven, staartblad */
+#bag .ram-kk{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin-top:6px}
+#bag .ram-kk select{padding:3px 6px}
+#bag .klein-knop{padding:4px 10px;font-size:.78rem;min-height:30px}
+#bag .ram-kkuitleg{flex-basis:100%;font-size:.76rem;color:var(--grijs)}#bag .ram-kkuitleg summary{cursor:pointer;color:var(--paars)}
+#bag .ram-altk{margin-top:4px;border:1px solid #cfdcd2;background:#fff;color:var(--paars);border-radius:6px;font-size:.72rem;padding:2px 8px;cursor:pointer;font-weight:600}
+#bag .ram-altk.on{background:var(--paars);color:#fff;border-color:var(--paars)}
+#bag select.ram-altgekozen{border:2px solid #e0a100;background:#fff8e6}
+#bag tr.ram-altrij>td{background:#f7faf8;padding:6px 6px 12px}
+#bag .ram-alt{border:2px solid #cfdcd2;border-radius:10px;background:#fff;padding:8px 10px}
+#bag .ram-altzoek{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-bottom:6px}
+#bag .ram-altzoek input[type=search]{flex:1 1 280px;padding:7px 10px;border:1px solid #cfdcd2;border-radius:8px}
+#bag .ram-alttab{width:100%;border-collapse:collapse;font-size:.8rem}
+#bag .ram-alttab td{padding:4px 6px;border-bottom:1px solid #edf2ee;vertical-align:middle}
+#bag .ram-alttab th{font-size:.68rem;text-transform:uppercase;color:var(--grijs);text-align:left;padding:4px 6px}
+#bag .ram-alttab tr.hg td{background:#0B3D2E;color:#fff;font-weight:700;font-size:.74rem;letter-spacing:.02em}
+#bag .ram-alttab tr.sg td{background:#e7f3e8;color:#0B3D2E;font-weight:700;font-size:.74rem}
+#bag .ram-alttab tr.gek td{background:#fff8e6}
+#bag .ram-alttab small{display:block;color:var(--grijs);font-size:.72rem}
+#bag .ram-alttab small.duur{color:#b3261e;font-weight:700}#bag .ram-alttab small.goedk{color:#1e7a3c;font-weight:700}
+#bag .ram-kies{border:0;background:var(--paars);color:#fff;border-radius:6px;padding:4px 10px;font-weight:700;cursor:pointer;font-size:.74rem}
+#bag .ram-kies[disabled]{background:#e0a100;cursor:default}
+#bag .ram-bio{background:#dff3d8;color:#2d6a1f;border-radius:5px;padding:0 5px;font-size:.66rem;font-weight:700}
+#bag .ram-fav{color:#e0a100}
+#bag .ram-let{color:#a26a00 !important}
+#bag .isde-b{display:inline-block;border-radius:5px;padding:1px 6px;font-size:.7rem;font-weight:700;white-space:nowrap}
+#bag .isde-b-ja{background:#dff3e4;color:#1e7a3c}#bag .isde-b-nee{background:#fde3e1;color:#b3261e}#bag .isde-b-vr{background:#f1f3f2;color:#6b7a73}
+#bag .ram-tab tr.sub td{font-weight:700;border-top:2px solid #cfdcd2}
+#bag .ram-tab tr.staartkop td{background:#f7faf8;font-size:.8rem;padding-top:8px}
+#bag .ram-tab tr.staart td{background:#f7faf8;padding:3px 6px}
+#bag .ram-tab input.ram-snaam{width:100%;max-width:320px;padding:4px 6px;border:1px solid #cfdcd2;border-radius:6px}
+#bag .ram-tab input.ram-sp{width:70px}
+#bag .ram-sdel{border:0;background:none;color:#b3261e;font-size:1.1rem;cursor:pointer}
 #vbs{
   --bg:#F2F4F3; --surface:#FFFFFF; --ink:#18232A; --muted:#5A6870; --line:#D5DCDE; --soft:#E9EEEE;
   --accent:#5B2D86; --accent-ink:#FFFFFF; --accent-soft:#EFE8F6;
@@ -1290,7 +1323,41 @@ function oppTsv(o){const L=['Onderdeel\tOriëntatie\tHelling (°)\tOppervlak (m�
   o.groepen.forEach(g=>{g.rijen.forEach(r=>L.push(`${r.naam}\t${r.dir||''}\t${fmt(r.helling,0)}\t${n(r.opp)}`));L.push(`${g.sub}\t\t\t${n(g.tot)}`)});
   L.push(`Totaal verliesoppervlak\t\t\t${n(o.als)}`);if(o.gedeeld)L.push(`Gedeelde muur (niet meegeteld)\t\t\t${n(o.gedeeld)}`);
   L.push(`Bruto inhoud (m³)\t\t\t${fmt(o.inhoud,0)}`);if(o.ag)L.push(`Gebruiksoppervlak BAG\t\t\t${fmt(o.ag,0)}`);return L.join('\n')}
-/* ===== Kostenraming & materiaalstaat op basis van de RVO-kostenkentallen woningbouw (prijspeil juni 2026) ===== */
+/* ===== Kostenraming & materiaalstaat op basis van de RVO-kostenkentallen woningbouw ===== */
+/* Prijzen komen uit data/kostenkentallen.json (GitHub Action haalt elke maandag de RVO-Excel op); ingebouwde tabel RVO_KK = noodvoorraad */
+const KK={peil:'juni 2026',bestand:null,bron:'ingebouwd',m:RVO_KK,groepen:null,opgehaald:null,lijst:[],status:null,laden:null,cache:{}};
+const KK_PAD='data/kostenkentallen/';
+const kkM=c=>KK.m[c]||null;
+async function kkHaal(pad,vers){const r=await fetch(pad+(vers?(pad.includes('?')?'&':'?')+'t='+Date.now():''),{cache:vers?'no-store':'default'});if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}
+async function kkLaad(bestand,vers){
+  try{
+    if(!KK.lijst.length||vers){const ix=await kkHaal(KK_PAD+'index.json',vers);KK.lijst=ix.peildata||[];KK.laatst=ix.laatst;
+      try{KK.status=await kkHaal(KK_PAD+'status.json',true)}catch(e){}}
+    const b=bestand&&KK.lijst.some(x=>x.bestand===bestand)?bestand:KK.laatst;
+    const d=KK.cache[b]&&!vers?KK.cache[b]:await kkHaal(KK_PAD+b,vers);KK.cache[b]=d;
+    Object.assign(KK,{peil:d.peildatum,bestand:b,bron:'RVO-Excel',m:d.m,groepen:d.groepen,opgehaald:d.opgehaald,fout:null});
+  }catch(e){KK.fout=String(e.message||e);if(KK.bron!=='RVO-Excel')Object.assign(KK,{m:RVO_KK,groepen:null,bron:'ingebouwd'})}
+  return KK;
+}
+/* keuzes per project (pand/adres): RVO-code per maatregel en prijspeil */
+const PROJ=(()=>{let o={};try{o=JSON.parse(localStorage.getItem('ee_ram_proj')||'{}')}catch(e){}return o})();
+const projSleutel=b=>b?'p'+b.id+(S.vboId?'-'+S.vboId:''):'';
+const projS=b=>{const k=projSleutel(b);return PROJ[k]=PROJ[k]||{code:{}}};
+const projBewaar=()=>{try{localStorage.setItem('ee_ram_proj',JSON.stringify(PROJ))}catch(e){}};
+function kkZorg(b){const w=projS(b).peil||null;if(KK.laden)return;if(KK.bron==='RVO-Excel'&&(w?KK.bestand===w:KK.bestand===KK.laatst))return;
+  KK.laden=kkLaad(w).finally(()=>{KK.laden=null;if(selB()===b)renderRaming()})}
+/* ISDE-check per RVO-code (isolatiewaarde uit de RVO-omschrijving) */
+function isdeCheck(code,k){
+  const c=ISDE_CAT[k],x=kkM(code);if(!c)return{s:'-',t:'geen ISDE'};if(c==='wp')return{s:'?',t:'meldcodelijst RVO'};if(!x)return{s:'?',t:'onbekend'};
+  if(c==='glas'||c==='glasnk'){if(x.u!=null)return x.u<=1.2?{s:'ja',t:'U '+fmt(x.u,1)+(x.u<=0.7?' (triple)':'')}:{s:'nee',t:'U '+fmt(x.u,1)+' > 1,2'};
+    return /triple|hr\+\+/i.test(x.e)?{s:'ja',t:/triple/i.test(x.e)?'triple':'HR++'}:{s:'?',t:'U-waarde controleren'}}
+  const min=c==='spouw'?1.1:3.5;
+  if(x.rd!=null)return x.rd>=min?{s:'ja',t:'Rd '+fmt(x.rd,1)}:{s:'nee',t:'Rd '+fmt(x.rd,1)+' < '+fmt(min,1)};
+  if(x.rc!=null&&x.rc<min)return{s:'nee',t:'Rc '+fmt(x.rc,1)+' < '+fmt(min,1)};
+  return{s:'?',t:x.rc!=null?'Rd onbekend (Rc '+fmt(x.rc,1)+')':'Rd onbekend'};
+}
+const ISDE_BADGE=i=>`<span class="isde-b isde-b-${i.s==='ja'?'ja':i.s==='nee'?'nee':'vr'}" title="ISDE-check">${i.s==='ja'?'✔':i.s==='nee'?'✖':i.s==='-'?'–':'?'} ${esc(i.t)}</span>`;
+const STAART_STD=[{n:'Algemene bouwplaatskosten',p:0},{n:'Winst & risico',p:0},{n:'Onvoorzien',p:0},{n:'Indexatie t.o.v. prijspeil',p:0},{n:'Eigen correctie / korting',p:0}];
 const RVO_VAR=['egw-tus-enk-min','egw-tus-enk-mid','egw-tus-enk-max','egw-tus-pro-min','egw-tus-pro-mid','egw-tus-pro-max','mgw-tus-enk-min','mgw-tus-enk-mid','mgw-tus-enk-max','mgw-tus-pro-min','mgw-tus-pro-mid','mgw-tus-pro-max'];
 const RAM_MAATR=[
   {k:'spouw',naam:'Spouwmuurisolatie',codes:['WB009a','WB009b','WB009c'],bron:'gevelnetto',btw:'iso'},
@@ -1323,18 +1390,19 @@ function isdeBereken(b,regels){
   if(bj>=2019){regels.forEach(r=>{if(ISDE_CAT[r.k])uit[r.k]={ok:false,reden:'bouwjaar '+bj+' (ISDE alleen vóór 2019)'}});meld.push('Bouwjaar '+bj+': geen ISDE (alleen woningen met bouwjaar vóór 2019).');return{uit,totaal:0,dubbel:false,meld}}
   const act=regels.filter(r=>r.aan&&ISDE_CAT[r.k]&&ramS.isde[r.k]!==false);
   /* m² per categorie (met min/max) */
-  const perCat={};act.forEach(r=>{const c=ISDE_CAT[r.k];if(c==='wp')return;if(ISDE_RD_NIET[r.code])return;(perCat[c]=perCat[c]||[]).push(r)});
+  const niet=r=>ISDE_RD_NIET[r.code]||(isdeCheck(r.code,r.k).s==='nee'?isdeCheck(r.code,r.k).t:null);
+  const perCat={};act.forEach(r=>{const c=ISDE_CAT[r.k];if(c==='wp')return;if(niet(r))return;(perCat[c]=perCat[c]||[]).push(r)});
   const groepM2=g=>Object.entries(perCat).filter(([c])=>ISDE[c].groep===g).reduce((s,[,rs])=>s+rs.reduce((t,r)=>t+r.hoev,0),0);
   const isoCats=new Set();
   act.forEach(r=>{const c=ISDE_CAT[r.k];
     if(c==='wp'){uit[r.k]={ok:true,bedrag:ramS.isdeWp[r.k]??ISDE_WP_MIN,wp:true};return}
-    if(ISDE_RD_NIET[r.code]){uit[r.k]={ok:false,reden:'isolatiewaarde '+ISDE_RD_NIET[r.code]};return}
-    const d0=ISDE[c];const d=(r.k==='kozijn'&&!/triple/i.test(RVO_KK[r.code]?.e||''))?{...ISDE.glas}:d0;
+    if(niet(r)){uit[r.k]={ok:false,reden:'isolatiewaarde '+niet(r)};return}
+    const kx=kkM(r.code)||{};const d0=ISDE[c];const d=(r.k==='kozijn'&&!(/triple/i.test(kx.e||'')||kx.u!=null&&kx.u<=0.7))?{...ISDE.glas}:d0;
     const catM2=perCat[c].reduce((t,x)=>t+x.hoev,0),minM2=d.groep?groepM2(d.groep):catM2;
     if(minM2<d.min){uit[r.k]={ok:false,reden:`minder dan ${d.min} m²`};return}
     const totM2=d.groep==='gl'?groepM2('gl'):catM2,share=r.hoev/(totM2||1),m2=Math.min(totM2,d.max)*share;
     if(totM2>d.max&&d.groep==='gl'&&!meld.some(x=>/45 m²/.test(x)))meld.push('Glas, kozijnen en deuren samen meer dan 45 m²: ISDE geldt voor maximaal 45 m² (naar rato verdeeld).');
-    uit[r.k]={ok:true,m2,tarief:d.tarief,basis:m2*d.tarief,afgetopt:totM2>d.max};isoCats.add(d.groep||c)});
+    uit[r.k]={ok:true,m2,tarief:d.tarief,basis:m2*d.tarief,afgetopt:totM2>d.max,check:isdeCheck(r.code,r.k).s==='?'?isdeCheck(r.code,r.k).t:null};isoCats.add(d.groep||c)});
   regels.filter(r=>ISDE_CAT[r.k]&&!uit[r.k]).forEach(r=>{uit[r.k]={ok:null,reden:r.aan?'niet meegenomen':''}});
   const wp=act.some(r=>ISDE_CAT[r.k]==='wp');
   if(act.some(r=>r.k==='kozijn')&&act.some(r=>r.k==='hrpp'||r.k==='triple'))meld.push('Let op: zowel los glas als kozijnvervanging aangevinkt — bij nieuwe kozijnen zit het glas er al in; vink er één uit als het om dezelfde ramen gaat.');
@@ -1348,15 +1416,18 @@ function isdeBereken(b,regels){
 }
 const PV_OPBR={Z:950,ZO:910,ZW:910,O:820,W:820,plat:860};   /* kWh per kWp per jaar (indicatief) */
 const ramS=(()=>{let o={};try{o=JSON.parse(localStorage.getItem('ee_raming2')||'{}')}catch(e){}
-  return{isde:o.isde||{},isdeWp:o.isdeWp||{},glasDir:o.glasDir||{},glas:o.glas??20,verlies:o.verlies??5,btw:o.btw??true,aanpak:o.aanpak||'enk',prijs:o.prijs||{},code:o.code||{},type:null,grootte:null,
+  return{isde:o.isde||{},isdeWp:o.isdeWp||{},glasDir:o.glasDir||{},glas:o.glas??20,verlies:o.verlies??5,btw:o.btw??true,aanpak:o.aanpak||'enk',prijs:o.prijs||{},code:o.code||{},staart:Array.isArray(o.staart)?o.staart:STAART_STD.map(x=>({...x})),type:null,grootte:null,alt:null,altQ:'',altBio:false,
     aan:{},hoev:{}}})();
-const ramBewaar=()=>{try{localStorage.setItem('ee_raming2',JSON.stringify({isde:ramS.isde,isdeWp:ramS.isdeWp,glasDir:ramS.glasDir,glas:ramS.glas,verlies:ramS.verlies,btw:ramS.btw,aanpak:ramS.aanpak,prijs:ramS.prijs,code:ramS.code}))}catch(e){}};
+const ramBewaar=()=>{try{localStorage.setItem('ee_raming2',JSON.stringify({isde:ramS.isde,isdeWp:ramS.isdeWp,glasDir:ramS.glasDir,glas:ramS.glas,verlies:ramS.verlies,btw:ramS.btw,aanpak:ramS.aanpak,prijs:ramS.prijs,code:ramS.code,staart:ramS.staart}))}catch(e){}};
 function ramVariant(b){
   const meer=b.vbos.filter(v=>/woon/.test(v.p.gebruiksdoel||'woon')).length>1,type=ramS.type||(meer?'mgw':'egw');
   const ag=+((vboOf(b)||{}).oppervlakte||0),gr=ramS.grootte||(type==='egw'?(ag&&ag<100?'min':ag>160?'max':'mid'):(ag&&ag<60?'min':ag>90?'max':'mid'));
   return{type,gr,ag,auto:{type:meer?'mgw':'egw'},sleutel:`${type}-tus-${ramS.aanpak}-${gr}`};
 }
-function rvoPrijs(code,sleutel){const m=RVO_KK[code];if(!m)return null;const i=RVO_VAR.indexOf(sleutel),x=m.v[i]||m.v[1];return{excl:x[0],arbeid:x[1],e:m.e,h:m.h}}
+function rvoPrijs(code,sleutel){const m=kkM(code);if(!m)return null;let i=RVO_VAR.indexOf(sleutel),x=m.v[i],alt=null;
+  if(!x){const[t,,a,g]=sleutel.split('-'),zoek=[`${t}-tus-${a==='enk'?'pro':'enk'}-${g}`,`${t==='egw'?'mgw':'egw'}-tus-${a}-${g}`,`${t==='egw'?'mgw':'egw'}-tus-${a==='enk'?'pro':'enk'}-${g}`];
+    for(const z of zoek){const j=RVO_VAR.indexOf(z);if(m.v[j]){x=m.v[j];alt=z;break}}if(!x){x=m.v.find(Boolean);alt='andere variant'}}
+  if(!x)return null;return{excl:x[0],arbeid:x[1],e:m.e,h:m.h,alt}}
 const btwFactor=(soort,arbeid)=>soort==='pv'?1:soort==='iso'?arbeid*1.09+(1-arbeid)*1.21:1.21;
 function zonnepanelen(b){
   const vl=vlakkenVan(b),pm2=1.93,uit=[];
@@ -1374,14 +1445,15 @@ function ramingData(b){
   const bron={gevelbruto:o.gevel,gevelnetto:o.gevel-glasM2,glas:glasM2,kozijn:glasM2/0.8,dakhellend:hellend,dakplat:plat,vloer:o.vloer,
     pvh:pv.filter(p=>!p.plat).reduce((s,p)=>s+p.m2,0),pvp:pv.filter(p=>p.plat).reduce((s,p)=>s+p.m2,0),woning:1,deur:1.75};
   const regels=RAM_MAATR.map(m=>{
-    const code=m.codes.includes(ramS.code[m.k])?ramS.code[m.k]:m.codes[0],rp=code?rvoPrijs(code,vr.sleutel):null;
+    const pc=projS(b).code[m.k],code=pc&&kkM(pc)?pc:m.codes.includes(ramS.code[m.k])?ramS.code[m.k]:m.codes[0],rp=code?rvoPrijs(code,vr.sleutel):null;
     const excl=ramS.prijs[m.k]!=null?ramS.prijs[m.k]:(rp?rp.excl:m.eigen),f=btwFactor(m.btw,rp?rp.arbeid:0);
     const prijs=ramS.btw?excl*f:excl,auto=bron[m.bron]||0,h=ramS.hoev[m.k]!=null?ramS.hoev[m.k]:auto;
     const eenh=rp?(rp.h==='won'?'woning':rp.h):m.eenh;
-    return{...m,code,omschr:rp?rp.e:'eigen prijs',eenh,auto,hoev:h,excl,prijs,eigenPrijs:ramS.prijs[m.k]!=null,totaal:h*prijs,aan:!!ramS.aan[m.k]&&h>0,
+    return{...m,code,alt:!!pc&&!m.codes.includes(pc),varAlt:rp&&rp.alt,omschr:rp?rp.e:'eigen prijs',eenh,auto,hoev:h,excl,prijs,eigenPrijs:ramS.prijs[m.k]!=null,totaal:h*prijs,aan:!!ramS.aan[m.k]&&h>0,
       besteld:/m²/.test(eenh)&&!/^pv/.test(m.k)?h*(1+ramS.verlies/100):null}});
-  const sel=regels.filter(r=>r.aan),totaal=sel.reduce((s,r)=>s+r.totaal,0),h=heights(b),isde=isdeBereken(b,regels);
-  return{o,vr,gevelDirs,glasM2,regels,sel,totaal,isde,pv,kwp:pv.reduce((s,x)=>s+x.kwp,0),kwh:pv.reduce((s,x)=>s+x.kwh,0),panelen:pv.reduce((s,x)=>s+x.n,0),
+  const sel=regels.filter(r=>r.aan),direct=sel.reduce((s,r)=>s+r.totaal,0),h=heights(b),isde=isdeBereken(b,regels);
+  const staart=ramS.staart.map(x=>({...x,bedrag:direct*(+x.p||0)/100})),totaal=direct+staart.reduce((s,x)=>s+x.bedrag,0);
+  return{o,vr,gevelDirs,glasM2,regels,sel,direct,staart,totaal,isde,pv,peil:KK.peil,kkBron:KK.bron,kwp:pv.reduce((s,x)=>s+x.kwp,0),kwh:pv.reduce((s,x)=>s+x.kwh,0),panelen:pv.reduce((s,x)=>s+x.n,0),
     glas:ramS.glas,verlies:ramS.verlies,btw:ramS.btw,werkhoogte:h.hmax,goot:Math.max(0,...vlakkenVan(b).filter(v=>!v.plat).map(v=>v.goot))||null};
 }
 const eur=v=>'€ '+Math.round(v).toLocaleString('nl-NL');
@@ -1394,15 +1466,37 @@ function isdeCel(x,u){
   if(!u||u.ok===null)return vink+'<small>niet meegenomen</small>';
   if(!u.ok)return vink+`<small class="isde-nee">✖ ${esc(u.reden)}</small>`;
   if(u.wp)return vink+`<span class="isde-ja">€ <input type="number" class="ram-p" data-isdewp="${x.k}" step="25" min="0" value="${Math.round(u.bedrag)}"></span><small>meldcodelijst, min. € 500</small>`;
-  return vink+`<span class="isde-ja">✔ ${eur(u.bedrag)}</span><small>${fmt(u.m2,1)} m² × € ${fmt(u.tarief,2)}${u.afgetopt?' (max)':''}</small>`;
+  return vink+`<span class="isde-ja">✔ ${eur(u.bedrag)}</span><small>${fmt(u.m2,1)} m² × € ${fmt(u.tarief,2)}${u.afgetopt?' (max)':''}</small>${u.check?`<small class="ram-let">? ${esc(u.check)} – controleren</small>`:''}`;
+}
+function altPaneel(x,r){
+  const q=ramS.altQ.trim().toLowerCase(),subs=new Set(x.codes.map(c=>(kkM(c)||{}).sg).filter(Boolean)),vr=r.vr.sleutel;
+  const huidig=rvoPrijs(x.code,vr),pr=c=>{const p=rvoPrijs(c,vr);if(!p)return null;return ramS.btw?p.excl*btwFactor(x.btw,p.arbeid):p.excl};
+  const hp=x.code?pr(x.code):null;let n=0;
+  const blok=KK.groepen.map(g=>{const sub=g.sub.map(sg=>{
+      if(!q&&!subs.has(sg.nr))return'';
+      const rij=sg.codes.filter(c=>{const m=kkM(c);if(!m)return false;if(ramS.altBio&&!m.bio)return false;return!q||(c+' '+m.e).toLowerCase().includes(q)}).map(c=>{n++;const m=kkM(c),p=pr(c),ic=isdeCheck(c,x.k),af=hp&&p?(p/hp-1)*100:null;
+        return`<tr class="${c===x.code?'gek':''}"><td><button type="button" class="ram-kies" data-kies="${x.k}" data-c="${c}"${c===x.code?' disabled':''}>${c===x.code?'✓':'Kies'}</button></td>
+          <td><b>${c}</b>${x.codes.includes(c)?' <span class="ram-fav" title="favoriet">★</span>':''}${m.bio?' <span class="ram-bio">biobased</span>':''}<small>${esc(m.e)}</small></td>
+          <td class="klein">${esc(m.h==='won'?'woning':m.h)}${huidig&&m.h!==huidig.h?' <span class="ram-let" title="andere eenheid dan de huidige keuze">⚠</span>':''}</td>
+          <td class="m2">${p!=null?'€ '+fmt(p,2):'–'}${af!=null&&Math.abs(af)>=0.5?`<small class="${af>0?'duur':'goedk'}">${af>0?'+':''}${fmt(af,0)}%</small>`:''}</td><td>${ISDE_BADGE(ic)}</td></tr>`}).join('');
+      return rij?`<tr class="sg"><td colspan="5">${esc(sg.nr)} · ${esc(sg.naam)}</td></tr>`+rij:''}).join('');
+    return sub?`<tr class="hg"><td colspan="5">${esc(g.nr)} · ${esc(g.naam)}</td></tr>`+sub:''}).join('');
+  return`<div class="ram-alt"><div class="ram-altzoek"><input type="search" id="ram-altq" placeholder="Zoek in alle RVO-maatregelen (code, materiaal, Rc…)" value="${esc(ramS.altQ)}">
+    <label><input type="checkbox" id="ram-altbio"${ramS.altBio?' checked':''}> alleen biobased</label><span class="klein">${n} maatregel${n===1?'':'en'}${q?' (hele RVO-lijst)':' uit dezelfde RVO-subgroep'} · prijs voor variant ${esc(vr)}${ramS.btw?' incl. btw':''} · keuze geldt voor dit adres</span></div>
+    ${n?`<table class="ram-alttab"><thead><tr><th></th><th>RVO-maatregel</th><th>Eh</th><th>Prijs</th><th>ISDE-check</th></tr></thead><tbody>${blok}</tbody></table>`:'<p class="klein">Geen maatregelen gevonden.</p>'}
+    <p class="klein">★ = vaste keuze in de lijst · ISDE-check op basis van de Rd/U-waarde in de RVO-omschrijving (isolatie Rd ≥ 3,5, spouw ≥ 1,1, glas U ≤ 1,2); “?” = niet in de omschrijving, zelf controleren. Biobased = herkend op materiaal (vlas, hennep, houtvezel, cellulose, stro, bio-EPS e.d.).</p></div>`;
 }
 function renderRaming(){
   const el=$('bag-raming');if(!el)return;const b=selB();
   if(!b){el.innerHTML='<p class="klein">Zoek een adres of klik op een pand.</p>';return}
-  const r=ramingData(b);
+  kkZorg(b);const r=ramingData(b);
   if(!r){el.innerHTML=`<p class="klein">${b.h===undefined?'3D-model laden…':'Geen 3D-model: geen automatische hoeveelheden. Gebruik de tab Opmeten.'}</p>`;return}
+  const pj=projS(b),kkInfo=KK.bron==='RVO-Excel'?`prijspeil <b>${esc(KK.peil)}</b>, kolom “Totaal bouwkosten (€/eh)” incl. opslagen`:`prijspeil juni 2026 (ingebouwde tabel${KK.fout?' – actuele RVO-lijst niet bereikbaar':''})`;
   const sel=(id,opties,waarde)=>`<select id="${id}">${opties.map(([v,t])=>`<option value="${v}"${v===waarde?' selected':''}>${t}</option>`).join('')}</select>`;
-  el.innerHTML=`<div class="ram-bron">Prijzen: <b>RVO-kostenkentallen woningbouw</b> (prijspeil juni 2026)${r.btw?', omgerekend naar incl. btw (isolatie: arbeid 9%, materiaal 21%; zonnepanelen 0%; overig 21%)':', excl. btw'}.</div>
+  el.innerHTML=`<div class="ram-bron">Prijzen: <b>RVO-kostenkentallen woningbouw</b> (${kkInfo})${r.btw?', omgerekend naar incl. btw (isolatie: arbeid 9%, materiaal 21%; zonnepanelen 0%; overig 21%)':', excl. btw'}.
+      <div class="ram-kk">${KK.lijst.length>1?`<label>Prijspeil ${sel('ram-peil',KK.lijst.map(x=>[x.bestand,x.peildatum+(x.bestand===KK.laatst?' (actueel)':'')]),KK.bestand)}</label>`:''}
+        <button type="button" class="actie licht klein-knop" id="ram-kkchk">🔄 Prijzen controleren</button><span id="ram-kkmsg" class="klein"></span>
+        <details class="ram-kkuitleg"><summary>Waarom hoger dan op de RVO-site?</summary>Het RVO-platform toont op het scherm alleen de <i>directe kosten</i> (zonder opslagen). De tool rekent met de <i>totale bouwkosten</i> uit de complete RVO-Excel, inclusief opslagen voor bouwplaats, algemene kosten en winst &amp; risico (± 20% hoger). Een GitHub Action haalt de Excel elke maandag op; alleen als RVO iets verandert komt er een nieuw prijsbestand bij en oude peildata blijven bewaard, zodat een oude raming te herleiden blijft. De gekozen prijspeil en RVO-varianten worden per adres onthouden.</details></div></div>
     <div class="ram-inst">
       <label>Woningtype ${sel('ram-type',[['egw',VARNAAM.egw],['mgw',VARNAAM.mgw]],r.vr.type)}</label>
       <label>Grootte ${sel('ram-gr',[['min',VARNAAM.min],['mid',VARNAAM.mid],['max',VARNAAM.max]],r.vr.gr)}${r.vr.ag?` <span class="klein">(Ag ${r.vr.ag} m²)</span>`:''}</label>
@@ -1416,12 +1510,18 @@ function renderRaming(){
       <span class="ram-glastot">Totaal ramen/deuren <b>${fmt(r.glasM2,1)} m²</b> · dichte gevel <b>${fmt(r.o.gevel-r.glasM2,1)} m²</b></span></div></div>
     <table class="ram-tab"><thead><tr><th></th><th>Maatregel (RVO-variant)</th><th>Hoeveelheid</th><th>Prijs p/eenh.</th><th>Totaal</th><th>ISDE</th></tr></thead><tbody>
     ${r.regels.map(x=>`<tr class="${x.aan?'aan':''}"><td><input type="checkbox" data-aan="${x.k}"${ramS.aan[x.k]?' checked':''}></td>
-      <td><b>${x.naam}</b>${x.codes.length>1?`<select class="ram-code" data-code="${x.k}">${x.codes.map(c=>`<option value="${c}"${c===x.code?' selected':''}>${c} · ${esc(RVO_KK[c].e)}</option>`).join('')}</select>`:`<small>${x.code?x.code+' · ':''}${esc(x.omschr)}</small>`}</td>
+      <td><b>${x.naam}</b>${(()=>{const cs=[...x.codes.filter(kkM)];if(x.code&&!cs.includes(x.code))cs.push(x.code);return cs.length>1?`<select class="ram-code${x.alt?' ram-altgekozen':''}" data-code="${x.k}">${cs.map(c=>`<option value="${c}"${c===x.code?' selected':''}>${x.codes.includes(c)?'':'★ '}${c} · ${esc(kkM(c).e)}</option>`).join('')}</select>`:`<small>${x.code?x.code+' · ':''}${esc(x.omschr)}</small>`})()}
+        ${x.codes.length&&KK.groepen?`<button type="button" class="ram-altk${ramS.alt===x.k?' on':''}" data-alt="${x.k}">${ramS.alt===x.k?'▲':'▼'} alternatieven</button>`:''}${x.alt?` <a href="#" data-altreset="${x.k}" class="klein" title="terug naar de standaardkeuze">↺ standaard</a>`:''}${x.varAlt?`<small class="ram-let">prijs uit variant ${esc(x.varAlt)} (niet in RVO voor deze variant)</small>`:''}</td>
       <td><input type="number" class="ram-h" data-h="${x.k}" step="0.1" min="0" value="${Math.round(x.hoev*10)/10}"> ${x.eenh}${ramS.hoev[x.k]!=null?` <a href="#" data-reset="${x.k}" title="terug naar ${fmt(x.auto,1)}">↺</a>`:''}${ramS.hoev[x.k]==null&&HERK[x.bron]?`<small>${HERK[x.bron](r)}</small>`:''}${x.besteld!=null&&x.aan?`<small>bestellen ± ${fmt(x.besteld,1)} ${x.eenh}</small>`:''}</td>
       <td>€ <input type="number" class="ram-p" data-p="${x.k}" step="0.01" min="0" value="${Math.round(x.prijs*100)/100}">${x.eigenPrijs?` <a href="#" data-preset="${x.k}" title="terug naar RVO-kental">↺</a><small>eigen prijs</small>`:''}</td>
       <td class="m2">${x.aan?eur(x.totaal):'<span class="klein">–</span>'}</td>
-      <td class="isde">${isdeCel(x,r.isde.uit[x.k])}</td></tr>`).join('')}
-    <tr class="tot"><td></td><td colspan="3">Totaal geselecteerde maatregelen (${r.btw?'incl.':'excl.'} btw, indicatief)</td><td class="m2">${eur(r.totaal)}</td><td></td></tr>
+      <td class="isde">${isdeCel(x,r.isde.uit[x.k])}</td></tr>${ramS.alt===x.k?`<tr class="ram-altrij"><td></td><td colspan="5">${altPaneel(x,r)}</td></tr>`:''}`).join('')}
+    <tr class="sub"><td></td><td colspan="3">Subtotaal maatregelen</td><td class="m2">${eur(r.direct)}</td><td></td></tr>
+    <tr class="staartkop"><td></td><td colspan="5"><b>Staartblad</b> <span class="klein">— percentage over het subtotaal; RVO-prijzen zijn al incl. opslagen, vul hier alleen extra opslagen of correcties in (negatief = korting)</span></td></tr>
+    ${r.staart.map((x,i)=>`<tr class="staart"><td><button type="button" class="ram-sdel" data-sdel="${i}" title="regel verwijderen">×</button></td><td><input type="text" class="ram-snaam" data-snaam="${i}" value="${esc(x.n)}"></td><td></td>
+      <td><input type="number" class="ram-sp" data-sp="${i}" step="0.5" value="${x.p}"> %</td><td class="m2">${x.p?eur(x.bedrag):'<span class="klein">–</span>'}</td><td></td></tr>`).join('')}
+    <tr class="staart"><td></td><td colspan="5"><button type="button" class="ram-altk" id="ram-sadd">＋ regel toevoegen</button> <button type="button" class="ram-altk" id="ram-snul">alles op 0%</button></td></tr>
+    <tr class="tot"><td></td><td colspan="3">Totaal maatregelen + staartblad (${r.btw?'incl.':'excl.'} btw, indicatief)</td><td class="m2">${eur(r.totaal)}</td><td></td></tr>
     <tr class="isde-tot"><td></td><td colspan="3">ISDE-subsidie (indicatie)${r.isde.dubbel?' <span class="isde-x2">×2 verdubbeld</span>':''}</td><td class="m2">− ${eur(r.isde.totaal)}</td><td></td></tr>
     <tr class="tot"><td></td><td colspan="3">Netto investering na ISDE</td><td class="m2">${eur(r.totaal-r.isde.totaal)}</td><td></td></tr></tbody></table>
     <div class="isde-box"><b>ISDE – waar heb je recht op?</b><ul>${r.isde.meld.map(m=>`<li>${esc(m)}</li>`).join('')}<li>Bedragen ISDE woningeigenaren 2026 (uitvoering 2025 of later): spouw € 5,25 · gevel € 20,25 · dak € 16,25 · vloer € 5,50 · bodem € 3 per m²; HR++/triple glas € 25 en triple in nieuwe kozijnen € 111 per m² (glas samen min. 3, max. 45 m²). Isolatie: Rd ≥ 3,5 (spouw ≥ 1,1), uitvoering door een bedrijf, aanvragen binnen 24 maanden. Zonnepanelen en kierdichting: geen ISDE. Biobased-bonus niet meegerekend.</li></ul></div>
@@ -1434,7 +1534,23 @@ function renderRaming(){
   el.querySelectorAll('[data-aan]').forEach(c=>c.onchange=()=>{ramS.aan[c.dataset.aan]=c.checked;her()});
   el.querySelectorAll('[data-isde]').forEach(c=>c.onchange=()=>{ramS.isde[c.dataset.isde]=c.checked;ramBewaar();her()});
   el.querySelectorAll('[data-isdewp]').forEach(c=>c.onchange=()=>{const v=parseFloat(c.value);if(!isNaN(v)){ramS.isdeWp[c.dataset.isdewp]=v;ramBewaar()}her()});
-  el.querySelectorAll('[data-code]').forEach(c=>c.onchange=()=>{ramS.code[c.dataset.code]=c.value;ramBewaar();her()});
+  el.querySelectorAll('[data-code]').forEach(c=>c.onchange=()=>{pj.code[c.dataset.code]=c.value;projBewaar();her()});
+  el.querySelectorAll('[data-altreset]').forEach(a=>a.onclick=e=>{e.preventDefault();delete pj.code[a.dataset.altreset];projBewaar();her()});
+  el.querySelectorAll('[data-alt]').forEach(c=>c.onclick=()=>{ramS.alt=ramS.alt===c.dataset.alt?null:c.dataset.alt;renderRaming()});
+  el.querySelectorAll('[data-kies]').forEach(c=>c.onclick=()=>{pj.code[c.dataset.kies]=c.dataset.c;projBewaar();ramS.alt=null;her()});
+  const aq=$('ram-altq');if(aq){aq.oninput=()=>{ramS.altQ=aq.value;const p=aq.selectionStart;renderRaming();const n=$('ram-altq');if(n){n.focus();n.setSelectionRange(p,p)}}}
+  const ab=$('ram-altbio');if(ab)ab.onchange=()=>{ramS.altBio=ab.checked;renderRaming()};
+  el.querySelectorAll('[data-sp]').forEach(c=>c.onchange=()=>{const v=parseFloat(String(c.value).replace(',','.'));ramS.staart[+c.dataset.sp].p=isNaN(v)?0:v;ramBewaar();her()});
+  el.querySelectorAll('[data-snaam]').forEach(c=>c.onchange=()=>{ramS.staart[+c.dataset.snaam].n=c.value;ramBewaar();changed()});
+  el.querySelectorAll('[data-sdel]').forEach(c=>c.onclick=()=>{ramS.staart.splice(+c.dataset.sdel,1);ramBewaar();her()});
+  $('ram-sadd').onclick=()=>{ramS.staart.push({n:'Nieuwe opslag',p:0});ramBewaar();her()};
+  $('ram-snul').onclick=()=>{ramS.staart.forEach(x=>x.p=0);ramBewaar();her()};
+  if($('ram-peil'))$('ram-peil').onchange=e=>{pj.peil=e.target.value===KK.laatst?undefined:e.target.value;projBewaar();kkLaad(e.target.value).then(her)};
+  $('ram-kkchk').onclick=async()=>{const m=$('ram-kkmsg');m.textContent=' controleren…';const oud=KK.laatst;await kkLaad(pj.peil,true);
+    const st=KK.status,dt=d=>d?new Date(d).toLocaleDateString('nl-NL',{day:'numeric',month:'long',year:'numeric'}):'?';
+    renderRaming();const m2=$('ram-kkmsg');if(!m2)return;
+    m2.innerHTML=KK.fout?` ⚠️ RVO-prijslijst niet bereikbaar (${esc(KK.fout)}); ingebouwde tabel juni 2026 in gebruik.`:
+      ` ✔ ${KK.laatst!==oud&&oud?'<b>Nieuwe prijzen geladen.</b> ':''}Actueel: <b>${esc((KK.lijst.find(x=>x.bestand===KK.laatst)||{}).peildatum||KK.peil)}</b> (${Object.keys(KK.m).length} maatregelen, opgehaald ${dt(KK.opgehaald)}).${st?` Laatst bij RVO gecontroleerd: ${dt(st.gecontroleerd)}.`:''} <a href="https://github.com/Erkend-energielabel/beslisschemas/actions/workflows/kostenkentallen.yml" target="_blank" rel="noopener" title="Op GitHub: Run workflow">Nu bij RVO laten controleren ↗</a>`};
   el.querySelectorAll('[data-h]').forEach(c=>c.onchange=()=>{const v=parseFloat(String(c.value).replace(',','.'));ramS.hoev[c.dataset.h]=isNaN(v)?null:v;her()});
   el.querySelectorAll('[data-reset]').forEach(a=>a.onclick=e=>{e.preventDefault();delete ramS.hoev[a.dataset.reset];her()});
   el.querySelectorAll('[data-p]').forEach(c=>c.onchange=()=>{const v=parseFloat(String(c.value).replace(',','.'));if(!isNaN(v)){const x=r.regels.find(q=>q.k===c.dataset.p);const f=ramS.btw?btwFactor(x.btw,(rvoPrijs(x.code,r.vr.sleutel)||{}).arbeid||0):1;ramS.prijs[c.dataset.p]=v/f;ramBewaar()}her()});
@@ -1444,10 +1560,11 @@ function renderRaming(){
   el.querySelectorAll('[data-gdir]').forEach(c=>c.onchange=()=>{const v=parseFloat(String(c.value).replace(',','.'));if(!isNaN(v)){ramS.glasDir[c.dataset.gdir]=v;ramBewaar()}her()});
   el.querySelectorAll('[data-gdirreset]').forEach(a=>a.onclick=e=>{e.preventDefault();delete ramS.glasDir[a.dataset.gdirreset];ramBewaar();her()});
   [['ram-glas','glas'],['ram-verlies','verlies']].forEach(([id,k])=>$(id).onchange=()=>{const v=parseFloat($(id).value);if(!isNaN(v)){ramS[k]=v;ramBewaar()}her()});
-  $('ram-std').onclick=()=>{ramS.prijs={};ramS.code={};ramS.type=null;ramS.grootte=null;ramS.aanpak='enk';ramS.glas=20;ramS.glasDir={};ramS.verlies=5;ramS.hoev={};ramBewaar();her()};
+  $('ram-std').onclick=()=>{ramS.prijs={};ramS.code={};pj.code={};projBewaar();ramS.type=null;ramS.grootte=null;ramS.aanpak='enk';ramS.glas=20;ramS.glasDir={};ramS.verlies=5;ramS.hoev={};ramBewaar();her()};
   $('ram-csv').onclick=()=>{const L=[['RVO-code','Maatregel','Omschrijving RVO','Hoeveelheid','Eenheid','Bestellen (incl. snijverlies)','Prijs p/eenheid ('+(r.btw?'incl.':'excl.')+' btw)','Totaal']];
     r.sel.forEach(x=>L.push([x.code||'',x.naam,x.omschr,fmt(x.hoev,1),x.eenh,x.besteld!=null?fmt(x.besteld,1):'',fmt(x.prijs,2),fmt(x.totaal,0)]));
-    L.push(['','Totaal','','','','','',fmt(r.totaal,0)]);L.push([]);L.push(['Bron: RVO kostenkentallen woningbouw, prijspeil juni 2026; variant '+r.vr.sleutel]);
+    L.push(['','Subtotaal maatregelen','','','','','',fmt(r.direct,0)]);r.staart.filter(x=>x.p).forEach(x=>L.push(['',x.n,'',fmt(x.p,1)+'%','','','',fmt(x.bedrag,0)]));
+    L.push(['','Totaal','','','','','',fmt(r.totaal,0)]);L.push([]);L.push(['Bron: RVO kostenkentallen woningbouw (Totaal bouwkosten incl. opslagen), prijspeil '+r.peil+'; variant '+r.vr.sleutel]);
     if(r.pv.length){L.push([]);L.push(['Zonnepanelen dakvlak','Oriëntatie','Helling','Panelen','m²','kWp','kWh/jaar']);r.pv.forEach(p=>L.push(['Dakvlak '+p.nr,p.dir,fmt(p.helling,0),p.n,fmt(p.m2,1),fmt(p.kwp,2),fmt(p.kwh,0)]))}
     const t='\ufeff'+L.map(a=>a.map(v=>{v=String(v??'');return/[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(';')).join('\r\n');
     const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));a.download=`Raming ${addrOf(b).split(',')[0]}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};
@@ -2021,7 +2138,7 @@ async function pdfGegevens(){
     lagenGeschat:h.lagenEst, route:hoogteRoute,
     dakvlakken:vlakkenVan(b).map((v,i)=>({nr:i+1,dir:v.plat?'plat':v.dir,az:v.plat?'-':Math.round(v.az)+'°',helling:fmt(v.helling,0)+'°',opp:fmt(v.opp,1)+' m²',hoogte:fm(v.hoogte),goot:v.plat?'-':fm(v.goot),kleur:v.plat?'#9aa59f':DCOL[v.dir]})),
     dakTotaal:vlakkenVan(b).reduce((s,v)=>s+v.opp,0),
-    raming:(()=>{const r=ramingData(b);if(!r||!r.sel.length&&!r.pv.length)return null;return{regels:r.sel.map(x=>({isde:(u=>!ISDE_CAT[x.k]?'-':u&&u.ok?eur(u.bedrag):u&&u.ok===false?'nee: '+u.reden:'-')(r.isde.uit[x.k]),code:x.code||'-',naam:x.naam,hoev:fmt(x.hoev,1)+' '+x.eenh,besteld:x.besteld!=null?fmt(x.besteld,1)+' '+x.eenh:'-',prijs:'€ '+fmt(x.prijs,2),totaal:eur(x.totaal)})),totaal:eur(r.totaal),isde:eur(r.isde.totaal),netto:eur(r.totaal-r.isde.totaal),isdeDubbel:r.isde.dubbel,isdeMeld:r.isde.meld,btw:r.btw,variant:VARNAAM[r.vr.type]+', '+VARNAAM[r.vr.gr]+', '+VARNAAM[ramS.aanpak],pv:r.pv.map(p=>({nr:p.nr,dir:p.dir,helling:fmt(p.helling,0)+'°',n:String(p.n),kwp:fmt(p.kwp,2),kwh:fmt(p.kwh,0)})),panelen:r.panelen,kwp:fmt(r.kwp,2),kwh:fmt(r.kwh,0),glas:fmt(100*r.glasM2/(r.o.gevel||1),0),glasDirs:r.gevelDirs.map(g=>g.dir+' '+g.pct+'%').join(', '),verlies:r.verlies}})(),
+    raming:(()=>{const r=ramingData(b);if(!r||!r.sel.length&&!r.pv.length)return null;return{regels:r.sel.map(x=>({isde:(u=>!ISDE_CAT[x.k]?'-':u&&u.ok?eur(u.bedrag):u&&u.ok===false?'nee: '+u.reden:'-')(r.isde.uit[x.k]),code:x.code||'-',naam:x.naam,hoev:fmt(x.hoev,1)+' '+x.eenh,besteld:x.besteld!=null?fmt(x.besteld,1)+' '+x.eenh:'-',prijs:'€ '+fmt(x.prijs,2),totaal:eur(x.totaal)})),direct:eur(r.direct),staart:r.staart.filter(x=>x.p).map(x=>({n:x.n,p:fmt(x.p,1)+'%',bedrag:eur(x.bedrag)})),peil:r.peil,totaal:eur(r.totaal),isde:eur(r.isde.totaal),netto:eur(r.totaal-r.isde.totaal),isdeDubbel:r.isde.dubbel,isdeMeld:r.isde.meld,btw:r.btw,variant:VARNAAM[r.vr.type]+', '+VARNAAM[r.vr.gr]+', '+VARNAAM[ramS.aanpak],pv:r.pv.map(p=>({nr:p.nr,dir:p.dir,helling:fmt(p.helling,0)+'°',n:String(p.n),kwp:fmt(p.kwp,2),kwh:fmt(p.kwh,0)})),panelen:r.panelen,kwp:fmt(r.kwp,2),kwh:fmt(r.kwh,0),glas:fmt(100*r.glasM2/(r.o.gevel||1),0),glasDirs:r.gevelDirs.map(g=>g.dir+' '+g.pct+'%').join(', '),verlies:r.verlies}})(),
     opp:(()=>{const o=oppervlaktes(b);if(!o)return null;const n=x=>fmt(x,1)+' m²';return{vbos:o.vbos,groepen:o.groepen.map(g=>({titel:g.titel,sub:g.sub,tot:n(g.tot),rijen:g.rijen.map(r=>({naam:r.naam,dir:r.dir||'',helling:r.dir&&r.dir!=='hor.'&&r.helling<89?fmt(r.helling,0)+'°':'',opp:n(r.opp),kleur:!r.dir||r.dir==='hor.'||r.dir==='plat'?'#6b7a73':DCOL[r.dir]}))})),
       txt:{gevel:n(o.gevel),dak:n(o.dak),vloer:n(o.vloer),als:n(o.als),inhoud:fmt(o.inhoud,0)+' m³',gedeeld:o.gedeeld?n(o.gedeeld):null,ag:o.ag?fmt(o.ag,0)+' m²':null,alsAg:o.alsAg?fmt(o.alsAg,2):null}}})()
   };
@@ -3363,6 +3480,10 @@ function ramingPagina(doc, pd, meta){
   if(r.regels.length){
     y = pdfSectie(doc, 'Maatregelen en hoeveelheden', PM, y, PBR);
     const body = r.regels.map(x => [x.code, pdfTekst(x.naam), pdfTekst(x.hoev), pdfTekst(x.prijs), pdfTekst(x.totaal), pdfTekst(x.isde)]);
+    if(r.staart && r.staart.length){
+      body.push([{content:'Subtotaal maatregelen', colSpan:4, styles:{fontStyle:'bold'}}, {content:pdfTekst(r.direct), styles:{fontStyle:'bold', halign:'right'}}, '']);
+      r.staart.forEach(x => body.push([{content:pdfTekst(x.n) + ' (' + pdfTekst(x.p) + ')', colSpan:4, styles:{textColor:HEX('#6b7a73')}}, {content:pdfTekst(x.bedrag), styles:{halign:'right', textColor:HEX('#6b7a73')}}, '']));
+    }
     body.push([{content:'Totaal (' + (r.btw ? 'incl.' : 'excl.') + ' btw, indicatief)', colSpan:4, styles:{fontStyle:'bold', fillColor:HEX('#eef7ef')}}, {content:pdfTekst(r.totaal), styles:{fontStyle:'bold', fillColor:HEX('#eef7ef'), halign:'right'}}, {content:'', styles:{fillColor:HEX('#eef7ef')}}]);
     body.push([{content:'ISDE-subsidie (indicatie)' + (r.isdeDubbel ? ' - verdubbeld' : ''), colSpan:4, styles:{fontStyle:'bold', textColor:HEX('#1e7a3c')}}, {content:'- ' + pdfTekst(r.isde), styles:{fontStyle:'bold', textColor:HEX('#1e7a3c'), halign:'right'}}, ''])
     body.push([{content:'Netto investering na ISDE', colSpan:4, styles:{fontStyle:'bold', fillColor:HEX('#eef7ef')}}, {content:pdfTekst(r.netto), styles:{fontStyle:'bold', fillColor:HEX('#eef7ef'), halign:'right'}}, {content:'', styles:{fillColor:HEX('#eef7ef')}}]);
@@ -3381,7 +3502,7 @@ function ramingPagina(doc, pd, meta){
       columnStyles:{2:{halign:'right'}, 3:{halign:'right'}, 4:{halign:'right'}, 5:{halign:'right'}}});
     y = doc.lastAutoTable.finalY + 6;
   }
-  pdfDisclaimer(doc, y, 'Indicatieve raming. Prijzen: RVO-kostenkentallen woningbouw (prijspeil juni 2026), variant ' + r.variant + ', ' + (r.btw ? 'omgerekend naar incl. btw (isolatie: arbeid 9%, materiaal 21%; zonnepanelen 0%; overig 21%)' : 'excl. btw') + '; zonder bijkomende kosten, leges en asbest; ISDE volgens RVO-bedragen woningeigenaren 2026 (indicatie, biobased-bonus niet meegerekend, toekenning door RVO); nauwkeurigheid volgens RVO -10% tot +25%. Hoeveelheden: bruto buitenwerkse oppervlaktes uit het 3D-model (3D BAG), ramen/deuren gemiddeld ' + r.glas + '% van de gevel (' + r.glasDirs + '). Zonnepanelen 435 Wp per paneel, opbrengst indicatief. Geen offerte.');
+  pdfDisclaimer(doc, y, 'Indicatieve raming. Prijzen: RVO-kostenkentallen woningbouw (totale bouwkosten incl. opslagen, prijspeil ' + (r.peil || 'juni 2026') + '), variant ' + r.variant + ', ' + (r.btw ? 'omgerekend naar incl. btw (isolatie: arbeid 9%, materiaal 21%; zonnepanelen 0%; overig 21%)' : 'excl. btw') + '; zonder bijkomende kosten, leges en asbest; ISDE volgens RVO-bedragen woningeigenaren 2026 (indicatie, biobased-bonus niet meegerekend, toekenning door RVO); nauwkeurigheid volgens RVO -10% tot +25%. Hoeveelheden: bruto buitenwerkse oppervlaktes uit het 3D-model (3D BAG), ramen/deuren gemiddeld ' + r.glas + '% van de gevel (' + r.glasDirs + '). Zonnepanelen 435 Wp per paneel, opbrengst indicatief. Geen offerte.');
 }
 function oppPagina(doc, pd, meta){
   const o = pd.opp, t = o.txt;
