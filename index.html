@@ -5100,6 +5100,12 @@ function render(){
     }catch(e){ m.textContent = ' ⚠️ ' + (e.message || e); console.error(e); } };
 }
 
+/* vaste regels die automatisch bij de voorwaarden horen */
+function extraVw(d){
+  const sch = (d.staart || []).find(x => x.n === 'Schilderwerk' && x.totaal > 0);
+  return sch ? ['Schilderwerk: de prijs betreft het buitenschilderwerk. Schilderwerkzaamheden aan de binnenzijde zijn niet inbegrepen.'] : [];
+}
+
 /* ---------- PDF ---------- */
 const PW = 210, PH = 297, M = 15, BR = PW - 2*M;
 const H = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
@@ -5248,7 +5254,7 @@ function maak(d){
     y = doc.lastAutoTable.finalY + 6;
   }
   /* voorwaarden */
-  const vw = String(o.voorwaarden||'').split('\n').map(s => s.trim()).filter(Boolean);
+  const vw = [...String(o.voorwaarden||'').split('\n').map(s => s.trim()).filter(Boolean), ...extraVw(d)];
   if(vw.length){
     ruimte(16); doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...H('#0B3D2E')); doc.text('Voorwaarden en uitgangspunten', M, y);
     doc.setDrawColor(...H('#3CB54A')); doc.setLineWidth(0.5); doc.line(M, y+1.6, M+BR, y+1.6); y += 6;
@@ -5358,7 +5364,7 @@ function docxMaak(d){
         ...tm.map(x => new D.TableRow({cantSplit:true, children:[C(6606, [P(x.n)]), C(1200, [P(x.p + '%', {r:true})]), C(2400, [P(eur(x.bedrag), {r:true})])]}))]}));
   }
   /* voorwaarden */
-  const vw = String(o.voorwaarden||'').split('\n').map(s => s.trim()).filter(Boolean);
+  const vw = [...String(o.voorwaarden||'').split('\n').map(s => s.trim()).filter(Boolean), ...extraVw(d)];
   if(vw.length){ kids.push(kopje('Voorwaarden en uitgangspunten')); vw.forEach(t => kids.push(P('•  ' + t, {sz:17, na:60}))); }
   /* afsluiting + akkoord */
   kids.push(P('Deze offerte-raming is een indicatie. Heeft u interesse, dan onderzoeken wij graag samen de mogelijkheden verder. Heeft u vragen, neem dan gerust contact met ons op.', {voor:240, na:200}));
