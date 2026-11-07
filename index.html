@@ -4595,30 +4595,29 @@ function saveRun(){
   saveFile(kopTekst()+'\n'+entryText(e)+'\nBron: ISSO-publicatie 82.1, 7e druk.\n', name);
 }
 function bestandsnaam(){ const pr=(S.project||'').trim().replace(/[\\/:*?"<>|]/g,'').slice(0,80); return "Beslisschema's ISSO 82.1"+(pr?' - '+pr:'')+' - '+isoDate()+'.txt'; }
-let MAKER='Visser Inspecties · EnergiePrestatie-advies';
+let MAKER='Erkend-Energielabel.nl · EnergiePrestatie-advies';
 const inFrame = (()=>{ try{ return window.self!==window.top; }catch(e){ return true; } })();
 
 /* ============================================================
-   ONEDRIVE — zelfde inlog als Huismaten en de Projectmap-app
-   (staan op visserinspecties.github.io en delen dezelfde browseropslag)
+   ONEDRIVE — koppeling van Erkend-Energielabel (nog in te stellen)
    ============================================================ */
-const GRAPH_CLIENT_ID = 'fdf237c9-bf46-47fa-ab3d-a8834a73e284';
-const GRAPH_TENANT_ID = '984fd1fb-3d68-4c94-aff2-47f699fb5dae';
+const GRAPH_CLIENT_ID = '';   /* eigen Microsoft-app van Erkend-Energielabel nog niet ingesteld */
+const GRAPH_TENANT_ID = '';
 const GRAPH_SCOPE = 'https://graph.microsoft.com/Files.ReadWrite offline_access';
-const VASTE_ORIGIN = 'https://visserinspecties.github.io';
-const PROJECTEN_ROOT = '0_In Behandeling';
+const PROJECTEN_ROOT = 'Projecten';
 const SUBMAP = '020 AANTEKENINGEN';
 const OD = false;
 let project = null;   // {naam, pad} — pad eindigt op 020 AANTEKENINGEN
 let melding = null;
 
 function leesProject(){
-  for(const sleutel of ['bs_gekozen_project','huismaten_project']){
+  for(const sleutel of ['bs_gekozen_project']){
     try{ const p=JSON.parse(localStorage.getItem(sleutel)||'null'); if(p && p.naam && p.pad && p.naam!==SUBMAP) return p; }catch(e){}
   }
   return null;
 }
 async function graphRefreshToken(){
+  if(!GRAPH_CLIENT_ID){ const e=new Error('OneDrive-koppeling niet ingesteld.'); e.code='geen-login'; throw e; }
   let rt=null; try{ rt=localStorage.getItem('rt'); }catch(e){}
   if(!rt){ const e=new Error('Niet ingelogd bij OneDrive.'); e.code='geen-login'; throw e; }
   let resp;
@@ -4643,7 +4642,7 @@ async function controleerOneDrive(){
     if(!navigator.onLine){ zetBalk('let','📵 Geen internet — kopieer of download het verslag, of probeer later opnieuw.',[opnieuw]); return; }
     let token;
     try{ token=await graphRefreshToken(); }
-    catch(e){ if(e.code==='netwerk') zetBalk('let','⚠️ Microsoft is nu niet bereikbaar.',[opnieuw]); else zetBalk('fout','Niet ingelogd bij OneDrive. Open Huismaten of de Projectmap-app, tik daar op “Inloggen” en kom dan hier terug.',[opnieuw]); return; }
+    catch(e){ if(e.code==='netwerk') zetBalk('let','⚠️ Microsoft is nu niet bereikbaar.',[opnieuw]); else zetBalk('fout','Niet ingelogd bij OneDrive. Koppel eerst OneDrive in de instellingen, tik daar op “Inloggen” en kom dan hier terug.',[opnieuw]); return; }
     if(!project){ zetBalk('let','☁️ OneDrive verbonden — nog geen project gekozen.',[kies,opnieuw]); return; }
     let resp;
     try{ resp=await fetch('https://graph.microsoft.com/v1.0/me/drive/root:/'+encodeURIComponent(project.pad),{headers:{Authorization:'Bearer '+token}}); }
@@ -4705,7 +4704,7 @@ function wisselProject(nieuw){
 }
 async function kiesProject(){
   try{ await graphRefreshToken(); }
-  catch(e){ toast('Niet ingelogd bij OneDrive — log in via Huismaten of de Projectmap-app'); return; }
+  catch(e){ toast('Niet ingelogd bij OneDrive — koppel eerst OneDrive in de instellingen'); return; }
   const keuze=await kiesOnedriveMap(); if(!keuze) return;
   const delen=keuze.delen;
   if(!delen.length){ toast('Kies een projectmap, niet de hoofdmap van OneDrive'); return; }
