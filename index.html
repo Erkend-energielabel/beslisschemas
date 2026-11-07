@@ -4970,7 +4970,7 @@ window.OFFERTE = (function(){
 const BEDRIJF = {naam:'Erkend-Energielabel.nl', adres:'Aelbert Cuyplaan 45', pcplaats:'3343 DA Hendrik Ido Ambacht', tel:'06 51 63 08 96',
   mail:'Info@Erkend-Energielabel.nl', web:'www.Erkend-Energielabel.nl', kvk:'42070461', btw:'NL869571655B01', bank:'KNAB', iban:'NL77 KNAB 0259 8692 79', bic:'KNABNL2H'};
 const VOORWAARDEN_STD = [
-  'Hoeveelheden zijn bepaald op basis van de opname en het 3D-model van de woning; bij uitvoering wordt definitief ingemeten en verrekend op basis van de eenheidsprijzen.',
+  'De genoemde bedragen zijn vaste totaalprijzen per onderdeel, inclusief alle bijkomende kosten zoals bouwplaatsvoorzieningen, algemene kosten en winst & risico.',
   'Niet inbegrepen, tenzij vermeld: asbestinventarisatie en -sanering, herstel van verborgen gebreken, vergunningen en leges.',
   'Btw: isolatiewerkzaamheden aan woningen ouder dan 2 jaar 9% over het arbeidsdeel en 21% over materiaal; zonnepanelen bij woningen 0%; overige maatregelen 21%.',
   'De ISDE-subsidie is een indicatie. U vraagt de subsidie zelf aan bij RVO na uitvoering; toekenning en bedragen zijn aan de voorwaarden van RVO onderhevig.',
@@ -5006,7 +5006,8 @@ function gegevens(d){
   if(o.aanhef == null) o.aanhef = 'Geachte heer/mevrouw,';
   if(o.intro == null) o.intro = `Hartelijk dank voor uw interesse in het verduurzamen van uw woning. Naar aanleiding van onze opname bieden wij u hierbij vrijblijvend de onderstaande maatregelen aan voor de woning aan ${d.adres.split(',')[0]}.`;
   if(o.voorwaarden == null) o.voorwaarden = VOORWAARDEN_STD;
-  ['eenheid','isde','teken'].forEach(k => { if(o[k] == null) o[k] = true; });
+  o.voorwaarden = String(o.voorwaarden).replace('Hoeveelheden zijn bepaald op basis van de opname en het 3D-model van de woning; bij uitvoering wordt definitief ingemeten en verrekend op basis van de eenheidsprijzen.', VOORWAARDEN_STD.split('\n')[0]);
+  ['isde','teken'].forEach(k => { if(o[k] == null) o[k] = true; });
   if(o.codes == null) o.codes = false;
   return o;
 }
@@ -5020,10 +5021,10 @@ function render(){
       ${veld('klant','Klant (naam)','text','placeholder="Dhr./mevr. …"')}${veld('klantAdres','Adres klant')}${veld('klantPc','Postcode en plaats')}${veld('mail','E-mail klant (optioneel)','email')}</div>
     <label class="klein" style="display:block;margin-top:8px">Aanhef<input type="text" data-of="aanhef" value="${esc(o.aanhef)}" style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #cfdcd2;border-radius:7px"></label>
     <label class="klein" style="display:block;margin-top:6px">Inleiding<textarea data-of="intro">${esc(o.intro)}</textarea></label>
-    <div class="off-vink"><label><input type="checkbox" data-ofv="eenheid"${o.eenheid?' checked':''}> eenheidsprijzen tonen</label><label><input type="checkbox" data-ofv="codes"${o.codes?' checked':''}> RVO-codes tonen</label>
+    <div class="off-vink"><label><input type="checkbox" data-ofv="codes"${o.codes?' checked':''}> RVO-codes tonen</label>
       <label><input type="checkbox" data-ofv="isde"${o.isde?' checked':''}> ISDE-indicatie tonen</label><label><input type="checkbox" data-ofv="teken"${o.teken?' checked':''}> akkoordverklaring (handtekening)</label></div>
     <label class="klein" style="display:block">Voorwaarden en uitgangspunten (één per regel)<textarea data-of="voorwaarden" style="min-height:110px">${esc(o.voorwaarden)}</textarea></label>
-    <div class="off-sam">${d.regels.length} maatregel${d.regels.length===1?'':'en'} · totaal excl. btw <b>${eur0(d.excl)}</b> · btw ${eur0(d.btw9+d.btw21)} · <b>incl. btw ${eur0(d.incl)}</b>${o.isde&&d.isde?` · ISDE-indicatie ${eur0(d.isde)}`:''} · geldig t/m ${tot.toLocaleDateString('nl-NL')}<br><span class="klein">Bedragen volgen de raming hierboven (hoeveelheden, prijzen, staartblad). Wijzig daar en maak de offerte opnieuw.</span></div>
+    <div class="off-sam">${d.regels.length} maatregel${d.regels.length===1?'':'en'} · totaal excl. btw <b>${eur0(d.excl)}</b> · btw ${eur0(d.btw9+d.btw21)} · <b>incl. btw ${eur0(d.incl)}</b>${o.isde&&d.isde?` · ISDE-indicatie ${eur0(d.isde)}`:''} · geldig t/m ${tot.toLocaleDateString('nl-NL')}<br><span class="klein">Alleen totaalprijzen per onderdeel; het staartblad is naar rato in de onderdelen verwerkt (geen m²- of eenheidsprijzen in de offerte). Bedragen volgen de raming hierboven: wijzig daar en maak de offerte opnieuw.</span></div>
     <div class="acties"><button type="button" class="actie" id="off-pdf">📄 Offerte als PDF</button><button type="button" class="actie licht" id="off-std">Teksten terug naar standaard</button><button type="button" class="actie licht" id="off-dicht">Sluiten</button><span id="off-msg" class="klein"></span></div></div>`;
   el.querySelectorAll('[data-of]').forEach(i => i.onchange = () => { o[i.dataset.of] = i.type === 'number' ? (+i.value || 30) : i.value; BAG.projBewaar(); if(['datum','geldig'].includes(i.dataset.of)) render(); });
   el.querySelectorAll('[data-ofv]').forEach(i => i.onchange = () => { o[i.dataset.ofv] = i.checked; BAG.projBewaar(); render(); });
@@ -5086,12 +5087,12 @@ function maak(d){
   doc.text(T(o.aanhef), M, y); y += 6;
   const intro = doc.splitTextToSize(T(o.intro), BR); doc.text(intro, M, y); y += intro.length*4.4 + 4;
   /* tabel */
-  const body = d.regels.map((x,i) => {
-    const oms = (o.codes && x.code ? x.code + ' - ' : '') + x.omschr;
-    return [String(i+1), {content: T(x.naam) + '\n' + T(oms)}, T(n1(x.hoev) + ' ' + x.eenh), o.eenheid ? T(eur(x.excl)) : '', T(eur(x.totaal))]; });
-  const kopR = ['#', 'Omschrijving', 'Hoeveelheid', o.eenheid ? 'Prijs p/eenh.' : '', 'Totaal'];
-  const som = (label, bedrag, st={}) => [{content:T(label), colSpan:4, styles:{halign:'right', ...st}}, {content:T(bedrag), styles:{halign:'right', ...st}}];
-  if(d.staart.length){ body.push(som('Subtotaal maatregelen', eur(d.sub), {fontStyle:'bold'})); d.staart.forEach(s => body.push(som(s.n + ' (' + n1(s.p) + '%)', eur(s.totaal), {textColor:H('#55645c')}))); }
+  /* staartblad naar rato in de onderdelen; afronden op centen, verschil in het grootste onderdeel */
+  const fac = d.sub ? d.excl / d.sub : 1, regels = d.regels.map(x => ({...x, prijs: Math.round(x.totaal * fac * 100) / 100}));
+  if(regels.length){ const verschil = Math.round((d.excl - regels.reduce((t,x) => t + x.prijs, 0)) * 100) / 100; regels.reduce((a,b) => b.prijs > a.prijs ? b : a).prijs += verschil; }
+  const body = regels.map((x,i) => [String(i+1), {content: T(x.naam) + '\n' + T((o.codes && x.code ? x.code + ' - ' : '') + x.omschr)}, T(eur(x.prijs))]);
+  const kopR = ['#', 'Onderdeel', 'Prijs'];
+  const som = (label, bedrag, st={}) => [{content:T(label), colSpan:2, styles:{halign:'right', ...st}}, {content:T(bedrag), styles:{halign:'right', ...st}}];
   body.push(som('Totaal excl. btw', eur(d.excl), {fontStyle:'bold', fillColor:H('#eef7ef')}));
   if(d.btw9) body.push(som('Btw 9% over ' + eur(d.g9) + ' (arbeid isolatie)', eur(d.btw9)));
   if(d.btw21) body.push(som('Btw 21% over ' + eur(d.g21), eur(d.btw21)));
@@ -5100,7 +5101,7 @@ function maak(d){
   doc.autoTable({startY:y, margin:{left:M, right:M, top:26, bottom:30}, theme:'plain', head:[kopR], body,
     styles:{font:'helvetica', fontSize:8.8, cellPadding:{top:1.8, bottom:1.8, left:2, right:2}, textColor:[29,42,34], lineColor:H('#e1e9e3'), lineWidth:{bottom:0.2}},
     headStyles:{fillColor:H('#3CB54A'), textColor:[255,255,255], fontStyle:'bold', fontSize:8.2},
-    columnStyles:{0:{cellWidth:8}, 2:{halign:'right', cellWidth:28}, 3:{halign:'right', cellWidth:27}, 4:{halign:'right', cellWidth:28}},
+    columnStyles:{0:{cellWidth:8}, 2:{halign:'right', cellWidth:32}},
     didParseCell: c => { if(c.section==='body' && c.column.index===1 && typeof c.cell.raw === 'object' && c.cell.raw && c.cell.raw.content){ c.cell.styles.fontStyle='normal'; } },
     didDrawCell: c => { /* tweede regel omschrijving grijs: overschrijven */ },
     willDrawPage: dd => { if(dd.pageNumber > 1){ stempel(doc); kop(doc, o, d, false); } }
