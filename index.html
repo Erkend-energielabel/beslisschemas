@@ -1506,6 +1506,8 @@ const adrBewaar=()=>{try{localStorage.setItem('ee_adressen',JSON.stringify(ADR))
 /* adressen worden standaard bewaard; wat je bewust verwijdert, komt niet vanzelf terug */
 const ADRWEG=(()=>{try{return JSON.parse(localStorage.getItem('ee_adr_weg')||'[]')}catch(e){return[]}})();
 const adrWegBewaar=()=>{try{localStorage.setItem('ee_adr_weg',JSON.stringify(ADRWEG))}catch(e){}};
+/* verwijderen altijd dubbel bevestigen */
+function dubbelOk(v1,v2){return confirm(v1)&&confirm(v2)}
 const adrNieuw=(b,k)=>({k,adres:addrOf(b),q:addrOf(b),pand:b.id,vbo:S.vboId||null,datum:new Date().toISOString(),projnr:($('projnr')||{}).value||'',klant:''});
 let adrOpen=false;
 function renderBewaard(){
@@ -1521,12 +1523,12 @@ function renderBewaard(){
         <td><input data-adrv="notitie" data-k="${esc(a.k)}" value="${esc(a.notitie||'')}" placeholder="—"></td><td class="klein">${a.datum?new Date(a.datum).toLocaleDateString('nl-NL'):''}</td>
         <td><button type="button" class="ram-sdel" data-adrdel="${esc(a.k)}" title="verwijderen">×</button></td></tr>`).join('')}</tbody></table>
       <div class="acties"><button type="button" class="ram-altk" id="adr-csv">⬇️ Lijst (CSV)</button> <span class="klein">De lijst en de keuzes per adres (raming, varianten, offerte) staan in deze browser.</span></div>`:''}`;
-  const st=$('adr-ster');if(st)st.onclick=()=>{if(hier){ADR.splice(ADR.indexOf(hier),1);if(!ADRWEG.includes(k))ADRWEG.push(k);adrWegBewaar()}else{ADR.push(adrNieuw(b,k));const w=ADRWEG.indexOf(k);if(w>=0){ADRWEG.splice(w,1);adrWegBewaar()}}adrBewaar();renderBewaard()};
+  const st=$('adr-ster');if(st)st.onclick=()=>{if(hier){if(!dubbelOk('Adres uit de bewaarde lijst halen?','Weet u het zeker? Het adres verdwijnt uit de lijst.'))return;ADR.splice(ADR.indexOf(hier),1);if(!ADRWEG.includes(k))ADRWEG.push(k);adrWegBewaar()}else{ADR.push(adrNieuw(b,k));const w=ADRWEG.indexOf(k);if(w>=0){ADRWEG.splice(w,1);adrWegBewaar()}}adrBewaar();renderBewaard()};
   const ks=$('adr-kies');if(ks)ks.onchange=()=>{const a=ADR.find(x=>x.k===ks.value);if(a)adrOpenen(a)};
   const bh=$('adr-beheer');if(bh)bh.onclick=()=>{adrOpen=!adrOpen;renderBewaard()};
   el.querySelectorAll('[data-adropen]').forEach(x=>x.onclick=e=>{e.preventDefault();const a=ADR.find(y=>y.k===x.dataset.adropen);if(a)adrOpenen(a)});
   el.querySelectorAll('[data-adrv]').forEach(x=>x.onchange=()=>{const a=ADR.find(y=>y.k===x.dataset.k);if(a){a[x.dataset.adrv]=x.value;adrBewaar();if(x.dataset.adrv!=='notitie')renderBewaard()}});
-  el.querySelectorAll('[data-adrdel]').forEach(x=>x.onclick=()=>{const i=ADR.findIndex(y=>y.k===x.dataset.adrdel);if(i>=0&&confirm('Adres uit de bewaarde lijst halen?')){ADR.splice(i,1);if(!ADRWEG.includes(x.dataset.adrdel))ADRWEG.push(x.dataset.adrdel);adrWegBewaar();adrBewaar();renderBewaard()}});
+  el.querySelectorAll('[data-adrdel]').forEach(x=>x.onclick=()=>{const i=ADR.findIndex(y=>y.k===x.dataset.adrdel);if(i>=0&&dubbelOk('Adres uit de bewaarde lijst halen?','Weet u het zeker? Het adres verdwijnt uit de lijst.')){ADR.splice(i,1);if(!ADRWEG.includes(x.dataset.adrdel))ADRWEG.push(x.dataset.adrdel);adrWegBewaar();adrBewaar();renderBewaard()}});
   const cv=$('adr-csv');if(cv)cv.onclick=()=>{const L=[['Adres','Klant','Projectnummer','Notitie','Bewaard','Raming']].concat(sorted.map(a=>[a.adres,a.klant||'',a.projnr||'',a.notitie||'',a.datum?a.datum.slice(0,10):'',a.totaal?Math.round(a.totaal):'']));
     const t='\ufeff'+L.map(r=>r.map(v=>{v=String(v??'');return/[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(';')).join('\r\n');
     const l=document.createElement('a');l.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));l.download='Bewaarde adressen.csv';l.click()};
@@ -1626,7 +1628,7 @@ function renderRaming(){
   const ab=$('ram-altbio');if(ab)ab.onchange=()=>{ramS.altBio=ab.checked;renderRaming()};
   el.querySelectorAll('[data-sp]').forEach(c=>c.onchange=()=>{const v=parseFloat(String(c.value).replace(',','.'));ramS.staart[+c.dataset.sp].p=isNaN(v)?0:v;ramBewaar();her()});
   el.querySelectorAll('[data-snaam]').forEach(c=>c.onchange=()=>{ramS.staart[+c.dataset.snaam].n=c.value;ramBewaar();changed()});
-  el.querySelectorAll('[data-sdel]').forEach(c=>c.onclick=()=>{ramS.staart.splice(+c.dataset.sdel,1);ramBewaar();her()});
+  el.querySelectorAll('[data-sdel]').forEach(c=>c.onclick=()=>{if(!dubbelOk('Staartregel verwijderen?','Weet u het zeker? Deze regel verdwijnt uit het staartblad.'))return;ramS.staart.splice(+c.dataset.sdel,1);ramBewaar();her()});
   $('ram-sadd').onclick=()=>{ramS.staart.push({n:'Nieuwe opslag',p:0});ramBewaar();her()};
   $('ram-sadde').onclick=()=>{ramS.staart.push({n:'Nieuwe regel',p:0,soort:'eur'});ramBewaar();her()};
   el.querySelectorAll('[data-ssoort]').forEach(c=>c.onchange=()=>{ramS.staart[+c.dataset.ssoort].soort=c.value;ramBewaar();her()});
@@ -2453,7 +2455,7 @@ function sluitRuimte(){
   melding('Ruimte toegevoegd. Geef hem een naam en vul eventueel ramen/deuren in. Teken de volgende ruimte of kies ✋ Selecteren.', 'ok');
   const n = $('meet-r-naam'); if(n){ n.focus(); n.select(); }
 }
-function verwijderRuimte(){ const b = blad(), r = ruimte(); if(!b || !r) return; if(!confirm('Ruimte “' + r.naam + '” verwijderen?')) return; b.ruimtes = b.ruimtes.filter(x => x !== r); selId = null; bewaar(); render(); }
+function verwijderRuimte(){ const b = blad(), r = ruimte(); if(!b || !r) return; if(!dubbelOk('Ruimte “' + r.naam + '” verwijderen?', 'Weet u het zeker? Dit kan niet ongedaan worden gemaakt.')) return; b.ruimtes = b.ruimtes.filter(x => x !== r); selId = null; bewaar(); render(); }
 
 function el(tag, at, par){ const e = document.createElementNS(NS, tag); for(const k in at) e.setAttribute(k, at[k]); if(par) par.appendChild(e); return e; }
 function tekenOverlay(){
@@ -2525,7 +2527,7 @@ function renderBlad(){
     <div class="acties"><button type="button" class="actie licht klein-knop" id="meet-b-del">Verdieping verwijderen</button></div>`;
   $('meet-b-naam').oninput = e => { b.naam = e.target.value; bewaar(); renderBladen(); renderLijst(); };
   $('meet-hoogte').oninput = e => { D.hoogte = e.target.value; bewaar(); tekenOverlay(); renderZijpaneel(true); renderLijst(); };
-  $('meet-b-del').onclick = () => { if(!confirm('Verdieping “' + b.naam + '” met ' + b.ruimtes.length + ' ruimte(n) verwijderen?')) return; D.bladen = D.bladen.filter(x => x !== b); bladId = D.bladen[0] ? D.bladen[0].id : null; selId = null; vb = null; bewaar(); render(); };
+  $('meet-b-del').onclick = () => { if(!dubbelOk('Verdieping “' + b.naam + '” met ' + b.ruimtes.length + ' ruimte(n) verwijderen?', 'Weet u het zeker? Dit kan niet ongedaan worden gemaakt.')) return; D.bladen = D.bladen.filter(x => x !== b); bladId = D.bladen[0] ? D.bladen[0].id : null; selId = null; vb = null; bewaar(); render(); };
   if($('meet-schaal-ok')){ const toepassen = () => { const m = num($('meet-schaal-m').value); if(!(m > 0)){ melding('Vul een lengte in meters in, bijv. 5,40.', 'fout'); return; }
       const oud = b.schaal; b.schaal = m / sp; schaalPunten = []; bewaar(); zetModus(b.ruimtes.length ? 'select' : 'teken');
       melding(oud ? 'Schaal aangepast; alle ruimtes zijn opnieuw berekend.' : 'Schaal gezet. Stap 2: teken de ruimtes — klik de hoeken rondom, aan de binnenkant van de wanden.', 'ok'); };
@@ -3208,7 +3210,7 @@ function renderLog(){
   $('bod').onclick = opslaanInOneDrive;
   $('bdl').onclick = downloadTxt;
   $('bkopie').onclick = async () => { try{ await navigator.clipboard.writeText(maakTxt()); $('bkopie').textContent='Gekopieerd'; }catch(e){ alert('Kopiëren niet gelukt; gebruik Download.'); } };
-  if($('bwis')) $('bwis').onclick = () => { if(confirm('Alle ruimten uit het verslag verwijderen?')){ log=[]; bewaarLokaal(); renderLog(); window.vbsRender && vbsRender(); } };
+  if($('bwis')) $('bwis').onclick = () => { if(dubbelOk('Alle ruimten uit het verslag verwijderen?','Weet u het zeker? Alle ruimten verdwijnen uit het verslag.')){ log=[]; bewaarLokaal(); renderLog(); window.vbsRender && vbsRender(); } };
 }
 /* brug voor de beslisschema-module: het verslag is de lijst 'log' van dit project */
 window.bsLog = () => log;
