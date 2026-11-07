@@ -5060,6 +5060,11 @@ function termijnen(o, d){
   if(t.length) bed[t.length-1] = Math.round((tot - bed.slice(0,-1).reduce((s,v) => s + v, 0)) * 100) / 100;
   return t.map((x,i) => ({n: x.n, p: +x.p, bedrag: bed[i]}));
 }
+/* controle: som van de termijnen tegen het totaal (excl. of incl. btw) */
+function termijnControle(o, d, tm){
+  const tot = tm.reduce((s,x) => s + x.bedrag, 0), pct = tm.reduce((s,x) => s + x.p, 0), base = o.exclBtw ? d.excl : d.incl;
+  return {tot: Math.round(tot*100)/100, pct, base: Math.round(base*100)/100, ok: Math.abs(tot - base) < 0.01 && Math.abs(pct - 100) < 0.01};
+}
 function isdeUitleg(d){
   return `${d.isdeDubbel ? 'Het bedrag is verdubbeld, omdat u twee of meer isolatiemaatregelen combineert. ' : ''}De subsidie vraagt u na uitvoering zelf aan bij RVO. Dit is een indicatie; aan het bedrag kunnen geen rechten worden ontleend. Voorwaarde: u bent eigenaar én bewoner van de woning.`;
 }
@@ -5252,14 +5257,19 @@ function maak(d){
     doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...H('#0B3D2E')); doc.text('Betaling in termijnen', M, y);
     doc.setDrawColor(...H('#3CB54A')); doc.setLineWidth(0.5); doc.line(M, y+1.6, M+BR, y+1.6); y += 4;
     doc.autoTable({startY:y, margin:{left:M, right:M, top:26, bottom:30}, theme:'plain', head:[['Termijn', '%', o.exclBtw ? 'Bedrag excl. btw' : 'Bedrag incl. btw']],
-      body: tm.map(x => [T(x.n), x.p + '%', T(eur(x.bedrag))]),
+      body: [...tm.map(x => [T(x.n), x.p + '%', T(eur(x.bedrag))]), [{content:'Totaal termijnen', styles:{fontStyle:'bold'}}, {content: termijnControle(o,d,tm).pct + '%', styles:{fontStyle:'bold', halign:'right'}}, {content: T(eur(termijnControle(o,d,tm).tot)), styles:{fontStyle:'bold', halign:'right'}}]],
       styles:{font:'helvetica', fontSize:8.8, cellPadding:{top:1.6, bottom:1.6, left:2, right:2}, textColor:[29,42,34], lineColor:H('#e1e9e3'), lineWidth:{bottom:0.2}},
       headStyles:{fillColor:H('#3CB54A'), textColor:[255,255,255], fontStyle:'bold', fontSize:8.2},
       columnStyles:{1:{halign:'right', cellWidth:20}, 2:{halign:'right', cellWidth:40}},
       didParseCell: c => { if(c.section==='head' && c.column.index>=1) c.cell.styles.halign='right'; },
       willDrawPage: dd => { if(dd.pageNumber > 1){ stempel(doc); kop(doc, o, d, false); } }
     });
-    y = doc.lastAutoTable.finalY + 6;
+    const ct = termijnControle(o, d, tm);
+    y = doc.lastAutoTable.finalY + 4;
+    doc.setFont('helvetica','bold'); doc.setFontSize(8.2);
+    if(ct.ok){ doc.setTextColor(...H('#1e7a3c')); doc.text(T('Controle: de termijnen tellen op tot ' + eur(ct.base) + (o.exclBtw ? ' excl. btw.' : ' incl. btw.')), M, y); }
+    else { doc.setTextColor(...H('#c83b24')); doc.text(T('Let op: de termijnen tellen op tot ' + eur(ct.tot) + ' (' + ct.pct + '%), het totaal is ' + eur(ct.base) + '.'), M, y); }
+    y += 7;
   }
   /* voorwaarden */
   const vw = [...String(o.voorwaarden||'').split('\n').map(s => s.trim()).filter(Boolean), ...extraVw(d)];
@@ -5369,7 +5379,10 @@ function docxMaak(d){
     kids.push(kopje('Betaling in termijnen'));
     kids.push(new D.Table({width:{size:W, type:D.WidthType.DXA}, columnWidths:[6606, 1200, 2400], borders:{top:geen, bottom:geen, left:geen, right:geen, insideHorizontal:{style:D.BorderStyle.SINGLE, size:4, color:'E1E9EF'}, insideVertical:geen},
       rows:[new D.TableRow({tableHeader:true, children:[C(6606, [P('Termijn', {b:true, c:'FFFFFF'})], {fill:'3CB54A'}), C(1200, [P('%', {b:true, c:'FFFFFF', r:true})], {fill:'3CB54A'}), C(2400, [P(o.exclBtw ? 'Bedrag excl. btw' : 'Bedrag incl. btw', {b:true, c:'FFFFFF', r:true})], {fill:'3CB54A'})]}),
-        ...tm.map(x => new D.TableRow({cantSplit:true, children:[C(6606, [P(x.n)]), C(1200, [P(x.p + '%', {r:true})]), C(2400, [P(eur(x.bedrag), {r:true})])]}))]}));
+        ...tm.map(x => new D.TableRow({cantSplit:true, children:[C(6606, [P(x.n)]), C(1200, [P(x.p + '%', {r:true})]), C(2400, [P(eur(x.bedrag), {r:true})])]})),
+        new D.TableRow({cantSplit:true, children:[C(6606, [P('Totaal termijnen', {b:true})], {fill:'EEF7EF'}), C(1200, [P(termijnControle(o,d,tm).pct + '%', {r:true, b:true})], {fill:'EEF7EF'}), C(2400, [P(eur(termijnControle(o,d,tm).tot), {r:true, b:true})], {fill:'EEF7EF'})]})]}));
+    const ctw = termijnControle(o, d, tm);
+    kids.push(P(ctw.ok ? 'Controle: de termijnen tellen op tot ' + eur(ctw.base) + (o.exclBtw ? ' excl. btw.' : ' incl. btw.') : 'Let op: de termijnen tellen op tot ' + eur(ctw.tot) + ' (' + ctw.pct + '%), het totaal is ' + eur(ctw.base) + '.', {sz:17, b:true, c: ctw.ok ? '1E7A3C' : 'C83B24', voor:80, na:120}));
   }
   /* voorwaarden */
   const vw = [...String(o.voorwaarden||'').split('\n').map(s => s.trim()).filter(Boolean), ...extraVw(d)];
