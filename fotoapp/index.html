@@ -52,6 +52,7 @@ input[type=checkbox]{width:30px;height:30px;min-height:0;margin:0;flex:0 0 auto}
 .tijdblok{min-width:76px;text-align:center;border-radius:12px;padding:6px 8px;background:#eef3ef;color:var(--g)}
 .tijdblok .uur{font-size:26px;font-weight:700;line-height:1.1}
 .tijdblok.rood{background:#dc2626;color:#fff}
+.tijdblok.laat{background:#d97706;color:#fff}
 .rij .info{flex:1}
 .rij.vandaag{background:#e8f6ec;border-color:#bfe3c9}
 .pil{display:inline-block;padding:2px 10px;border-radius:999px;background:#eef3ef;color:var(--g);font-weight:600;font-size:13px}
@@ -152,24 +153,33 @@ function toonMelding(tekst) {
 function aftelTekst(startIso, gedaan) {
   if (gedaan) return "afgerond";
   const start = new Date(startIso).getTime(), nu = Date.now();
-  if (nu >= start && nu <= start + 60 * 60000) return "nu aan de beurt";
-  if (nu > start + 60 * 60000) return "geweest";
+  if (nu >= start && nu <= start + 10 * 60000) return "nu aan de beurt";
+  if (nu > start + 10 * 60000) return `te laat · ${Math.floor((nu - start) / 60000)} min`;
   const min = Math.ceil((start - nu) / 60000);
   const u = Math.floor(min / 60), m = min % 60;
   return `over ${u ? u + " u " : ""}${m} min`;
 }
 function updateAftel() {
   document.querySelectorAll(".aftel").forEach(el => { el.textContent = aftelTekst(el.dataset.start, el.dataset.gedaan === "1"); });
-  document.querySelectorAll(".tijdblok").forEach(el => { el.classList.toggle("rood", binnen30(el.dataset.start, el.dataset.gedaan === "1")); });
+  document.querySelectorAll(".tijdblok").forEach(el => {
+    const g = el.dataset.gedaan === "1";
+    el.classList.toggle("laat", teLaat(el.dataset.start, g));
+    el.classList.toggle("rood", !teLaat(el.dataset.start, g) && binnen30(el.dataset.start, g));
+  });
   document.querySelectorAll(".nu-tijd").forEach(el => { el.textContent = `${datumVan(new Date())} ${hhmm(new Date())}`; });
 }
 function hhmm(d) { return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 function datumVan(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
-/* Binnen 30 minuten (of al bezig, max 60 minuten) en nog niet afgerond */
+/* Binnen 30 minuten voor de start, of max 10 minuten na de start, en nog niet afgerond */
 function binnen30(startIso, gedaan) {
   if (gedaan) return false;
   const min = (new Date(startIso).getTime() - Date.now()) / 60000;
-  return min <= 30 && min >= -60;
+  return min <= 30 && min >= -10;
+}
+/* Meer dan 10 minuten na de start en nog niet afgerond */
+function teLaat(startIso, gedaan) {
+  if (gedaan) return false;
+  return (Date.now() - new Date(startIso).getTime()) / 60000 > 10;
 }
 function controleerAfspraken() {
   const nu = Date.now();
@@ -656,6 +666,7 @@ function vComplex(c) {
   const regel = a => {
     const dagD = a.afspraak.start.slice(0, 10);
     const rood = binnen30(a.afspraak.start, a.afspraak.gedaan);
+    const laat = teLaat(a.afspraak.start, a.afspraak.gedaan);
     const eind = a.afspraak.eindMs ? hhmm(new Date(a.afspraak.eindMs)) : "";
     return `<div class="rij ${a.afspraak.gedaan ? "klaar" : ""} ${dagD === vandaagD ? "vandaag" : ""}">
       <input type="checkbox" ${a.afspraak.gedaan ? "checked" : ""} aria-label="afspraak afgerond" onchange="afspraakKlaar('${c.id}','${a.id}',this.checked)">
@@ -664,7 +675,7 @@ function vComplex(c) {
         <div><span class="pil"><span class="aftel" data-start="${a.afspraak.start}" data-gedaan="${a.afspraak.gedaan ? 1 : 0}">${aftelTekst(a.afspraak.start, a.afspraak.gedaan)}</span></span></div>
         <div class="klein-tekst">${a.klaar ? "woning klaar" : "nog niet klaar"}${dagD !== vandaagD ? " · " + dagD : ""}</div>
       </div>
-      <div class="tijdblok ${rood ? "rood" : ""}" data-start="${a.afspraak.start}" data-gedaan="${a.afspraak.gedaan ? 1 : 0}">
+      <div class="tijdblok ${laat ? "laat" : rood ? "rood" : ""}" data-start="${a.afspraak.start}" data-gedaan="${a.afspraak.gedaan ? 1 : 0}">
         <div class="uur">${a.afspraak.start.slice(11, 16)}</div>
         ${eind ? `<div class="klein-tekst">t/m ${eind}</div>` : ""}
       </div>
