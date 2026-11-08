@@ -114,6 +114,15 @@ const findA = (c, id) => c.adressen.find(a => a.id === id);
 const nrLabel = a => String(a.nr) + (a.toev || "");
 const sorteer = c => c.adressen.sort((a, b) => (a.klaar - b.klaar) || a.straat.localeCompare(b.straat) || a.nr - b.nr || (a.toev || "").localeCompare(b.toev || ""));
 const fmt = iso => iso ? iso.replace("T", " ").slice(0, 16) : "";
+/* Mapnaam per adres op OneDrive, bijv. "Stationsweg 12A" */
+const mapNaam = a => `${a.straat} ${nrLabel(a)}`.replace(/[\\\/:*?"<>|]/g, "").trim();
+const adresMap = (c, a) => mapVan(c) + "/" + mapNaam(a);
+const ZEKER = new Set();          // mappen die in deze sessie al bestaan
+let ODMAP = {};                   // complex-id -> namen van mappen die op OneDrive staan
+function parseerMap(n) {
+  const m = String(n).match(/^(.+?)\s+(\d+)\s*([A-Za-z]*)$/);
+  return m ? { straat: m[1].trim(), nr: parseInt(m[2], 10), toev: m[3].toUpperCase() } : null;
+}
 
 function bewaarState() {
   localStorage.setItem(KEY, JSON.stringify(st));
@@ -131,6 +140,18 @@ function toonMelding(tekst) {
   if ("Notification" in window && Notification.permission === "granted") {
     try { new Notification("Nu aan de beurt", { body: tekst }); } catch (e) {}
   }
+}
+/* Aftellen tot de afspraak: "over 45 min", "nu aan de beurt" of "geweest" */
+function aftelTekst(startIso) {
+  const start = new Date(startIso).getTime(), nu = Date.now();
+  if (nu >= start && nu <= start + 60 * 60000) return "nu aan de beurt";
+  if (nu > start + 60 * 60000) return "geweest";
+  const min = Math.ceil((start - nu) / 60000);
+  const u = Math.floor(min / 60), m = min % 60;
+  return `over ${u ? u + " u " : ""}${m} min`;
+}
+function updateAftel() {
+  document.querySelectorAll(".aftel").forEach(el => { el.textContent = aftelTekst(el.dataset.start); });
 }
 function controleerAfspraken() {
   const nu = Date.now();
@@ -226,8 +247,31 @@ async function graph(path, opts = {}, ui = false) {
 async function login() { if (!pca) return alert("Microsoft-inlog kon niet laden. Controleer je internetverbinding en probeer het opnieuw."); await pca.loginRedirect({ scopes: SCOPES }); }
 
 /* Upload: pas wissen als OneDrive exact dezelfde grootte terugmeldt */
+/* Maakt ontbrekende mappen aan, van boven naar beneden */
+async function zorgMap(pad, ui) {
+  if (ZEKER.has(pad)) return;
+  const delen = pad.split("/");
+  for (let i = 1; i <= delen.length; i++) {
+    const p = delen.slice(0, i).join("/");
+    if (ZEKER.has(p)) continue;
+    try {
+      await graph(`/me/drive/root:/${p.split("/").map(encodeURIComponent).join("/")}`, {}, ui);
+    } catch (e) {
+      const ouder = delen.slice(0, i - 1).join("/");
+      const url = ouder ? `/me/drive/root:/${ouder.split("/").map(encodeURIComponent).join("/")}:/children` : `/me/drive/root/children`;
+      await graph(url, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: delen[i - 1], folder: {}, "@microsoft.graph.conflictBehavior": "fail" }) }, ui);
+    }
+    ZEKER.add(p);
+  }
+  ZEKER.add(pad);
+}
+
 async function uploadFoto(f, c, ui) {
-  const pathEnc = [...mapVan(c).split("/"), f.naam].map(encodeURIComponent).join("/");
+  const a = findA(c, f.adresId);
+  const pad = a ? adresMap(c, a) : mapVan(c);
+  await zorgMap(pad, ui);
+  const pathEnc = [...pad.split("/"), f.naam].map(encodeURIComponent).join("/");
   const item = await graph(`/me/drive/root:/${pathEnc}:/content?@microsoft.graph.conflictBehavior=rename`,
     { method: "PUT", body: f.blob, headers: { "Content-Type": "image/jpeg" } }, ui);
   if (item.size !== f.blob.size) throw new Error("grootte klopt niet na upload");
@@ -327,8 +371,11 @@ async function verplaatsGeselecteerd(cId) {
     f.naam = bestandsnaam(a2.straat, nrLabel(a2));
     if (f.uploaded) {
       try {
+        const pad = adresMap(c, a2);
+        await zorgMap(pad, true);
         const item = await graph(`/me/drive/items/${f.onedriveId}`,
-          { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: f.naam }) }, true);
+          { method: "PATCH", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: f.naam, parentReference: { path: "/drive/root:/" + pad } }) }, true);
         f.naam = item.name;
       } catch (e) { misluk++; }
     }
@@ -428,6 +475,28 @@ function voortgangBalk(klaar, totaal) {
   return `<div class="voortgang" role="progressbar" aria-valuemin="0" aria-valuemax="${totaal}" aria-valuenow="${klaar}"><span style="width:${pct}%"></span></div>
     <div class="klein-tekst">${klaar} van ${totaal} woningen klaar (${pct}%)</div>`;
 }
+/* Haalt de mappen van dit complex op van OneDrive (stil, zonder inlogvenster) */
+async function laadAdresMappen(cId) {
+  const c = findC(cId);
+  if (!c || !accounts().length || !navigator.onLine) return;
+  try {
+    const r = await graph(`/me/drive/root:/${mapVan(c).split("/").map(encodeURIComponent).join("/")}:/children?$select=name,folder`, {}, false);
+    const namen = (r.value || []).filter(x => x.folder).map(x => x.name);
+    const oud = JSON.stringify(ODMAP[cId] || []);
+    ODMAP[cId] = namen;
+    if (JSON.stringify(namen) !== oud) render();
+  } catch (e) { /* map bestaat nog niet: niets tonen */ }
+}
+function adresUitMap(cId, i) {
+  const c = findC(cId), p = parseerMap((ODMAP[cId] || [])[i]);
+  if (!c || !p) return;
+  if (!c.adressen.some(a => a.straat === p.straat && a.nr === p.nr && (a.toev || "") === p.toev)) {
+    c.adressen.push({ id: uid(), straat: p.straat, nr: p.nr, toev: p.toev, klaar: false, opmerkingen: [], afspraak: null });
+    bewaarState();
+  }
+  render();
+}
+
 function vComplexen() {
   let h = `<button onclick="go({s:'nieuwComplex'})">+ Nieuw complex</button>`;
   if (!st.complexen.length) h += `<p class="klein-tekst">Nog geen complexen. Maak er één aan met de knop hierboven.</p>`;
@@ -451,7 +520,7 @@ function vComplex(c) {
   for (const a of gepland) {
     h += `<div class="rij" style="cursor:pointer" onclick="go({s:'adres',c:'${c.id}',a:'${a.id}'})">
       <div class="info"><strong>${fmt(a.afspraak.start)}</strong>
-        <div class="klein-tekst">${esc(a.straat)} ${nrLabel(a)}${a.klaar ? " · klaar" : ""}</div></div></div>`;
+        <div class="klein-tekst">${esc(a.straat)} ${nrLabel(a)}${a.klaar ? " · klaar" : ""} · <span class="aftel" data-start="${a.afspraak.start}">${aftelTekst(a.afspraak.start)}</span></div></div></div>`;
   }
   h += `<h2>Adressen</h2>`;
   if (!c.adressen.length) h += `<p class="klein-tekst">Nog geen adressen. Voeg huisnummers toe met de knop hierboven.</p>`;
@@ -462,8 +531,17 @@ function vComplex(c) {
       <input type="checkbox" ${a.klaar ? "checked" : ""} aria-label="klaar" onchange="klaarZet('${c.id}','${a.id}',this.checked)">
       <div class="info" onclick="go({s:'adres',c:'${c.id}',a:'${a.id}'})">
         <strong>${esc(a.straat)} ${nrLabel(a)}</strong>
-        <div class="klein-tekst">${fs.length} foto's${wacht ? ` · ${wacht} nog niet op OneDrive` : ""}${a.afspraak ? " · 📅 " + fmt(a.afspraak.start) : ""}${a.opmerkingen.length ? " · 💬 " + a.opmerkingen.length : ""}</div>
+        <div class="klein-tekst">${fs.length} foto's${wacht ? ` · ${wacht} nog niet op OneDrive` : ""}${(ODMAP[c.id] || []).includes(mapNaam(a)) ? " · 📁 map op OneDrive" : ""}${a.afspraak ? " · 📅 " + fmt(a.afspraak.start) : ""}${a.opmerkingen.length ? " · 💬 " + a.opmerkingen.length : ""}</div>
       </div></div>`;
+  }
+  const nieuw = (ODMAP[c.id] || []).map((n, i) => ({ n, i })).filter(x => !c.adressen.some(a => mapNaam(a) === x.n));
+  if (nieuw.length) {
+    h += `<h2>Gevonden op OneDrive</h2><p class="klein-tekst">Deze mappen staan al op OneDrive maar nog niet in de lijst:</p>`;
+    for (const x of nieuw) {
+      const ok = parseerMap(x.n);
+      h += `<div class="rij"><div class="info"><strong>📁 ${esc(x.n)}</strong>
+        ${ok ? `<div><button class="klein sec" onclick="adresUitMap('${c.id}',${x.i})">Toevoegen aan lijst</button></div>` : `<div class="klein-tekst">Naam niet herkend. Gebruik bijv. "Stationsweg 12A".</div>`}</div></div>`;
+    }
   }
   return h;
 }
@@ -504,7 +582,7 @@ function vAdres(c, a) {
   }
 
   h += `<details class="afspraak">
-    <summary>📅 ${a.afspraak ? "Afspraak: " + fmt(a.afspraak.start) : "Afspraak plannen"}</summary>
+    <summary>📅 ${a.afspraak ? "Afspraak: " + fmt(a.afspraak.start) + " · <span class=\"aftel\" data-start=\"" + a.afspraak.start + "\">" + aftelTekst(a.afspraak.start) + "</span>" : "Afspraak plannen"}</summary>
     <div class="afspraak-inhoud">
       <label for="afDatum">Datum</label>
       <input id="afDatum" type="date" value="${a.afspraak ? a.afspraak.start.slice(0, 10) : ""}">
@@ -637,7 +715,7 @@ async function render() {
   if (view.a && c) a = findA(c, view.a);
 
   if (view.s === "complexen") inhoud = vComplexen();
-  else if (view.s === "complex" && c) { titel = c.naam; inhoud = vComplex(c); }
+  else if (view.s === "complex" && c) { titel = c.naam; inhoud = vComplex(c); laadAdresMappen(c.id); }
   else if (view.s === "adres" && c && a) { titel = `${a.straat} ${nrLabel(a)}`; inhoud = vAdres(c, a); }
   else if (view.s === "nieuwComplex") { titel = "Nieuw complex"; inhoud = vNieuwComplex(); }
   else if (view.s === "map" && c) { titel = "Map kiezen"; inhoud = vMap(c); }
@@ -688,7 +766,7 @@ async function render() {
   window.PERSISTENT = !!(navigator.storage && navigator.storage.persist && await navigator.storage.persist().catch(() => false));
   await render();
   controleerAfspraken();
-  setInterval(controleerAfspraken, 30000);
+  setInterval(() => { controleerAfspraken(); updateAftel(); }, 30000);
   window.addEventListener("online", () => { render(); sync(false); });
   if (navigator.onLine) sync(false);
 })();
