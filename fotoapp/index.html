@@ -907,7 +907,7 @@ async function render() {
   const wacht = FOTOS.filter(f => !f.uploaded).length;
   $("balk").innerHTML = `
     <div class="acties">
-      <span class="klein-tekst" style="flex:1">${wacht} foto's wachten op OneDrive · ${FOTOS.length - wacht} op OneDrive</span>
+      <span class="klein-tekst" style="flex:1;font-size:11px;line-height:1.3">${wacht} foto's wachten op OneDrive · ${FOTOS.length - wacht} op OneDrive</span>
       ${ingelogd
         ? `<button class="klein" onclick="sync(true)">Nu uploaden</button>`
         : `<button class="klein" onclick="login()">Inloggen</button>`}
@@ -916,7 +916,7 @@ async function render() {
     ${("Notification" in window && Notification.permission === "default") ? `<button class="klein sec" onclick="meldingenAan()">🔔 Meldingen aanzetten</button>` : ""}
     ${navigator.onLine ? "" : `<div class="melding">Geen internet. Foto's blijven bewaard en worden later geüpload.</div>`}
     ${window.PERSISTENT ? "" : `<div class="klein-tekst">⚠ Opslag van dit toestel is niet vastgezet. Upload regelmatig naar OneDrive.</div>`}
-    <div class="klein-tekst" style="text-align:center;padding-top:4px">Deze app is eigendom van Erkend-energielabel.nl</div>
+    <div class="klein-tekst" style="text-align:center;padding-top:4px;font-size:10px">Deze app is eigendom van Erkend-energielabel.nl</div>
   `;
 }
 
