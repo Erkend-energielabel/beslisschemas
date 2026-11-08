@@ -1157,7 +1157,7 @@ function vComplex(c) {
     if (herkend > 1) h += `<button class="sec" onclick="alleMappenToevoegen('${c.id}')">Alle ${herkend} adressen uit de map toevoegen</button>`;
     for (const x of nieuw) {
       const ok = parseerMap(x.n);
-      h += `<div class="rij"><div class="info"><strong>📁 ${esc(x.n)}</strong>
+      h += `<div class="rij"><div class="info"><strong>📁 ${esc(x.n)}</strong>${(ODFOTO[c.id] || {})[x.n] ? ` <span class="klein-tekst">· 📷 ${ODFOTO[c.id][x.n]} foto's</span>` : ""}
         ${ok ? `<div><button class="klein sec" onclick="adresUitMap('${c.id}',${x.i})">Toevoegen aan lijst</button></div>` : `<div class="klein-tekst">Naam niet herkend. Gebruik bijv. "Stationsweg 12A".</div>`}</div></div>`;
     }
   }
