@@ -415,7 +415,7 @@ async function afspraakMaken(cId, aId) {
   const t = $("afTijd") ? $("afTijd").value : "";
   if (!d || !t) return alert("Kies eerst een datum en een tijd.");
   const start = `${d}T${t}:00`;
-  const dur = parseInt($("afDuur") ? $("afDuur").value : "15", 10) || 15;
+  const dur = parseInt($("afDuur") ? $("afDuur").value : "10", 10) || 10;
   const eind = new Date(new Date(start).getTime() + dur * 60000);
   const end = `${eind.getFullYear()}-${pad(eind.getMonth()+1)}-${pad(eind.getDate())}T${pad(eind.getHours())}:${pad(eind.getMinutes())}:00`;
   const nS = new Date(start).getTime(), nE = eind.getTime();
@@ -646,9 +646,9 @@ function vAdres(c, a) {
       <select id="afTijd">${tijdKeuzes(a.afspraak ? a.afspraak.start.slice(11, 16) : "09:00", a.afspraak ? a.afspraak.start.slice(0, 10) : "", a.id)}</select>
       <label for="afDuur">Duur</label>
       <select id="afDuur">
-        <option value="15" selected>15 minuten</option>
-        <option value="30">30 minuten</option>
-        <option value="60">1 uur</option>
+        <option value="5">5 minuten</option>
+        <option value="10" selected>10 minuten</option>
+        <option value="15">15 minuten</option>
       </select>
       <button class="sec" onclick="afspraakMaken('${c.id}','${a.id}')">${a.afspraak ? "Afspraak wijzigen" : "In agenda zetten"}</button>
     </div>
