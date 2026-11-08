@@ -499,6 +499,15 @@ function adresUitMap(cId, i) {
   render();
 }
 
+/* Tijden per 15 minuten, van 07:00 tot 21:00 */
+function tijdKeuzes(sel) {
+  let o = "";
+  for (let m = 7 * 60; m <= 21 * 60; m += 15) {
+    const t = `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+    o += `<option value="${t}" ${t === sel ? "selected" : ""}>${t}</option>`;
+  }
+  return o;
+}
 function afspraakKlaar(cId, aId, aan) {
   const a = findA(findC(cId), aId);
   if (!a || !a.afspraak) return;
@@ -601,7 +610,7 @@ function vAdres(c, a) {
       <label for="afDatum">Datum</label>
       <input id="afDatum" type="date" value="${a.afspraak ? a.afspraak.start.slice(0, 10) : ""}">
       <label for="afTijd">Tijd</label>
-      <input id="afTijd" type="time" value="${a.afspraak ? a.afspraak.start.slice(11, 16) : ""}">
+      <select id="afTijd">${tijdKeuzes(a.afspraak ? a.afspraak.start.slice(11, 16) : "09:00")}</select>
       <label for="afDuur">Duur</label>
       <select id="afDuur">
         <option value="15" selected>15 minuten</option>
