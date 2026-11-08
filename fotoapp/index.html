@@ -1259,13 +1259,13 @@ function vMap(c) {
   if (view.pad === undefined) view.pad = mapVan(c);
   return `<h2>Map op OneDrive kiezen</h2>
     <p class="klein-tekst">Huidige keuze: <b>${esc(view.pad) || "(hoofdmap)"}</b></p>
+    <button onclick="mapKies('${c.id}')">Deze map gebruiken</button>
+    <button class="sec" onclick="go({s:'complex',c:'${c.id}'})">Annuleren</button>
     <div class="acties">
       <button class="klein sec" onclick="mapOmhoog()">⬆ Omhoog</button>
       <button class="klein sec" onclick="mapNieuw()">+ Nieuwe map</button>
     </div>
-    ${mapControls()}<div id="mapLijst" style="margin-top:8px"><p class="klein-tekst">Mappen laden…</p></div>
-    <button onclick="mapKies('${c.id}')">Deze map gebruiken</button>
-    <button class="sec" onclick="go({s:'complex',c:'${c.id}'})">Annuleren</button>`;
+    ${mapControls()}<div id="mapLijst" style="margin-top:8px"><p class="klein-tekst">Mappen laden…</p></div>`;
 }
 async function mapLaad() {
   const el = $("mapLijst"); if (!el) return;
@@ -1340,13 +1340,13 @@ function vNieuwComplex() {
 function vNieuwMap() {
   return `<h2>Map kiezen voor nieuw complex</h2>
     <p class="klein-tekst">Huidige keuze: <b>${esc(view.pad) || "(hoofdmap)"}</b></p>
+    <button onclick="nieuwMapKies()">Deze map gebruiken</button>
+    <button class="sec" onclick="go({s:'nieuwComplex'})">Annuleren</button>
     <div class="acties">
       <button class="klein sec" onclick="mapOmhoog()">⬆ Omhoog</button>
       <button class="klein sec" onclick="mapNieuw()">+ Nieuwe map</button>
     </div>
-    ${mapControls()}<div id="mapLijst" style="margin-top:8px"><p class="klein-tekst">Mappen laden…</p></div>
-    <button onclick="nieuwMapKies()">Deze map gebruiken</button>
-    <button class="sec" onclick="go({s:'nieuwComplex'})">Annuleren</button>`;
+    ${mapControls()}<div id="mapLijst" style="margin-top:8px"><p class="klein-tekst">Mappen laden…</p></div>`;
 }
 function nieuwMapKies() {
   if (!view.pad) return alert("Kies eerst een map. De hoofdmap kan niet.");
