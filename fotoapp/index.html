@@ -1315,11 +1315,11 @@ function mapKies(cId) {
 function vNieuwComplex() {
   if (!view.pad) return `<h2>Nieuw complex</h2>
     <p class="klein-tekst">Kies eerst de map op OneDrive waar de foto's naartoe gaan. Naam en projectnummer nemen we over van die map.</p>
-    <button onclick="go({s:'nieuwMap', pad: '${CFG.map}'})">📁 Kies map op OneDrive</button>`;
+    <button onclick="go({s:'nieuwMap', pad: ''})">📁 Kies map op OneDrive</button>`;
   const naam = view.pad.split("/").pop();
   return `<h2>Nieuw complex</h2>
     <p class="klein-tekst">Map op OneDrive: <b>${esc(view.pad)}</b></p>
-    <button class="klein sec" style="width:auto" onclick="go({s:'nieuwMap', pad: '${CFG.map}'})">Andere map kiezen</button>
+    <button class="klein sec" style="width:auto" onclick="go({s:'nieuwMap', pad: ''})">Andere map kiezen</button>
     <label for="f1">Naam van het complex (uit de map)</label>
     <input id="f1" value="${esc(naam)}" autocomplete="off">
     <button onclick="bewaarNieuwComplex()">Volgende: huisnummers</button>`;
