@@ -1151,7 +1151,6 @@ function vComplex(c) {
   if (latenL.length) h += `<div class="klein-tekst" style="margin-top:8px"><b>Komende dagen</b></div>` + latenL.map(regel).join("");
   if (eerder.length) h += `<details style="margin-top:8px"><summary class="klein-tekst">Eerder (${eerder.length})</summary>${eerder.map(regel).join("")}</details>`;
   h += `<h2>Adressen</h2>`;
-  if (c.adressen.length) h += `<p class="klein-tekst">Straat: <b>${esc(standaardStraat(c))}</b> (bij adressen met een andere straat staat die erbij)</p>`;
   if (!c.adressen.length) h += `<p class="klein-tekst">Nog geen adressen. Voeg huisnummers toe met de knop hierboven.</p>`;
   for (const a of sortedAdressen(c)) {
     const fs = FOTOS.filter(f => f.adresId === a.id);
