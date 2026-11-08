@@ -317,11 +317,10 @@ function opmerkingToevoegen(cId, aId) {
 
 async function afspraakMaken(cId, aId) {
   const c = findC(cId), a = findA(c, aId);
-  const v = prompt("Datum en tijd van de afspraak\n(formaat: JJJJ-MM-DD UU:MM, bijvoorbeeld 2026-11-09 14:00)", a.afspraak ? fmt(a.afspraak.start) : "");
-  if (!v) return;
-  const m = v.trim().match(/^(\d{4}-\d{2}-\d{2})[ T](\d{1,2}):(\d{2})$/);
-  if (!m) { alert("Gebruik het formaat JJJJ-MM-DD UU:MM, bijvoorbeeld 2026-11-09 14:00."); return; }
-  const start = `${m[1]}T${m[2].padStart(2,"0")}:${m[3]}:00`;
+  const d = $("afDatum") ? $("afDatum").value : "";
+  const t = $("afTijd") ? $("afTijd").value : "";
+  if (!d || !t) return alert("Kies eerst een datum en een tijd.");
+  const start = `${d}T${t}:00`;
   const eind = new Date(new Date(start).getTime() + 3600000);
   const end = `${eind.getFullYear()}-${pad(eind.getMonth()+1)}-${pad(eind.getDate())}T${pad(eind.getHours())}:${pad(eind.getMinutes())}:00`;
   try {
@@ -447,7 +446,11 @@ function vAdres(c, a) {
   h += a.afspraak
     ? `<p>📅 ${fmt(a.afspraak.start)}</p>`
     : `<p class="klein-tekst">Geen afspraak.</p>`;
-  h += `<button class="sec" onclick="afspraakMaken('${c.id}','${a.id}')">📅 ${a.afspraak ? "Afspraak wijzigen" : "Afspraak in agenda zetten"}</button>`;
+  h += `<label for="afDatum">Datum</label>
+    <input id="afDatum" type="date" value="${a.afspraak ? a.afspraak.start.slice(0, 10) : ""}">
+    <label for="afTijd">Tijd</label>
+    <input id="afTijd" type="time" value="${a.afspraak ? a.afspraak.start.slice(11, 16) : ""}">
+    <button class="sec" onclick="afspraakMaken('${c.id}','${a.id}')">📅 ${a.afspraak ? "Afspraak wijzigen" : "Afspraak in agenda zetten"}</button>`;
 
   h += `<h2>Opmerkingen</h2>`;
   for (const o of [...a.opmerkingen].reverse()) {
