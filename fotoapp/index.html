@@ -536,6 +536,19 @@ function afspraakKlaar(cId, aId, aan) {
   render();
 }
 
+/* Maakt een extra adres met een toevoeging bij het huisnummer van dit adres, bijv. 12 -> 12B. Het bestaande adres blijft ongewijzigd. */
+function toevVoegToe(cId, aId) {
+  const c = findC(cId), a = findA(c, aId);
+  const t = (prompt(`Welke toevoeging wil je aan ${a.straat} ${a.nr} toevoegen? (bijv. B)`) || "").trim().toUpperCase();
+  if (!t) return;
+  if (!/^[A-Z]{1,3}$/.test(t)) return alert("Gebruik één of meer letters, bijv. B.");
+  if (c.adressen.some(x => x.straat === a.straat && x.nr === a.nr && (x.toev || "") === t)) return alert(`${a.straat} ${a.nr}${t} staat al in de lijst.`);
+  const nieuw = { id: uid(), straat: a.straat, nr: a.nr, toev: t, klaar: false, opmerkingen: [], afspraak: null };
+  c.adressen.push(nieuw);
+  bewaarState();
+  go({ s: "adres", c: cId, a: nieuw.id });
+}
+
 function vComplexen() {
   let h = `<button onclick="go({s:'nieuwComplex'})">+ Nieuw complex</button>`;
   if (!st.complexen.length) h += `<p class="klein-tekst">Nog geen complexen. Maak er één aan met de knop hierboven.</p>`;
@@ -590,6 +603,7 @@ function vComplex(c) {
 function vAdres(c, a) {
   const fs = FOTOS.filter(f => f.adresId === a.id).sort((x, y) => x.createdAt - y.createdAt);
   let h = `<p class="klein-tekst">${esc(c.naam)}</p>
+    <button class="klein sec" onclick="toevVoegToe('${c.id}','${a.id}')">+ Toevoeging aan dit huisnummer</button>
     `;
 
   h += `<h2>Foto's (${fs.length})</h2>`;
