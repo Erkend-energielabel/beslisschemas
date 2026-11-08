@@ -310,6 +310,16 @@ async function stateNaarOneDrive(ui) {
 }
 
 let SYNC_FOUT = null;   // laatste uploadfout, zichtbaar in de balk onderaan
+/* Zet alle opmerkingen van een adres in een tekstbestand in de adresmap op OneDrive */
+async function uploadOpmerkingen(c, a, ui) {
+  const pad = adresMap(c, a);
+  await zorgMap(pad, ui);
+  const tekst = (a.opmerkingen || []).map(o => `${fmtLokaal(o.t)}  ${o.tekst}`).join("\r\n");
+  const blob = new Blob(["\uFEFF" + tekst], { type: "text/plain;charset=utf-8" });
+  await graph(`/me/drive/root:/${pad.split("/").map(encodeURIComponent).join("/")}/opmerkingen.txt:/content`,
+    { method: "PUT", body: blob, headers: { "Content-Type": "text/plain" } }, ui);
+}
+
 async function sync(ui) {
   if (bezig) return;
   if (!navigator.onLine) { if (ui) alert("Geen internetverbinding. Je foto's blijven veilig op dit toestel."); return; }
@@ -321,6 +331,12 @@ async function sync(ui) {
     for (const f of wachtend) {
       const c = findC(f.complexId);
       if (c) await uploadFoto(f, c, ui);
+    }
+    for (const c of st.complexen) for (const a of c.adressen) {
+      if (!a.opmerkingWacht) continue;
+      await uploadOpmerkingen(c, a, ui);
+      a.opmerkingWacht = false;
+      bewaarState();
     }
     await stateNaarOneDrive(ui);
   } catch (e) { fout = e; console.error(e); }
@@ -461,9 +477,12 @@ function opmerkingToevoegen(cId, aId) {
   const inp = $("nieuweOpm");
   const tekst = inp.value.trim();
   if (!tekst) return;
-  findA(findC(cId), aId).opmerkingen.push({ t: new Date().toISOString(), tekst });
+  const a = findA(findC(cId), aId);
+  a.opmerkingen.push({ t: new Date().toISOString(), tekst });
+  a.opmerkingWacht = true;
   bewaarState();
   render();
+  sync(false);
 }
 
 async function afspraakMaken(cId, aId) {
