@@ -586,7 +586,8 @@ function vComplex(c) {
       <div class="info" onclick="go({s:'adres',c:'${c.id}',a:'${a.id}'})">
         <strong>${esc(a.straat)} ${nrLabel(a)}</strong>
         <div class="klein-tekst">${fs.length} foto's${wacht ? ` · ${wacht} nog niet op OneDrive` : ""}${(ODMAP[c.id] || []).includes(mapNaam(a)) ? " · 📁 map op OneDrive" : ""}${a.afspraak ? " · 📅 " + fmt(a.afspraak.start) : ""}${a.opmerkingen.length ? " · 💬 " + a.opmerkingen.length : ""}</div>
-      </div></div>`;
+      </div>
+      <button class="klein sec" style="width:auto;padding:4px 8px;margin:0 0 0 6px" onclick="toevVoegToe('${c.id}','${a.id}')">+ toev.</button></div>`;
   }
   const nieuw = (ODMAP[c.id] || []).map((n, i) => ({ n, i })).filter(x => !c.adressen.some(a => mapNaam(a) === x.n));
   if (nieuw.length) {
@@ -603,7 +604,6 @@ function vComplex(c) {
 function vAdres(c, a) {
   const fs = FOTOS.filter(f => f.adresId === a.id).sort((x, y) => x.createdAt - y.createdAt);
   let h = `<p class="klein-tekst">${esc(c.naam)}</p>
-    <button class="klein sec" onclick="toevVoegToe('${c.id}','${a.id}')">+ Toevoeging aan dit huisnummer</button>
     `;
 
   h += `<h2>Foto's (${fs.length})</h2>`;
