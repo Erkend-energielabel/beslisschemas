@@ -579,6 +579,11 @@ function vComplexen() {
   return h;
 }
 
+/* Adressen altijd op straat, dan huisnummer en toevoeging (vaste volgorde, ook na afvinken) */
+function sortedAdressen(c) {
+  return [...c.adressen].sort((x, y) =>
+    x.straat.localeCompare(y.straat, "nl") || x.nr - y.nr || (x.toev || "").localeCompare(y.toev || "", "nl"));
+}
 function vComplex(c) {
   const klaar = c.adressen.filter(a => a.klaar).length;
   let h = `<button class="sec" onclick="go({s:'map',c:'${c.id}'})">📁 Map op OneDrive: ${esc(mapVan(c))}</button>${voortgangBalk(klaar, c.adressen.length)}
@@ -610,7 +615,7 @@ function vComplex(c) {
   if (latenL.length) h += `<div class="klein-tekst" style="margin-top:8px"><b>Komende dagen</b></div>` + latenL.map(regel).join("");
   h += `<h2>Adressen</h2>`;
   if (!c.adressen.length) h += `<p class="klein-tekst">Nog geen adressen. Voeg huisnummers toe met de knop hierboven.</p>`;
-  for (const a of c.adressen) {
+  for (const a of sortedAdressen(c)) {
     const fs = FOTOS.filter(f => f.adresId === a.id);
     const wacht = fs.filter(f => !f.uploaded).length;
     h += `<div class="rij ${a.klaar ? "klaar" : ""}">
