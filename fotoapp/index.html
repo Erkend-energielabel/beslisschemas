@@ -768,7 +768,21 @@ function bewaarNieuwComplex() {
   const c = { id: uid(), naam, map: view.pad, adressen: [] };
   st.complexen.push(c);
   bewaarState();
-  go({ s: "nieuwAdres", c: c.id });
+  /* Staan er al adresmappen in de gekozen map? Dan direct naar het complex, anders naar het adressen-scherm */
+  laadAdresMappen(c.id).then(() => {
+    const gevonden = (ODMAP[c.id] || []).some(n => parseerMap(n));
+    go(gevonden ? { s: "complex", c: c.id } : { s: "nieuwAdres", c: c.id });
+  });
+}
+/* Zet alle herkende adresmappen uit de OneDrive-map in de lijst van het complex */
+function alleMappenToevoegen(cId) {
+  const c = findC(cId);
+  const nieuw = (ODMAP[cId] || []).map(parseerMap).filter(p => p && !c.adressen.some(a => a.straat === p.straat && a.nr === p.nr && (a.toev || "") === p.toev));
+  if (!nieuw.length) return alert("Alle mappen staan al in de lijst.");
+  for (const p of nieuw) c.adressen.push({ id: uid(), straat: p.straat, nr: p.nr, toev: p.toev, klaar: false, opmerkingen: [], afspraak: null });
+  bewaarState();
+  alert(`${nieuw.length} adres(sen) uit de map toegevoegd.`);
+  render();
 }
 function bewaarNieuwAdres() {
   const c = findC(view.c);
@@ -1127,7 +1141,9 @@ function vComplex(c) {
   }
   const nieuw = (ODMAP[c.id] || []).map((n, i) => ({ n, i })).filter(x => !c.adressen.some(a => mapNaam(a) === x.n));
   if (nieuw.length) {
+    const herkend = nieuw.filter(x => parseerMap(x.n)).length;
     h += `<h2>Gevonden op OneDrive</h2><p class="klein-tekst">Deze mappen staan al op OneDrive maar nog niet in de lijst:</p>`;
+    if (herkend > 1) h += `<button class="sec" onclick="alleMappenToevoegen('${c.id}')">Alle ${herkend} adressen uit de map toevoegen</button>`;
     for (const x of nieuw) {
       const ok = parseerMap(x.n);
       h += `<div class="rij"><div class="info"><strong>📁 ${esc(x.n)}</strong>
