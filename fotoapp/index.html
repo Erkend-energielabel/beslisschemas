@@ -410,6 +410,7 @@ async function verplaatsGeselecteerd(cId) {
   const ids = [...SEL];
   if (!ids.length) return alert("Selecteer eerst één of meer foto's.");
   const a2 = findA(c, doel);
+  if (!confirm(`${SEL.size} foto('s) verplaatsen naar ${a2.straat} ${nrLabel(a2)}?\n\nDe foto's worden ook op OneDrive naar die map verplaatst.`)) return;
   let misluk = 0;
   for (const id of ids) {
     const f = FOTOS.find(x => x.id === id);
