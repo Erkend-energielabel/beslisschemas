@@ -843,12 +843,8 @@ async function render() {
     ${("Notification" in window && Notification.permission === "default") ? `<button class="klein sec" onclick="meldingenAan()">🔔 Meldingen aanzetten</button>` : ""}
     ${navigator.onLine ? "" : `<div class="melding">Geen internet. Foto's blijven bewaard en worden later geüpload.</div>`}
     ${window.PERSISTENT ? "" : `<div class="klein-tekst">⚠ Opslag van dit toestel is niet vastgezet. Upload regelmatig naar OneDrive.</div>`}
-    <div class="voet">
-      <div><b>Erkend-Energielabel.nl</b><br>Aelbert Cuyplaan 45<br>3343 DA Hendrik Ido Ambacht</div>
-      <div><b>T</b> 06 51 63 08 96<br><b>E</b> Info@Erkend-Energielabel.nl<br><b>W</b> www.Erkend-Energielabel.nl</div>
-      <div><b>KvK</b> 42070461<br><b>btw</b> NL869571655B01</div>
-      <div><b>Bank</b> KNAB<br>IBAN NL77 KNAB 0259 8692 79<br>BIC KNABNL2H</div>
-    </div>`;
+    <div class="klein-tekst" style="text-align:center;padding-top:4px">Deze app is eigendom van Erkend-energielabel.nl</div>
+  `;
 }
 
 /* ===== START ===== */
