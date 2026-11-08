@@ -229,7 +229,12 @@ function parseerMap(n, standaard) {
   if (z && standaard) return { straat: standaard, nr: parseInt(z[1], 10), toev: z[2].toUpperCase() };
   return null;
 }
-const standaardStraat = c => (c.adressen.length ? c.adressen[0].straat : c.naam);
+/* De straat die de meeste adressen in dit complex hebben. Bij adressen met die straat tonen we alleen het huisnummer. */
+const standaardStraat = c => {
+  const tel = {};
+  for (const a of c.adressen) tel[a.straat] = (tel[a.straat] || 0) + 1;
+  return Object.keys(tel).sort((x, y) => tel[y] - tel[x])[0] || c.naam;
+};
 /* Welke OneDrive-map hoort bij dit adres: "Straat 12A" of alleen "12A" */
 const mapVoorAdres = (c, a) => [mapNaam(a), nrLabel(a)].find(n => (ODMAP[c.id] || []).includes(n)) || mapNaam(a);
 
@@ -1146,6 +1151,7 @@ function vComplex(c) {
   if (latenL.length) h += `<div class="klein-tekst" style="margin-top:8px"><b>Komende dagen</b></div>` + latenL.map(regel).join("");
   if (eerder.length) h += `<details style="margin-top:8px"><summary class="klein-tekst">Eerder (${eerder.length})</summary>${eerder.map(regel).join("")}</details>`;
   h += `<h2>Adressen</h2>`;
+  if (c.adressen.length) h += `<p class="klein-tekst">Straat: <b>${esc(standaardStraat(c))}</b> (bij adressen met een andere straat staat die erbij)</p>`;
   if (!c.adressen.length) h += `<p class="klein-tekst">Nog geen adressen. Voeg huisnummers toe met de knop hierboven.</p>`;
   for (const a of sortedAdressen(c)) {
     const fs = FOTOS.filter(f => f.adresId === a.id);
@@ -1153,7 +1159,7 @@ function vComplex(c) {
     h += `<div class="rij ${a.klaar ? "klaar" : ""}">
       <input type="checkbox" ${a.klaar ? "checked" : ""} aria-label="klaar" onchange="klaarZet('${c.id}','${a.id}',this.checked)">
       <div class="info" onclick="go({s:'adres',c:'${c.id}',a:'${a.id}'})">
-        <strong>${esc(a.straat)} ${nrLabel(a)}</strong>
+        <strong>${a.straat === standaardStraat(c) ? nrLabel(a) : esc(a.straat) + " " + nrLabel(a)}</strong>
         <div class="klein-tekst">${fs.length} foto's${wacht ? ` · ${wacht} nog niet op OneDrive` : ""}${(ODMAP[c.id] || []).includes(mapVoorAdres(c, a)) ? " · 📁 map op OneDrive" + ((ODFOTO[c.id] || {})[mapVoorAdres(c, a)] ? " · 📷 " + ODFOTO[c.id][mapVoorAdres(c, a)] + " op OneDrive" : "") : ""}${a.afspraak ? " · 📅 " + fmt(a.afspraak.start) : ""}${a.opmerkingen.length ? " · 💬 " + a.opmerkingen.length : ""}</div>
       </div>
       <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;margin:0 0 0 6px;font-size:12px;line-height:1.2;border-radius:6px" onclick="toevVoegToe('${c.id}','${a.id}')">+ toev.</button></div>`;
