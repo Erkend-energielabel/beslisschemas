@@ -184,11 +184,11 @@ function terug() {
   else go({ s: "complexen" });
 }
 
-/* Bestandsnaam: eerste 2 letters van de straat + huisnummer + tijdstempel (nooit dubbel) */
+/* Bestandsnaam: eerste 2 letters van de straat + huisnummer + tijd (bijv. ST12_142012.jpg). OneDrive hernoemt dubbelen zelf. */
 function bestandsnaam(straat, nr) {
   const p = String(straat).normalize("NFD").replace(/[^a-zA-Z]/g, "").slice(0, 2).toUpperCase().padEnd(2, "X");
   const t = new Date();
-  const ts = `${t.getFullYear()}${pad(t.getMonth()+1)}${pad(t.getDate())}-${pad(t.getHours())}${pad(t.getMinutes())}${pad(t.getSeconds())}-${String(t.getMilliseconds()).padStart(3,"0")}`;
+  const ts = `${pad(t.getHours())}${pad(t.getMinutes())}${pad(t.getSeconds())}`;
   return `${p}${nr}_${ts}.jpg`;
 }
 
