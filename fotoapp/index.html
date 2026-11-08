@@ -48,6 +48,8 @@ input[type=checkbox]{width:30px;height:30px;min-height:0;margin:0;flex:0 0 auto}
 .foto-acties{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
 .foto-acties select{width:auto;flex:1;min-height:44px}
 .opm{background:#f7f9f8;border-radius:10px;padding:8px 10px;margin:6px 0}
+.voortgang{background:#dfe7e2;border-radius:99px;height:14px;overflow:hidden;margin:8px 0 4px}
+.voortgang span{display:block;height:100%;background:var(--acc);border-radius:99px;transition:width .3s}
 .voet{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font-size:11px;line-height:1.35;color:var(--mut);border-top:1px solid var(--acc);margin-top:8px;padding-top:8px}
 .voet b{color:var(--g)}
 @media (max-width:600px){.voet{grid-template-columns:repeat(2,1fr)}}
@@ -380,6 +382,11 @@ function bewaarNieuwAdres() {
 }
 
 /* ===== SCHERMEN ===== */
+function voortgangBalk(klaar, totaal) {
+  const pct = totaal ? Math.round(klaar / totaal * 100) : 0;
+  return `<div class="voortgang" role="progressbar" aria-valuemin="0" aria-valuemax="${totaal}" aria-valuenow="${klaar}"><span style="width:${pct}%"></span></div>
+    <div class="klein-tekst">${klaar} van ${totaal} woningen klaar (${pct}%)</div>`;
+}
 function vComplexen() {
   let h = `<button onclick="go({s:'nieuwComplex'})">+ Nieuw complex</button>`;
   if (!st.complexen.length) h += `<p class="klein-tekst">Nog geen complexen. Maak er één aan met de knop hierboven.</p>`;
@@ -387,14 +394,15 @@ function vComplexen() {
     const klaar = c.adressen.filter(a => a.klaar).length;
     h += `<div class="kaart" onclick="go({s:'complex',c:'${c.id}'})">
       <strong>${esc(c.naam)}</strong>
-      <div class="klein-tekst">${c.adressen.length} adressen · ${klaar} klaar</div></div>`;
+      <div class="klein-tekst">${c.adressen.length} adressen · ${klaar} klaar</div>
+      ${voortgangBalk(klaar, c.adressen.length)}</div>`;
   }
   return h;
 }
 
 function vComplex(c) {
   const klaar = c.adressen.filter(a => a.klaar).length;
-  let h = `<p class="klein-tekst">${klaar} van ${c.adressen.length} adressen klaar</p>
+  let h = `${voortgangBalk(klaar, c.adressen.length)}
     <button class="sec" onclick="go({s:'nieuwAdres',c:'${c.id}'})">+ Adressen toevoegen</button>`;
   const gepland = c.adressen.filter(a => a.afspraak).sort((x, y) => x.afspraak.start.localeCompare(y.afspraak.start));
   h += `<h2>Ingepland (${gepland.length})</h2>`;
