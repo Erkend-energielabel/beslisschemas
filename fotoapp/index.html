@@ -149,7 +149,13 @@ let PASJES = JSON.parse(localStorage.getItem("fa_pasjes") || "null") || [
   { id: "jdl", naam: "Jacob de Laat", functie: "EPA-adviseur en bouwbegeleider", opdracht: "", foto: "" },
   { id: "john", naam: "", functie: "", opdracht: "", foto: "" }
 ];
-function bewaarPasjes() { localStorage.setItem("fa_pasjes", JSON.stringify(PASJES)); }
+if (st.pasjes) PASJES = st.pasjes;   // pasjes komen mee in de gedeelde status
+st.pasjes = PASJES;
+function bewaarPasjes() {
+  localStorage.setItem("fa_pasjes", JSON.stringify(PASJES));
+  st.pasjes = PASJES;
+  bewaarState();   // zet het pasje ook op de andere toestellen
+}
 function pasWijzig(id, veld, waarde) {
   const p = PASJES.find(x => x.id === id);
   if (!p) return;
@@ -424,6 +430,7 @@ const stabiel = o => JSON.stringify(o, (k, v) => (v && typeof v === "object" && 
   ? Object.keys(v).sort().reduce((r, kk) => (r[kk] = v[kk], r), {}) : v);
 const cSleutel = c => stabiel({ naam: c.naam, map: c.map, gearchiveerd: !!c.gearchiveerd });
 const aSleutel = a => { const { _t, opmerkingWacht, ...r } = a; return stabiel(r); };
+const pSleutel = p => { const { _t, ...r } = p; return stabiel(r); };
 /* Zet een tijdstempel op alles wat sinds de laatste sync is veranderd */
 function stempel() {
   const nu = new Date().toISOString();
@@ -431,6 +438,7 @@ function stempel() {
     if (SNAP["c:" + c.id] !== cSleutel(c)) c._t = nu;
     for (const a of c.adressen) if (SNAP["a:" + a.id] !== aSleutel(a)) a._t = nu;
   }
+  for (const p of st.pasjes || []) if (SNAP["p:" + p.id] !== pSleutel(p)) p._t = nu;
 }
 function snapMaken() {
   SNAP = {};
@@ -438,6 +446,7 @@ function snapMaken() {
     SNAP["c:" + c.id] = cSleutel(c);
     for (const a of c.adressen) SNAP["a:" + a.id] = aSleutel(a);
   }
+  for (const p of st.pasjes || []) SNAP["p:" + p.id] = pSleutel(p);
   localStorage.setItem("fa_snap", JSON.stringify(SNAP));
 }
 function nieuwste(lijst) { return lijst.reduce((a, b) => ((b._t || "") > (a._t || "") ? b : a)); }
@@ -469,7 +478,10 @@ function samenvoegen(loc, rem) {
     const over = g ? vers[id].filter(c => (c._t || "") > g.t) : vers[id];
     if (over.length) complexen.push(samenComplex(over));
   }
-  return { complexen, verwijderd: [...graf.values()] };
+  const pv = {};
+  for (const p of [...(loc.pasjes || []), ...(rem.pasjes || [])]) (pv[p.id] ||= []).push(p);
+  const pasjes = Object.values(pv).map(nieuwste);
+  return { complexen, verwijderd: [...graf.values()], pasjes };
 }
 async function gedeeldSyncEcht(ui) {
   if (!navigator.onLine || !accounts().length) return false;
@@ -486,6 +498,7 @@ async function gedeeldSyncEcht(ui) {
     stempel();
     const voor = stabiel(st);
     st = samenvoegen(st, rem);
+    if (st.pasjes && st.pasjes.length) { PASJES = st.pasjes; localStorage.setItem("fa_pasjes", JSON.stringify(PASJES)); }
     veranderd = veranderd || stabiel(st) !== voor;
     localStorage.setItem(KEY, JSON.stringify(st));
     snapMaken();
