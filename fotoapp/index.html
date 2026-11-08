@@ -624,7 +624,7 @@ function vComplex(c) {
         <strong>${esc(a.straat)} ${nrLabel(a)}</strong>
         <div class="klein-tekst">${fs.length} foto's${wacht ? ` · ${wacht} nog niet op OneDrive` : ""}${(ODMAP[c.id] || []).includes(mapNaam(a)) ? " · 📁 map op OneDrive" : ""}${a.afspraak ? " · 📅 " + fmt(a.afspraak.start) : ""}${a.opmerkingen.length ? " · 💬 " + a.opmerkingen.length : ""}</div>
       </div>
-      <button class="klein sec" style="width:auto;padding:4px 8px;margin:0 0 0 6px" onclick="toevVoegToe('${c.id}','${a.id}')">+ toev.</button></div>`;
+      <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;margin:0 0 0 6px;font-size:12px;line-height:1.2;border-radius:6px" onclick="toevVoegToe('${c.id}','${a.id}')">+ toev.</button></div>`;
   }
   const nieuw = (ODMAP[c.id] || []).map((n, i) => ({ n, i })).filter(x => !c.adressen.some(a => mapNaam(a) === x.n));
   if (nieuw.length) {
