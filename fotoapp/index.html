@@ -15,7 +15,7 @@
 <style>
 :root{--g:#0f4a2c;--acc:#3cb54a;--dark:#10301f;--r:#c0392b;--bg:#f2f4f2;--tx:#123524;--mut:#6b7280;--line:#e3e7e3}
 *{box-sizing:border-box}
-body{margin:0;font:18px/1.4 Figtree,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--tx);padding-bottom:150px}
+body{margin:0;font:18px/1.4 Figtree,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--tx);padding-bottom:280px}
 header{position:sticky;top:0;background:linear-gradient(135deg,#0f4a2c,#2e8f48);color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px;z-index:5;min-height:58px}
 header h1{font-size:19px;margin:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
 .logo{background:#fff;border-radius:10px;padding:5px 8px;display:flex;align-items:center;flex:0 0 auto}
@@ -48,6 +48,9 @@ input[type=checkbox]{width:30px;height:30px;min-height:0;margin:0;flex:0 0 auto}
 .foto-acties{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
 .foto-acties select{width:auto;flex:1;min-height:44px}
 .opm{background:#f7f9f8;border-radius:10px;padding:8px 10px;margin:6px 0}
+.voet{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font-size:11px;line-height:1.35;color:var(--mut);border-top:1px solid var(--acc);margin-top:8px;padding-top:8px}
+.voet b{color:var(--g)}
+@media (max-width:600px){.voet{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
@@ -564,8 +567,13 @@ async function render() {
         : `<button class="klein" onclick="login()">Inloggen</button>`}
     </div>
     ${navigator.onLine ? "" : `<div class="melding">Geen internet. Foto's blijven bewaard en worden later geüpload.</div>`}
-    <div class="klein-tekst" style="margin-top:4px">Erkend-Energielabel.nl · ☎ 06 51 63 08 96 · info@erkend-energielabel.nl</div>
-    ${window.PERSISTENT ? "" : `<div class="klein-tekst">⚠ Opslag van dit toestel is niet vastgezet. Upload regelmatig naar OneDrive.</div>`}`;
+    ${window.PERSISTENT ? "" : `<div class="klein-tekst">⚠ Opslag van dit toestel is niet vastgezet. Upload regelmatig naar OneDrive.</div>`}
+    <div class="voet">
+      <div><b>Erkend-Energielabel.nl</b><br>Aelbert Cuyplaan 45<br>3343 DA Hendrik Ido Ambacht</div>
+      <div><b>T</b> 06 51 63 08 96<br><b>E</b> Info@Erkend-Energielabel.nl<br><b>W</b> www.Erkend-Energielabel.nl</div>
+      <div><b>KvK</b> 42070461<br><b>btw</b> NL869571655B01</div>
+      <div><b>Bank</b> KNAB<br>IBAN NL77 KNAB 0259 8692 79<br>BIC KNABNL2H</div>
+    </div>`;
 }
 
 /* ===== START ===== */
