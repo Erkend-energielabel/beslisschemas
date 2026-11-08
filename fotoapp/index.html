@@ -118,6 +118,7 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
 const findC = id => st.complexen.find(c => c.id === id);
 const mapVan = c => c.map || (CFG.map + "/" + c.naam);
 let MAPNAMEN = [];
+let DOCS = [];
 const findA = (c, id) => c.adressen.find(a => a.id === id);
 const nrLabel = a => String(a.nr) + (a.toev || "");
 const sorteer = c => c.adressen.sort((a, b) => (a.klaar - b.klaar) || a.straat.localeCompare(b.straat) || a.nr - b.nr || (a.toev || "").localeCompare(b.toev || ""));
@@ -221,16 +222,20 @@ function bestandsnaam(straat, nr) {
 
 /* ===== FOTO-OPSLAG (IndexedDB) ===== */
 const DB = new Promise((res, rej) => {
-  const r = indexedDB.open("fotoapp", 1);
-  r.onupgradeneeded = () => r.result.createObjectStore("fotos", { keyPath: "id" });
+  const r = indexedDB.open("fotoapp", 2);
+  r.onupgradeneeded = () => {
+    const db = r.result;
+    if (!db.objectStoreNames.contains("fotos")) db.createObjectStore("fotos", { keyPath: "id" });
+    if (!db.objectStoreNames.contains("docs")) db.createObjectStore("docs", { keyPath: "id" });
+  };
   r.onsuccess = () => res(r.result);
   r.onerror = () => rej(r.error);
 });
-async function dbDo(mode, fn) {
+async function dbDo(mode, fn, winkel = "fotos") {
   const db = await DB;
   return new Promise((res, rej) => {
-    const tx = db.transaction("fotos", mode);
-    const req = fn(tx.objectStore("fotos"));
+    const tx = db.transaction(winkel, mode);
+    const req = fn(tx.objectStore(winkel));
     tx.oncomplete = () => res(req.result);
     tx.onerror = () => rej(tx.error);
     tx.onabort = () => rej(tx.error);
@@ -239,6 +244,9 @@ async function dbDo(mode, fn) {
 const fotoPut = f => dbDo("readwrite", s => s.put(f));
 const fotoDel = id => dbDo("readwrite", s => s.delete(id));
 const fotosAll = () => dbDo("readonly", s => s.getAll());
+const docsAll = () => dbDo("readonly", s => s.getAll(), "docs");
+const docPut = d => dbDo("readwrite", s => s.put(d), "docs");
+const docDel = id => dbDo("readwrite", s => s.delete(id), "docs");
 
 /* Verkleinen: alleen de kopie wordt kleiner, het origineel blijft ongemoeid */
 async function comprimeer(file) {
@@ -341,6 +349,19 @@ async function sync(ui) {
     for (const f of wachtend) {
       const c = findC(f.complexId);
       if (c) await uploadFoto(f, c, ui);
+    }
+    for (const d of (await docsAll()).filter(x => !x.uploaded)) {
+      const c = findC(d.complexId);
+      if (!c) continue;
+      const pad = mapVan(c) + "/Documenten";
+      await zorgMap(pad, ui);
+      const item = await graph(`/me/drive/root:/${[...pad.split("/"), d.naam].map(encodeURIComponent).join("/")}:/content?@microsoft.graph.conflictBehavior=rename`,
+        { method: "PUT", body: d.blob, headers: { "Content-Type": d.type } }, ui);
+      if (item.size !== d.blob.size) throw new Error("grootte klopt niet na upload");
+      d.uploaded = true;
+      d.onedriveId = item.id;
+      d.naam = item.name;
+      await docPut(d);
     }
     for (const c of st.complexen) for (const a of c.adressen) {
       if (!a.opmerkingWacht) continue;
@@ -636,6 +657,51 @@ function toevVoegToe(cId, aId) {
   go({ s: "adres", c: cId, a: nieuw.id });
 }
 
+async function docToevoegen(ev, cId) {
+  const c = findC(cId);
+  const files = [...ev.target.files];
+  ev.target.value = "";
+  for (const file of files) {
+    await docPut({ id: uid(), complexId: c.id, naam: file.name, type: file.type || "application/octet-stream",
+      blob: file, uploaded: false, createdAt: Date.now() });
+  }
+  await render();
+  sync(false);
+}
+function docOpen(id) {
+  const d = DOCS.find(x => x.id === id);
+  if (!d) return;
+  const url = URL.createObjectURL(d.blob);
+  window.open(url, "_blank");
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+async function docWis(id) {
+  const d = DOCS.find(x => x.id === id);
+  if (!d || !d.uploaded) return alert("Dit document staat nog niet op OneDrive en wordt dus niet verwijderd.");
+  if (!navigator.onLine) return alert("Geen internet. Ik kan niet controleren of het document op OneDrive staat, dus er is niets verwijderd.");
+  let item = null;
+  try { item = await graph(`/me/drive/items/${d.onedriveId}`, {}, true); } catch (e) { item = null; }
+  if (!item || item.size !== d.blob.size) return alert("Kan niet controleren dat het document op OneDrive staat. Er is niets verwijderd.");
+  if (!confirm(`Document ${d.naam} uit de app verwijderen?\n\nDe kopie op OneDrive blijft staan.`)) return;
+  if (!confirm("Weet je het zeker? Dit kan NIET ongedaan worden gemaakt.")) return;
+  await docDel(id);
+  await render();
+}
+async function complexWis(cId) {
+  const c = findC(cId);
+  const nietOp = FOTOS.filter(f => f.complexId === cId && !f.uploaded).length
+    + DOCS.filter(d => d.complexId === cId && !d.uploaded).length;
+  if (nietOp) return alert(`Er staan nog ${nietOp} foto('s) of document(en) die niet op OneDrive staan. Het complex kan pas worden verwijderd als alles is geüpload.`);
+  if (!confirm(`Complex "${c.naam}" verwijderen uit de app?\n\nDe mappen en bestanden op OneDrive blijven staan.`)) return;
+  if (!confirm("Weet je het zeker? Dit kan NIET ongedaan worden gemaakt in de app.")) return;
+  for (const f of FOTOS.filter(x => x.complexId === cId)) await fotoDel(f.id);
+  for (const d of DOCS.filter(x => x.complexId === cId)) await docDel(d.id);
+  st.complexen.splice(st.complexen.indexOf(c), 1);
+  delete ODMAP[cId];
+  bewaarState();
+  go({ s: "complexen" });
+}
+
 function vComplexen() {
   let h = `<button onclick="go({s:'nieuwComplex'})">+ Nieuw complex</button>`;
   if (!st.complexen.length) h += `<p class="klein-tekst">Nog geen complexen. Maak er één aan met de knop hierboven.</p>`;
@@ -714,6 +780,17 @@ function vComplex(c) {
         ${ok ? `<div><button class="klein sec" onclick="adresUitMap('${c.id}',${x.i})">Toevoegen aan lijst</button></div>` : `<div class="klein-tekst">Naam niet herkend. Gebruik bijv. "Stationsweg 12A".</div>`}</div></div>`;
     }
   }
+  const dcs = DOCS.filter(d => d.complexId === c.id);
+  h += `<h2>Documenten (${dcs.length})</h2>
+    <label class="klein sec" style="display:block;text-align:center;padding:10px;border:1px dashed var(--g);border-radius:10px;cursor:pointer">📎 Document toevoegen (plattegrond, brief, enz.)
+      <input type="file" multiple hidden onchange="docToevoegen(event,'${c.id}')"></label>`;
+  for (const d of dcs) {
+    h += `<div class="rij"><div class="info" style="cursor:pointer" onclick="docOpen('${d.id}')">
+      <strong>${esc(d.naam)}</strong>
+      <div class="klein-tekst">${d.uploaded ? "✓ Staat op OneDrive" : "⏳ Nog niet op OneDrive"}</div></div>
+      ${d.uploaded ? `<button class="klein sec" style="width:auto" onclick="docWis('${d.id}')">Wis</button>` : ""}</div>`;
+  }
+  h += `<div style="margin-top:24px"><button class="sec" onclick="complexWis('${c.id}')">🗑 Complex verwijderen uit de app</button></div>`;
   return h;
 }
 
@@ -883,6 +960,7 @@ async function render() {
       document.body.insertBefore(m, document.body.firstChild);
     }
   }
+  DOCS = await docsAll().catch(() => []);
   URLS.forEach(u => URL.revokeObjectURL(u)); URLS = [];
 
   let titel = "Complexen", inhoud = "", c = null, a = null;
