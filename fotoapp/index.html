@@ -1342,13 +1342,14 @@ async function render() {
   }
 
   $("titel").textContent = titel;
-  $("terugknop").style.display = view.s === "complexen" ? "none" : "block";
+  $("terugknop").style.display = "none";   // terug staat nu onderin, zie balk
   $("app").innerHTML = inhoud;
   if (view.s === "map" || view.s === "nieuwMap") mapLaad();
 
   const wacht = FOTOS.filter(f => !f.uploaded).length;
   $("balk").innerHTML = `
     <div class="acties">
+      ${view.s !== "complexen" ? `<button class="klein sec" style="min-height:48px;font-size:17px" onclick="terug()">← Terug</button>` : ""}
       <span class="klein-tekst" style="flex:1;font-size:11px;line-height:1.3">${wacht} foto's wachten op OneDrive · ${FOTOS.length - wacht} op OneDrive</span>
       ${ingelogd
         ? `<button class="klein" onclick="sync(true)">Nu uploaden</button>`
