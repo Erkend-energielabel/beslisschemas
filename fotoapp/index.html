@@ -1089,9 +1089,9 @@ async function mapLaad() {
       ? `/me/drive/root:/${view.pad.split("/").map(encodeURIComponent).join("/")}:/children?$select=name,folder,lastModifiedDateTime`
       : `/me/drive/root/children?$select=name,folder,lastModifiedDateTime`;
     const r = await graph(url, {}, true);
-    /* Laatst gewijzigde map staat bovenaan */
+    /* Mappen op naam A-Z, zoals OneDrive standaard doet (cijfers netjes in volgorde) */
     MAPNAMEN = (r.value || []).filter(x => x.folder)
-      .sort((a, b) => (b.lastModifiedDateTime || "").localeCompare(a.lastModifiedDateTime || ""))
+      .sort((a, b) => a.name.localeCompare(b.name, "nl", { numeric: true }))
       .map(x => x.name);
     el.innerHTML = MAPNAMEN.length
       ? MAPNAMEN.map((n, i) => `<button class="sec" style="text-align:left" onclick="mapOpen(${i})">📁 ${esc(n)}</button>`).join("")
