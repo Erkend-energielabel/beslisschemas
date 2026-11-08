@@ -387,12 +387,18 @@ async function token(ui) {
     await pca.acquireTokenRedirect({ scopes: SCOPES });
   }
 }
-async function graph(path, opts = {}, ui = false) {
+async function graph(path, opts = {}, ui = false, poging = 0) {
   const t = await token(ui);
   const r = await fetch("https://graph.microsoft.com/v1.0" + path, {
     ...opts,
     headers: { Authorization: "Bearer " + t, ...(opts.headers || {}) }
   });
+  /* OneDrive vraagt soms even te wachten (429 / 503): dan wachten en opnieuw proberen, tot 4 keer */
+  if ((r.status === 429 || r.status === 503) && poging < 4) {
+    const na = parseInt(r.headers.get("Retry-After") || "0", 10) || (5 * (poging + 1));
+    await new Promise(res => setTimeout(res, Math.min(na, 30) * 1000));
+    return graph(path, opts, ui, poging + 1);
+  }
   if (!r.ok) throw new Error(`Graph ${r.status}: ${await r.text()}`);
   return r.status === 204 ? null : r.json();
 }
