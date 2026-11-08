@@ -11,6 +11,7 @@
 <title>Foto-opname · Erkend-Energielabel.nl</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.0/lib/msal-browser.min.js"></script>
 <style>
 :root{--g:#0f4a2c;--acc:#3cb54a;--dark:#10301f;--r:#c0392b;--bg:#f2f4f2;--tx:#123524;--mut:#6b7280;--line:#e3e7e3}
@@ -430,12 +431,25 @@ function exportComplex(cId) {
     const opm = (a.opmerkingen || []).map(o => `${fmtLokaal(o.t)}: ${o.tekst}`).join(" | ");
     rijen.push([a.straat, nrLabel(a), a.klaar ? "ja" : "nee", a.klaarOp ? fmtLokaal(a.klaarOp) : "", afspraak, aantal, opm]);
   }
-  const csv = rijen.map(r => r.map(q).join(";")).join("\r\n");
-  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+  const naam = `${c.naam} overzicht`;
+  if (window.XLSX) {
+    const ws = XLSX.utils.aoa_to_sheet(rijen);
+    ws["!cols"] = [{ wch: 24 }, { wch: 11 }, { wch: 13 }, { wch: 18 }, { wch: 18 }, { wch: 9 }, { wch: 60 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Overzicht");
+    const data = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    slaOp(new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `${naam}.xlsx`);
+  } else {
+    const csv = rijen.map(r => r.map(q).join(";")).join("\r\n");
+    slaOp(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }), `${naam}.csv`);
+    alert("De Excel-bibliotheek kon niet laden. Je krijgt een CSV-bestand; dat opent ook in Excel.");
+  }
+}
+function slaOp(blob, naam) {
   const url = URL.createObjectURL(blob);
   const el = document.createElement("a");
   el.href = url;
-  el.download = `${c.naam} overzicht.csv`;
+  el.download = naam;
   document.body.appendChild(el);
   el.click();
   el.remove();
