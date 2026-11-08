@@ -233,7 +233,7 @@ function parseerMap(n, standaard) {
 const standaardStraat = c => {
   const tel = {};
   for (const a of c.adressen) tel[a.straat] = (tel[a.straat] || 0) + 1;
-  return Object.keys(tel).sort((x, y) => tel[y] - tel[x])[0] || c.naam;
+  return Object.keys(tel).sort((x, y) => tel[y] - tel[x])[0] || mapVan(c).split("/").pop();
 };
 /* Welke OneDrive-map hoort bij dit adres: "Straat 12A" of alleen "12A" */
 const mapVoorAdres = (c, a) => [mapNaam(a), nrLabel(a)].find(n => (ODMAP[c.id] || []).includes(n)) || mapNaam(a);
@@ -781,10 +781,16 @@ function bewaarNieuwComplex() {
   const c = { id: uid(), naam, map: view.pad, adressen: [] };
   st.complexen.push(c);
   bewaarState();
-  /* Staan er al adresmappen in de gekozen map? Dan direct naar het complex, anders naar het adressen-scherm */
+  /* Geen huisnummers invoeren: de adresmappen in de gekozen map worden direct ingelezen */
   laadAdresMappen(c.id).then(() => {
-    const gevonden = (ODMAP[c.id] || []).some(n => parseerMap(n));
-    go(gevonden ? { s: "complex", c: c.id } : { s: "nieuwAdres", c: c.id });
+    const std = standaardStraat(c);
+    for (const p of (ODMAP[c.id] || []).map(n => parseerMap(n, std)).filter(Boolean)) {
+      if (!c.adressen.some(a => a.straat === p.straat && a.nr === p.nr && (a.toev || "") === p.toev)) {
+        c.adressen.push({ id: uid(), straat: p.straat, nr: p.nr, toev: p.toev, klaar: false, opmerkingen: [], afspraak: null });
+      }
+    }
+    bewaarState();
+    go({ s: "complex", c: c.id });
   });
 }
 /* Zet alle herkende adresmappen uit de OneDrive-map in de lijst van het complex */
