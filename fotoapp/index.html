@@ -221,10 +221,17 @@ const mapNaam = a => `${a.straat} ${nrLabel(a)}`.replace(/[\\\/:*?"<>|]/g, "").t
 const adresMap = (c, a) => mapVan(c) + "/" + mapNaam(a);
 const ZEKER = new Set();          // mappen die in deze sessie al bestaan
 let ODMAP = {};                   // complex-id -> namen van mappen die op OneDrive staan
-function parseerMap(n) {
+/* Mapnaam als "Straat 12A". Alleen een huisnummer ("12A") geldt voor de standaardstraat van het complex. */
+function parseerMap(n, standaard) {
   const m = String(n).match(/^(.+?)\s+(\d+)\s*([A-Za-z]*)$/);
-  return m ? { straat: m[1].trim(), nr: parseInt(m[2], 10), toev: m[3].toUpperCase() } : null;
+  if (m) return { straat: m[1].trim(), nr: parseInt(m[2], 10), toev: m[3].toUpperCase() };
+  const z = String(n).match(/^(\d+)\s*([A-Za-z]*)$/);
+  if (z && standaard) return { straat: standaard, nr: parseInt(z[1], 10), toev: z[2].toUpperCase() };
+  return null;
 }
+const standaardStraat = c => (c.adressen.length ? c.adressen[0].straat : c.naam);
+/* Welke OneDrive-map hoort bij dit adres: "Straat 12A" of alleen "12A" */
+const mapVoorAdres = (c, a) => [mapNaam(a), nrLabel(a)].find(n => (ODMAP[c.id] || []).includes(n)) || mapNaam(a);
 
 function bewaarState() {
   localStorage.setItem(KEY, JSON.stringify(st));
@@ -778,7 +785,7 @@ function bewaarNieuwComplex() {
 /* Zet alle herkende adresmappen uit de OneDrive-map in de lijst van het complex */
 function alleMappenToevoegen(cId) {
   const c = findC(cId);
-  const nieuw = (ODMAP[cId] || []).map(parseerMap).filter(p => p && !c.adressen.some(a => a.straat === p.straat && a.nr === p.nr && (a.toev || "") === p.toev));
+  const nieuw = (ODMAP[cId] || []).map(n => parseerMap(n, standaardStraat(c))).filter(p => p && !c.adressen.some(a => a.straat === p.straat && a.nr === p.nr && (a.toev || "") === p.toev));
   if (!nieuw.length) return alert("Alle mappen staan al in de lijst.");
   for (const p of nieuw) c.adressen.push({ id: uid(), straat: p.straat, nr: p.nr, toev: p.toev, klaar: false, opmerkingen: [], afspraak: null });
   bewaarState();
@@ -872,7 +879,7 @@ async function laadAdresMappen(cId) {
   } catch (e) { /* map bestaat nog niet: niets tonen */ }
 }
 function adresUitMap(cId, i) {
-  const c = findC(cId), p = parseerMap((ODMAP[cId] || [])[i]);
+  const c = findC(cId), p = parseerMap((ODMAP[cId] || [])[i], c && standaardStraat(c));
   if (!c || !p) return;
   if (!c.adressen.some(a => a.straat === p.straat && a.nr === p.nr && (a.toev || "") === p.toev)) {
     c.adressen.push({ id: uid(), straat: p.straat, nr: p.nr, toev: p.toev, klaar: false, opmerkingen: [], afspraak: null });
@@ -1147,17 +1154,17 @@ function vComplex(c) {
       <input type="checkbox" ${a.klaar ? "checked" : ""} aria-label="klaar" onchange="klaarZet('${c.id}','${a.id}',this.checked)">
       <div class="info" onclick="go({s:'adres',c:'${c.id}',a:'${a.id}'})">
         <strong>${esc(a.straat)} ${nrLabel(a)}</strong>
-        <div class="klein-tekst">${fs.length} foto's${wacht ? ` · ${wacht} nog niet op OneDrive` : ""}${(ODMAP[c.id] || []).includes(mapNaam(a)) ? " · 📁 map op OneDrive" + ((ODFOTO[c.id] || {})[mapNaam(a)] ? " · 📷 " + ODFOTO[c.id][mapNaam(a)] + " op OneDrive" : "") : ""}${a.afspraak ? " · 📅 " + fmt(a.afspraak.start) : ""}${a.opmerkingen.length ? " · 💬 " + a.opmerkingen.length : ""}</div>
+        <div class="klein-tekst">${fs.length} foto's${wacht ? ` · ${wacht} nog niet op OneDrive` : ""}${(ODMAP[c.id] || []).includes(mapVoorAdres(c, a)) ? " · 📁 map op OneDrive" + ((ODFOTO[c.id] || {})[mapVoorAdres(c, a)] ? " · 📷 " + ODFOTO[c.id][mapVoorAdres(c, a)] + " op OneDrive" : "") : ""}${a.afspraak ? " · 📅 " + fmt(a.afspraak.start) : ""}${a.opmerkingen.length ? " · 💬 " + a.opmerkingen.length : ""}</div>
       </div>
       <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;margin:0 0 0 6px;font-size:12px;line-height:1.2;border-radius:6px" onclick="toevVoegToe('${c.id}','${a.id}')">+ toev.</button></div>`;
   }
-  const nieuw = (ODMAP[c.id] || []).map((n, i) => ({ n, i })).filter(x => !c.adressen.some(a => mapNaam(a) === x.n));
+  const nieuw = (ODMAP[c.id] || []).map((n, i) => ({ n, i })).filter(x => !c.adressen.some(a => mapVoorAdres(c, a) === x.n));
   if (nieuw.length) {
-    const herkend = nieuw.filter(x => parseerMap(x.n)).length;
+    const herkend = nieuw.filter(x => parseerMap(x.n, standaardStraat(c))).length;
     h += `<details style="margin-top:12px"><summary><b>📁 Gevonden op OneDrive (${nieuw.length})</b></summary><p class="klein-tekst">Deze mappen staan al op OneDrive maar nog niet in de lijst:</p>`;
     if (herkend > 1) h += `<button class="sec" onclick="alleMappenToevoegen('${c.id}')">Alle ${herkend} adressen uit de map toevoegen</button>`;
     for (const x of nieuw) {
-      const ok = parseerMap(x.n);
+      const ok = parseerMap(x.n, standaardStraat(c));
       h += `<div class="rij"><div class="info"><strong>📁 ${esc(x.n)}</strong>${(ODFOTO[c.id] || {})[x.n] ? ` <span class="klein-tekst">· 📷 ${ODFOTO[c.id][x.n]} foto's</span>` : ""}
         ${ok ? `<div><button class="klein sec" onclick="adresUitMap('${c.id}',${x.i})">Toevoegen aan lijst</button></div>` : `<div class="klein-tekst">Naam niet herkend. Gebruik bijv. "Stationsweg 12A".</div>`}</div></div>`;
     }
@@ -1182,7 +1189,7 @@ function vAdres(c, a) {
     `;
 
   h += `<h2>Foto's (${fs.length})</h2>`;
-  const opOD = (ODFOTO[c.id] || {})[mapNaam(a)] || 0;
+  const opOD = (ODFOTO[c.id] || {})[mapVoorAdres(c, a)] || 0;
   if (opOD) h += `<p class="klein-tekst">📷 In de OneDrive-map van dit adres staan al ${opOD} foto's. Die zijn veilig opgeslagen, ook als ze niet op dit toestel staan.</p>`;
   if (!fs.length) h += `<p class="klein-tekst">Nog geen foto's bij dit adres.</p>`;
   const andere = c.adressen.filter(x => x.id !== a.id);
