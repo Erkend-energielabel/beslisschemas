@@ -944,11 +944,14 @@ function afspraakKlaar(cId, aId, aan) {
   render();
 }
 
-/* Rood bolletje in het overzicht: markeert een bijzonder adres */
-function adresBijzonder(cId, aId, aan) {
+/* Stoplicht per adres: groen, oranje of rood (leeg = geen kleur). Oude "bijzonder"-markering telt als rood. */
+const stoplichtKleur = { groen: "#16a34a", oranje: "#f59e0b", rood: "#dc2626" };
+const stoplicht = a => a.stoplicht || (a.bijzonder ? "rood" : "");
+function adresStoplicht(cId, aId, k) {
   const a = findA(findC(cId), aId);
   if (!a) return;
-  a.bijzonder = aan;
+  a.stoplicht = k;
+  delete a.bijzonder;
   bewaarState();
   render();
 }
@@ -1173,7 +1176,7 @@ function vComplex(c) {
     h += `<div class="rij ${a.klaar ? "klaar" : ""}">
       <input type="checkbox" ${a.klaar ? "checked" : ""} aria-label="klaar" onchange="klaarZet('${c.id}','${a.id}',this.checked)">
       <div class="info" onclick="go({s:'adres',c:'${c.id}',a:'${a.id}'})">
-        <strong>${a.bijzonder ? `<span style="color:#dc2626" title="Bijzonder adres">●</span> ` : ""}${a.straat === standaardStraat(c) ? nrLabel(a) : esc(a.straat) + " " + nrLabel(a)}</strong>
+        <strong>${stoplicht(a) ? `<span style="color:${stoplichtKleur[stoplicht(a)]}" title="${stoplicht(a)}">●</span> ` : ""}${a.straat === standaardStraat(c) ? nrLabel(a) : esc(a.straat) + " " + nrLabel(a)}</strong>
         <div class="klein-tekst">${fs.length} foto's${wacht ? ` · ${wacht} nog niet op OneDrive` : ""}${(ODMAP[c.id] || []).includes(mapVoorAdres(c, a)) ? " · 📁 map op OneDrive" + ((ODFOTO[c.id] || {})[mapVoorAdres(c, a)] ? " · 📷 " + ODFOTO[c.id][mapVoorAdres(c, a)] + " op OneDrive" : "") : ""}${a.afspraak ? " · 📅 " + fmt(a.afspraak.start) : ""}${a.opmerkingen.length ? " · 💬 " + a.opmerkingen.length : ""}</div>
       </div>
       <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;margin:0 0 0 6px;font-size:12px;line-height:1.2;border-radius:6px" onclick="toevVoegToe('${c.id}','${a.id}')">+ toev.</button></div>`;
@@ -1206,7 +1209,9 @@ function vComplex(c) {
 function vAdres(c, a) {
   const fs = FOTOS.filter(f => f.adresId === a.id).sort((x, y) => x.createdAt - y.createdAt);
   let h = `<p class="klein-tekst">${esc(c.naam)}</p>
-    <label style="display:flex;align-items:center;gap:8px;margin:6px 0 10px"><input type="checkbox" ${a.bijzonder ? "checked" : ""} onchange="adresBijzonder('${c.id}','${a.id}',this.checked)"> <span style="color:#dc2626;font-weight:700">●</span> Bijzonder adres</label>
+    <div class="acties" style="margin:6px 0 10px"><span class="klein-tekst" style="flex:0 0 100%">Stoplicht (tik nogmaals om weg te halen):</span>
+      ${["groen", "oranje", "rood"].map(k => `<button class="klein ${stoplicht(a) === k ? "" : "sec"}" style="width:auto;flex:1;${stoplicht(a) === k ? `background:${stoplichtKleur[k]}` : `color:${stoplichtKleur[k]};border-color:${stoplichtKleur[k]}`}" onclick="adresStoplicht('${c.id}','${a.id}','${stoplicht(a) === k ? "" : k}')">● ${k}</button>`).join("")}
+    </div>
     `;
 
   h += `<h2>Foto's (${fs.length})</h2>`;
