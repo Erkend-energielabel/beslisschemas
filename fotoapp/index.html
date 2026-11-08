@@ -266,7 +266,13 @@ async function fotoVerplaats(id, nieuwAdresId) {
 }
 
 function klaarZet(cId, aId, aan) {
-  findA(findC(cId), aId).klaar = aan;
+  const c = findC(cId), a = findA(c, aId);
+  const naam = `${a.straat} ${nrLabel(a)}`;
+  const vraag = aan
+    ? `Woning ${naam} als klaar markeren?`
+    : `Woning ${naam} weer terugzetten naar niet klaar?`;
+  if (!confirm(vraag)) { render(); return; }   // checkbox weer goedzetten
+  a.klaar = aan;
   bewaarState();
   render();
 }
@@ -356,7 +362,6 @@ function vComplexen() {
 }
 
 function vComplex(c) {
-  sorteer(c);
   const klaar = c.adressen.filter(a => a.klaar).length;
   let h = `<p class="klein-tekst">${klaar} van ${c.adressen.length} adressen klaar</p>
     <button class="sec" onclick="go({s:'nieuwAdres',c:'${c.id}'})">+ Adressen toevoegen</button>`;
