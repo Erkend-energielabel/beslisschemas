@@ -783,17 +783,71 @@ async function complexWis(cId) {
   go({ s: "complexen" });
 }
 
+/* Verplaatst de complexmap op OneDrive. Alleen als de map bestaat; bij andere fouten stopt het. */
+async function verplaatsComplexmap(c, naar) {
+  const oud = mapVan(c);
+  const enc = pad => pad.split("/").map(encodeURIComponent).join("/");
+  let item = null;
+  try { item = await graph(`/me/drive/root:/${enc(oud)}`, {}, true); }
+  catch (e) { if (!String(e.message).startsWith("Graph 404")) throw e; item = null; }
+  if (item) {
+    const doelMap = naar.split("/").slice(0, -1).join("/");
+    await zorgMap(doelMap, true);
+    await graph(`/me/drive/items/${item.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: naar.split("/").pop(), parentReference: { path: "/drive/root:/" + doelMap } })
+    }, true);
+  }
+  c.map = naar;
+}
+/* Complex afvinken = archiveren (map naar "Geargiveerde projecten"); weer aanvinken = terugzetten */
+function complexKlaarZet(cId, aan) {
+  const c = findC(cId);
+  const nietOp = FOTOS.filter(f => f.complexId === cId && !f.uploaded).length
+    + DOCS.filter(d => d.complexId === cId && !d.uploaded).length;
+  if (nietOp) { alert(`Er staan nog ${nietOp} foto('s) of document(en) die niet op OneDrive staan. Eerst uploaden, daarna archiveren.`); return render(); }
+  const laatste = mapVan(c).split("/").pop();
+  const vraag = aan
+    ? `Complex "${c.naam}" afronden en verplaatsen naar "Geargiveerde projecten" op OneDrive?`
+    : `Complex "${c.naam}" terugzetten naar de actieve lijst en de map terugzetten?`;
+  if (!confirm(vraag)) return render();
+  (async () => {
+    try {
+      await verplaatsComplexmap(c, aan ? `Geargiveerde projecten/${laatste}` : `${CFG.map}/${laatste}`);
+    } catch (e) {
+      alert("Verplaatsen mislukt: " + e.message + "\n\nHet complex blijft staan waar het stond.");
+      return render();
+    }
+    c.gearchiveerd = aan;
+    bewaarState();
+    render();
+  })();
+}
+function complexKaart(c, arch) {
+  const klaar = c.adressen.filter(a => a.klaar).length;
+  return `<div class="kaart" onclick="go({s:'complex',c:'${c.id}'})">
+    <strong>${esc(c.naam)}</strong>
+    <div class="klein-tekst">${c.adressen.length} adressen · ${klaar} klaar</div>
+    ${voortgangBalk(klaar, c.adressen.length)}
+    <label class="klein-tekst" style="display:flex;align-items:center;gap:8px;margin-top:6px" onclick="event.stopPropagation()">
+      <input type="checkbox" ${arch ? "checked" : ""} onchange="complexKlaarZet('${c.id}',this.checked)">
+      ${arch ? "Afgerond (geargiveerd)" : "Complex afgerond, archiveren"}</label>
+    <div class="acties" style="margin-top:6px">
+      <button class="klein sec" style="width:auto" onclick="event.stopPropagation();exportComplex('${c.id}')">⬇ Excel</button>
+      <button class="klein sec" style="width:auto" onclick="event.stopPropagation();complexWis('${c.id}')">🗑 Verwijder</button>
+    </div></div>`;
+}
 function vComplexen() {
   let h = `<button onclick="go({s:'nieuwComplex'})">+ Nieuw complex</button>
     <button class="sec" onclick="go({s:'pasjes'})">🪪 Bedrijfspasjes</button>`;
-  if (!st.complexen.length) h += `<p class="klein-tekst">Nog geen complexen. Maak er één aan met de knop hierboven.</p>`;
-  for (const c of st.complexen) {
-    const klaar = c.adressen.filter(a => a.klaar).length;
-    h += `<div class="kaart" onclick="go({s:'complex',c:'${c.id}'})">
-      <strong>${esc(c.naam)}</strong>
-      <div class="klein-tekst">${c.adressen.length} adressen · ${klaar} klaar</div>
-      ${voortgangBalk(klaar, c.adressen.length)}
-      <button class="klein sec" style="width:auto;margin-top:6px" onclick="event.stopPropagation();exportComplex('${c.id}')">⬇ Excel</button></div>`;
+  const actief = st.complexen.filter(c => !c.gearchiveerd);
+  const arch = st.complexen.filter(c => c.gearchiveerd);
+  if (!actief.length) h += `<p class="klein-tekst">Nog geen actieve complexen. Maak er één aan met de knop hierboven.</p>`;
+  for (const c of actief) h += complexKaart(c, false);
+  if (arch.length) {
+    h += `<details style="margin-top:14px"><summary><b>📁 Geargiveerde projecten (${arch.length})</b></summary>`;
+    for (const c of arch) h += complexKaart(c, true);
+    h += `</details>`;
   }
   return h;
 }
