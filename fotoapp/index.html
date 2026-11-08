@@ -832,9 +832,9 @@ function complexKaart(c, arch) {
     <label class="klein-tekst" style="display:flex;align-items:center;gap:8px;margin-top:6px" onclick="event.stopPropagation()">
       <input type="checkbox" ${arch ? "checked" : ""} onchange="complexKlaarZet('${c.id}',this.checked)">
       ${arch ? "Afgerond (geargiveerd)" : "Complex afgerond, archiveren"}</label>
-    <div class="acties" style="margin-top:6px">
-      <button class="klein sec" style="width:auto" onclick="event.stopPropagation();exportComplex('${c.id}')">⬇ Excel</button>
+    <div class="acties" style="margin-top:6px;justify-content:space-between;align-items:center">
       <button class="klein sec" style="width:auto" onclick="event.stopPropagation();complexWis('${c.id}')">🗑 Verwijder</button>
+      <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;font-size:11px;line-height:1.2;border-radius:6px" onclick="event.stopPropagation();exportComplex('${c.id}')">⬇ Excel</button>
     </div></div>`;
 }
 function vComplexen() {
