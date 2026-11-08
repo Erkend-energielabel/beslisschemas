@@ -161,6 +161,7 @@ function aftelTekst(startIso, gedaan) {
 function updateAftel() {
   document.querySelectorAll(".aftel").forEach(el => { el.textContent = aftelTekst(el.dataset.start, el.dataset.gedaan === "1"); });
   document.querySelectorAll(".tijdblok").forEach(el => { el.classList.toggle("rood", binnen30(el.dataset.start, el.dataset.gedaan === "1")); });
+  document.querySelectorAll(".nu-tijd").forEach(el => { el.textContent = `${datumVan(new Date())} ${hhmm(new Date())}`; });
 }
 function hhmm(d) { return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 function datumVan(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
@@ -650,10 +651,16 @@ function vComplex(c) {
       </div>
     </div>`;
   };
-  const vandaagL = gepland.filter(a => a.afspraak.start.slice(0, 10) === vandaagD);
-  const latenL = gepland.filter(a => a.afspraak.start.slice(0, 10) !== vandaagD);
+  /* Lijst begint vanaf nu; afspraken die al voorbij zijn (meer dan 60 min geleden) staan eronder */
+  const nu = Date.now();
+  const komend = gepland.filter(a => new Date(a.afspraak.start).getTime() + 60 * 60000 >= nu);
+  const eerder = gepland.filter(a => !komend.includes(a));
+  const vandaagL = komend.filter(a => a.afspraak.start.slice(0, 10) === vandaagD);
+  const latenL = komend.filter(a => a.afspraak.start.slice(0, 10) !== vandaagD);
+  h += `<div class="klein-tekst">Vanaf nu: <b class="nu-tijd">${datumVan(new Date())} ${hhmm(new Date())}</b></div>`;
   if (vandaagL.length) h += `<div class="klein-tekst" style="margin-top:8px"><b>Vandaag</b></div>` + vandaagL.map(regel).join("");
   if (latenL.length) h += `<div class="klein-tekst" style="margin-top:8px"><b>Komende dagen</b></div>` + latenL.map(regel).join("");
+  if (eerder.length) h += `<details style="margin-top:8px"><summary class="klein-tekst">Eerder (${eerder.length})</summary>${eerder.map(regel).join("")}</details>`;
   h += `<h2>Adressen</h2>`;
   if (!c.adressen.length) h += `<p class="klein-tekst">Nog geen adressen. Voeg huisnummers toe met de knop hierboven.</p>`;
   for (const a of sortedAdressen(c)) {
