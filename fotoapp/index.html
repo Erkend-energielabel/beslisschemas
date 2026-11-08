@@ -222,7 +222,7 @@ function parseerMap(n) {
 function bewaarState() {
   localStorage.setItem(KEY, JSON.stringify(st));
   clearTimeout(backupTimer);
-  backupTimer = setTimeout(() => stateNaarOneDrive(false), 3000);
+  backupTimer = setTimeout(() => gedeeldSync(false).catch(e => console.warn("gedeelde sync", e)), 3000);
 }
 let MELDINGEN_GEZIEN = new Set(JSON.parse(localStorage.getItem("fa_meld") || "[]"));
 function toonMelding(tekst) {
@@ -414,13 +414,100 @@ async function uploadFoto(f, c, ui) {
   await fotoPut(f);
 }
 
-async function stateNaarOneDrive(ui) {
-  if (!navigator.onLine || (!ui && !accounts().length)) return;
-  try {
-    const blob = new Blob([JSON.stringify(st, null, 1)], { type: "application/json" });
-    await graph(`/me/drive/root:/${encodeURIComponent(CFG.map)}/_backup_complexen.json:/content`,
-      { method: "PUT", body: blob, headers: { "Content-Type": "application/json" } }, ui);
-  } catch (e) { console.warn("backup mislukt", e); }
+/* ===== GEDEELDE STATUS OP ONEDRIVE (Complexen/_gedeeld.json) =====
+   Elk toestel zet wijzigingen om in een tijdstempel (_t). Bij sync wordt het bestand van OneDrive
+   samengevoegd met wat dit toestel heeft: de nieuwste versie wint, opmerkingen worden samengevoegd,
+   verwijderde complexen blijven weg (verwijderd). Met If-Match wordt niets overschreven dat ondertussen is veranderd. */
+const GEDEELD = CFG.map + "/_gedeeld.json";
+let SNAP = JSON.parse(localStorage.getItem("fa_snap") || "{}");   // laatste bekende staat per item
+const stabiel = o => JSON.stringify(o, (k, v) => (v && typeof v === "object" && !Array.isArray(v))
+  ? Object.keys(v).sort().reduce((r, kk) => (r[kk] = v[kk], r), {}) : v);
+const cSleutel = c => stabiel({ naam: c.naam, map: c.map, gearchiveerd: !!c.gearchiveerd });
+const aSleutel = a => { const { _t, opmerkingWacht, ...r } = a; return stabiel(r); };
+/* Zet een tijdstempel op alles wat sinds de laatste sync is veranderd */
+function stempel() {
+  const nu = new Date().toISOString();
+  for (const c of st.complexen) {
+    if (SNAP["c:" + c.id] !== cSleutel(c)) c._t = nu;
+    for (const a of c.adressen) if (SNAP["a:" + a.id] !== aSleutel(a)) a._t = nu;
+  }
+}
+function snapMaken() {
+  SNAP = {};
+  for (const c of st.complexen) {
+    SNAP["c:" + c.id] = cSleutel(c);
+    for (const a of c.adressen) SNAP["a:" + a.id] = aSleutel(a);
+  }
+  localStorage.setItem("fa_snap", JSON.stringify(SNAP));
+}
+function nieuwste(lijst) { return lijst.reduce((a, b) => ((b._t || "") > (a._t || "") ? b : a)); }
+function samenAdres(lijst) {
+  const out = { ...nieuwste(lijst) };
+  const opm = new Map();
+  for (const a of lijst) for (const o of a.opmerkingen || []) opm.set(o.t + "|" + o.tekst, o);
+  out.opmerkingen = [...opm.values()].sort((x, y) => x.t.localeCompare(y.t));
+  out.opmerkingWacht = lijst.some(a => a.opmerkingWacht);
+  return out;
+}
+function samenComplex(lijst) {
+  const out = { ...nieuwste(lijst), adressen: [] };
+  const av = {};
+  for (const c of lijst) for (const a of c.adressen || []) (av[a.id] ||= []).push(a);
+  out.adressen = Object.values(av).map(samenAdres);
+  return out;
+}
+function samenvoegen(loc, rem) {
+  const graf = new Map();   // verwijderde complexen: id -> tijdstip
+  for (const t of [...(loc.verwijderd || []), ...(rem.verwijderd || [])]) {
+    if (!graf.has(t.id) || t.t > graf.get(t.id).t) graf.set(t.id, t);
+  }
+  const vers = {};
+  for (const c of [...(loc.complexen || []), ...(rem.complexen || [])]) (vers[c.id] ||= []).push(c);
+  const complexen = [];
+  for (const id in vers) {
+    const g = graf.get(id);
+    const over = g ? vers[id].filter(c => (c._t || "") > g.t) : vers[id];
+    if (over.length) complexen.push(samenComplex(over));
+  }
+  return { complexen, verwijderd: [...graf.values()] };
+}
+async function gedeeldSyncEcht(ui) {
+  if (!navigator.onLine || !accounts().length) return false;
+  const enc = p => p.split("/").map(encodeURIComponent).join("/");
+  let veranderd = false;
+  for (let poging = 0; poging < 3; poging++) {
+    let etag = null, rem = { complexen: [], verwijderd: [] };
+    try {
+      etag = (await graph(`/me/drive/root:/${enc(GEDEELD)}`, {}, ui)).eTag;
+      rem = (await graph(`/me/drive/root:/${enc(GEDEELD)}:/content`, {}, ui)) || rem;
+    } catch (e) {
+      if (!String(e.message).startsWith("Graph 404")) throw e;   // bestand bestaat nog niet
+    }
+    stempel();
+    const voor = stabiel(st);
+    st = samenvoegen(st, rem);
+    veranderd = veranderd || stabiel(st) !== voor;
+    localStorage.setItem(KEY, JSON.stringify(st));
+    snapMaken();
+    try {
+      await zorgMap(CFG.map, ui);
+      const blob = new Blob([JSON.stringify(st, null, 1)], { type: "application/json" });
+      await graph(`/me/drive/root:/${enc(GEDEELD)}:/content`, { method: "PUT", body: blob,
+        headers: { "Content-Type": "application/json", ...(etag ? { "If-Match": etag } : {}) } }, ui);
+      return veranderd;
+    } catch (e) {
+      if (String(e.message).startsWith("Graph 412")) continue;   // iemand anders schreef net: opnieuw samenvoegen
+      throw e;
+    }
+  }
+  throw new Error("het gedeelde bestand wijzigde te vaak tegelijk");
+}
+/* Syncs na elkaar, nooit tegelijk */
+let GEDEELD_Q = Promise.resolve();
+function gedeeldSync(ui) {
+  const p = GEDEELD_Q.then(() => gedeeldSyncEcht(ui));
+  GEDEELD_Q = p.catch(() => {});
+  return p;
 }
 
 let SYNC_FOUT = null;   // laatste uploadfout, zichtbaar in de balk onderaan
@@ -465,7 +552,7 @@ async function sync(ui) {
       a.opmerkingWacht = false;
       bewaarState();
     }
-    await stateNaarOneDrive(ui);
+    await gedeeldSync(ui);
   } catch (e) { fout = e; console.error(e); }
   bezig = false;
   SYNC_FOUT = fout ? fout.message : null;
@@ -859,6 +946,7 @@ async function complexWis(cId) {
   if (!confirm("Weet je het zeker? Dit kan NIET ongedaan worden gemaakt in de app.")) return;
   for (const f of FOTOS.filter(x => x.complexId === cId)) await fotoDel(f.id);
   for (const d of DOCS.filter(x => x.complexId === cId)) await docDel(d.id);
+  st.verwijderd = [...(st.verwijderd || []), { id: cId, t: new Date().toISOString() }];   // zodat het complex ook op andere toestellen wegblijft
   st.complexen.splice(st.complexen.indexOf(c), 1);
   delete ODMAP[cId];
   bewaarState();
@@ -1282,6 +1370,13 @@ async function render() {
   await render();
   controleerAfspraken();
   setInterval(() => { controleerAfspraken(); updateAftel(); }, 30000);
+  /* Elke minuut ophalen wat op andere toestellen is veranderd. Niet verversen als er getypt wordt. */
+  setInterval(async () => {
+    try {
+      const nieuw = await gedeeldSync(false);
+      if (nieuw && !document.activeElement?.matches?.("input,textarea,select")) render();
+    } catch (e) { console.warn("gedeelde sync", e); }
+  }, 60000);
   window.addEventListener("online", () => { render(); sync(false); });
   if (navigator.onLine) sync(false);
 })();
