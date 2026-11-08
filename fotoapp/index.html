@@ -418,6 +418,12 @@ async function afspraakMaken(cId, aId) {
   const dur = parseInt($("afDuur") ? $("afDuur").value : "15", 10) || 15;
   const eind = new Date(new Date(start).getTime() + dur * 60000);
   const end = `${eind.getFullYear()}-${pad(eind.getMonth()+1)}-${pad(eind.getDate())}T${pad(eind.getHours())}:${pad(eind.getMinutes())}:00`;
+  const nS = new Date(start).getTime(), nE = eind.getTime();
+  for (const cc of st.complexen) for (const x of cc.adressen) {
+    if (x.id === aId || !x.afspraak) continue;
+    const s = new Date(x.afspraak.start).getTime(), e = x.afspraak.eindMs || s + 15 * 60000;
+    if (nS < e && s < nE) return alert(`Dit overlapt met ${x.straat} ${nrLabel(x)} om ${fmt(x.afspraak.start).slice(11)}. Kies een ander tijdstip.`);
+  }
   try {
     if (a.afspraak && a.afspraak.id) {
       await graph(`/me/events/${a.afspraak.id}`, { method: "DELETE" }, true).catch(() => {});
@@ -433,7 +439,7 @@ async function afspraakMaken(cId, aId) {
         body: { contentType: "text", content: "Bewoner thuis – gemaakt via foto-app" }
       })
     }, true);
-    a.afspraak = { start, id: ev.id };
+    a.afspraak = { start, eindMs: eind.getTime(), id: ev.id };
   } catch (e) { alert("Afspraak kon niet worden aangemaakt: " + e.message); return; }
   bewaarState();
   render();
@@ -499,14 +505,27 @@ function adresUitMap(cId, i) {
   render();
 }
 
-/* Tijden per 15 minuten, van 07:00 tot 21:00 */
-function tijdKeuzes(sel) {
-  let o = "";
-  for (let m = 7 * 60; m <= 21 * 60; m += 15) {
-    const t = `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
-    o += `<option value="${t}" ${t === sel ? "selected" : ""}>${t}</option>`;
+/* Tijden per 10 minuten, van 07:00 tot 21:00. Tijden die op die dag al bezet zijn, staan uit. */
+function tijdKeuzes(sel, datum, aId) {
+  const bezet = [];
+  for (const c of st.complexen) for (const x of c.adressen) {
+    if (x.id === aId || !x.afspraak) continue;
+    const s = new Date(x.afspraak.start).getTime();
+    bezet.push([s, x.afspraak.eindMs || s + 15 * 60000]);
   }
-  return o;
+  const vrij = [];
+  for (let m = 7 * 60; m <= 21 * 60; m += 10) {
+    const t = `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+    const ms = datum ? new Date(`${datum}T${t}:00`).getTime() : NaN;
+    const isBezet = !isNaN(ms) && bezet.some(([s, e]) => ms >= s && ms < e);
+    vrij.push({ t, isBezet });
+  }
+  const keuze = vrij.find(x => x.t === sel && !x.isBezet) ? sel : ((vrij.find(x => !x.isBezet) || { t: "" }).t);
+  return vrij.map(x => `<option value="${x.t}" ${x.t === keuze ? "selected" : ""} ${x.isBezet ? "disabled" : ""}>${x.t}${x.isBezet ? " (bezet)" : ""}</option>`).join("");
+}
+function vulTijden(aId) {
+  if (!$("afTijd")) return;
+  $("afTijd").innerHTML = tijdKeuzes($("afTijd").value, $("afDatum").value, aId);
 }
 function afspraakKlaar(cId, aId, aan) {
   const a = findA(findC(cId), aId);
@@ -608,9 +627,9 @@ function vAdres(c, a) {
     <div class="afspraak-inhoud">
       ${a.afspraak ? `<label><input type="checkbox" ${a.afspraak.gedaan ? "checked" : ""} onchange="afspraakKlaar('${c.id}','${a.id}',this.checked)"> Afspraak afgerond</label>` : ""}
       <label for="afDatum">Datum</label>
-      <input id="afDatum" type="date" value="${a.afspraak ? a.afspraak.start.slice(0, 10) : ""}">
+      <input id="afDatum" type="date" value="${a.afspraak ? a.afspraak.start.slice(0, 10) : ""}" onchange="vulTijden('${a.id}')">
       <label for="afTijd">Tijd</label>
-      <select id="afTijd">${tijdKeuzes(a.afspraak ? a.afspraak.start.slice(11, 16) : "09:00")}</select>
+      <select id="afTijd">${tijdKeuzes(a.afspraak ? a.afspraak.start.slice(11, 16) : "09:00", a.afspraak ? a.afspraak.start.slice(0, 10) : "", a.id)}</select>
       <label for="afDuur">Duur</label>
       <select id="afDuur">
         <option value="15" selected>15 minuten</option>
