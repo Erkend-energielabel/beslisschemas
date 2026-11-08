@@ -142,7 +142,8 @@ function toonMelding(tekst) {
   }
 }
 /* Aftellen tot de afspraak: "over 45 min", "nu aan de beurt" of "geweest" */
-function aftelTekst(startIso) {
+function aftelTekst(startIso, gedaan) {
+  if (gedaan) return "afgerond";
   const start = new Date(startIso).getTime(), nu = Date.now();
   if (nu >= start && nu <= start + 60 * 60000) return "nu aan de beurt";
   if (nu > start + 60 * 60000) return "geweest";
@@ -151,13 +152,14 @@ function aftelTekst(startIso) {
   return `over ${u ? u + " u " : ""}${m} min`;
 }
 function updateAftel() {
-  document.querySelectorAll(".aftel").forEach(el => { el.textContent = aftelTekst(el.dataset.start); });
+  document.querySelectorAll(".aftel").forEach(el => { el.textContent = aftelTekst(el.dataset.start, el.dataset.gedaan === "1"); });
 }
 function controleerAfspraken() {
   const nu = Date.now();
   let veranderd = false;
   for (const c of st.complexen) for (const a of c.adressen) {
     if (!a.afspraak) continue;
+    if (a.afspraak.gedaan) continue;
     const key = a.afspraak.id || a.afspraak.start;
     if (MELDINGEN_GEZIEN.has(key)) continue;
     const start = new Date(a.afspraak.start).getTime();
@@ -497,6 +499,15 @@ function adresUitMap(cId, i) {
   render();
 }
 
+function afspraakKlaar(cId, aId, aan) {
+  const a = findA(findC(cId), aId);
+  if (!a || !a.afspraak) return;
+  if (!confirm(aan ? "Afspraak als afgerond markeren?" : "Afspraak weer als open markeren?")) return render();
+  a.afspraak.gedaan = aan;
+  bewaarState();
+  render();
+}
+
 function vComplexen() {
   let h = `<button onclick="go({s:'nieuwComplex'})">+ Nieuw complex</button>`;
   if (!st.complexen.length) h += `<p class="klein-tekst">Nog geen complexen. Maak er één aan met de knop hierboven.</p>`;
@@ -518,9 +529,11 @@ function vComplex(c) {
   h += `<h2>Ingepland (${gepland.length})</h2>`;
   if (!gepland.length) h += `<p class="klein-tekst">Nog niets ingepland voor dit complex.</p>`;
   for (const a of gepland) {
-    h += `<div class="rij" style="cursor:pointer" onclick="go({s:'adres',c:'${c.id}',a:'${a.id}'})">
-      <div class="info"><strong>${fmt(a.afspraak.start)}</strong>
-        <div class="klein-tekst">${esc(a.straat)} ${nrLabel(a)}${a.klaar ? " · klaar" : ""} · <span class="aftel" data-start="${a.afspraak.start}">${aftelTekst(a.afspraak.start)}</span></div></div></div>`;
+    h += `<div class="rij ${a.afspraak.gedaan ? "klaar" : ""}">
+      <input type="checkbox" ${a.afspraak.gedaan ? "checked" : ""} aria-label="afspraak afgerond" onchange="afspraakKlaar('${c.id}','${a.id}',this.checked)">
+      <div class="info" style="cursor:pointer" onclick="go({s:'adres',c:'${c.id}',a:'${a.id}'})">
+        <strong>${fmt(a.afspraak.start)}</strong>
+        <div class="klein-tekst">${esc(a.straat)} ${nrLabel(a)}${a.klaar ? " · klaar" : ""} · <span class="aftel" data-start="${a.afspraak.start}" data-gedaan="${a.afspraak.gedaan ? 1 : 0}">${aftelTekst(a.afspraak.start, a.afspraak.gedaan)}</span></div></div></div>`;
   }
   h += `<h2>Adressen</h2>`;
   if (!c.adressen.length) h += `<p class="klein-tekst">Nog geen adressen. Voeg huisnummers toe met de knop hierboven.</p>`;
@@ -582,8 +595,9 @@ function vAdres(c, a) {
   }
 
   h += `<details class="afspraak">
-    <summary>📅 ${a.afspraak ? "Afspraak: " + fmt(a.afspraak.start) + " · <span class=\"aftel\" data-start=\"" + a.afspraak.start + "\">" + aftelTekst(a.afspraak.start) + "</span>" : "Afspraak plannen"}</summary>
+    <summary>📅 ${a.afspraak ? (a.afspraak.gedaan ? "✓ Afgerond: " : "Afspraak: ") + fmt(a.afspraak.start) + " · <span class=\"aftel\" data-start=\"" + a.afspraak.start + "\" data-gedaan=\"" + (a.afspraak.gedaan ? 1 : 0) + "\">" + aftelTekst(a.afspraak.start, a.afspraak.gedaan) + "</span>" : "Afspraak plannen"}</summary>
     <div class="afspraak-inhoud">
+      ${a.afspraak ? `<label><input type="checkbox" ${a.afspraak.gedaan ? "checked" : ""} onchange="afspraakKlaar('${c.id}','${a.id}',this.checked)"> Afspraak afgerond</label>` : ""}
       <label for="afDatum">Datum</label>
       <input id="afDatum" type="date" value="${a.afspraak ? a.afspraak.start.slice(0, 10) : ""}">
       <label for="afTijd">Tijd</label>
