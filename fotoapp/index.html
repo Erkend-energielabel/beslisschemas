@@ -303,6 +303,7 @@ function terug() {
   else if (view.s === "map") go({ s: "complex", c: view.c });
   else if (view.s === "pas") go({ s: "pasjes" });
   else if (view.s === "doc") go({ s: "complex", c: view.c });
+  else if (view.s === "nieuwMap") go({ s: "nieuwComplex", pad: view.pad });
   else go({ s: "complexen" });
 }
 
@@ -650,8 +651,9 @@ async function afspraakMaken(cId, aId) {
 /* ===== FORMULIEREN ===== */
 function bewaarNieuwComplex() {
   const naam = $("f1").value.trim();
+  if (!view.pad) return alert("Kies eerst de map op OneDrive.");
   if (!naam) return alert("Vul een naam in.");
-  const c = { id: uid(), naam, adressen: [] };
+  const c = { id: uid(), naam, map: view.pad, adressen: [] };
   st.complexen.push(c);
   bewaarState();
   go({ s: "nieuwAdres", c: c.id });
@@ -1119,10 +1121,31 @@ function mapKies(cId) {
 }
 
 function vNieuwComplex() {
+  if (!view.pad) return `<h2>Nieuw complex</h2>
+    <p class="klein-tekst">Kies eerst de map op OneDrive waar de foto's naartoe gaan. Naam en projectnummer nemen we over van die map.</p>
+    <button onclick="go({s:'nieuwMap', pad: '${CFG.map}'})">📁 Kies map op OneDrive</button>`;
+  const naam = view.pad.split("/").pop();
   return `<h2>Nieuw complex</h2>
-    <label for="f1">Naam van het complex</label>
-    <input id="f1" placeholder="bijv. Stationsweg 10-30" autocomplete="off">
+    <p class="klein-tekst">Map op OneDrive: <b>${esc(view.pad)}</b></p>
+    <button class="klein sec" style="width:auto" onclick="go({s:'nieuwMap', pad: '${CFG.map}'})">Andere map kiezen</button>
+    <label for="f1">Naam van het complex (uit de map)</label>
+    <input id="f1" value="${esc(naam)}" autocomplete="off">
     <button onclick="bewaarNieuwComplex()">Volgende: huisnummers</button>`;
+}
+function vNieuwMap() {
+  return `<h2>Map kiezen voor nieuw complex</h2>
+    <p class="klein-tekst">Huidige keuze: <b>${esc(view.pad) || "(hoofdmap)"}</b></p>
+    <div class="acties">
+      <button class="klein sec" onclick="mapOmhoog()">⬆ Omhoog</button>
+      <button class="klein sec" onclick="mapNieuw()">+ Nieuwe map</button>
+    </div>
+    <div id="mapLijst" style="margin-top:8px"><p class="klein-tekst">Mappen laden…</p></div>
+    <button onclick="nieuwMapKies()">Deze map gebruiken</button>
+    <button class="sec" onclick="go({s:'nieuwComplex'})">Annuleren</button>`;
+}
+function nieuwMapKies() {
+  if (!view.pad) return alert("Kies eerst een map. De hoofdmap kan niet.");
+  go({ s: "nieuwComplex", pad: view.pad });
 }
 
 function vNieuwAdres(c) {
@@ -1180,6 +1203,7 @@ async function render() {
   else if (view.s === "pasjes") { titel = "Bedrijfspasjes"; inhoud = vPasjes(); }
   else if (view.s === "pas") { const p = PASJES.find(x => x.id === view.p); titel = "Bedrijfspasje"; inhoud = p ? vPasGroot(p) : vPasjes(); }
   else if (view.s === "doc") { const d = DOCS.find(x => x.id === view.d); titel = "Plattegrond"; inhoud = d ? vDoc(d) : vComplexen(); }
+  else if (view.s === "nieuwMap") { titel = "Map kiezen"; inhoud = vNieuwMap(); }
   else if (view.s === "nieuwAdres" && c) { titel = "Huisnummers"; inhoud = vNieuwAdres(c); }
   else { view = { s: "complexen" }; inhoud = vComplexen(); }
 
@@ -1200,7 +1224,7 @@ async function render() {
   $("titel").textContent = titel;
   $("terugknop").style.display = view.s === "complexen" ? "none" : "block";
   $("app").innerHTML = inhoud;
-  if (view.s === "map") mapLaad();
+  if (view.s === "map" || view.s === "nieuwMap") mapLaad();
 
   const wacht = FOTOS.filter(f => !f.uploaded).length;
   $("balk").innerHTML = `
