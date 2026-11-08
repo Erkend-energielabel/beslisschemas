@@ -453,6 +453,14 @@ function stempel() {
   }
   for (const p of st.pasjes || []) if (SNAP["p:" + p.id] !== pSleutel(p)) p._t = nu;
 }
+/* Huidige staat in dezelfde vorm als SNAP: verschilt die van SNAP, dan is er iets veranderd op dit toestel */
+function huidigeSnap() {
+  const s = {};
+  for (const c of st.complexen) { s["c:" + c.id] = cSleutel(c); for (const a of c.adressen) s["a:" + a.id] = aSleutel(a); }
+  for (const p of st.pasjes || []) s["p:" + p.id] = pSleutel(p);
+  return s;
+}
+let GEDEELD_ETAG = localStorage.getItem("fa_etag") || null;   // versie van het gedeelde bestand die we laatst zagen
 function snapMaken() {
   SNAP = {};
   for (const c of st.complexen) {
@@ -501,14 +509,17 @@ async function gedeeldSyncEcht(ui) {
   const enc = p => p.split("/").map(encodeURIComponent).join("/");
   let veranderd = false;
   for (let poging = 0; poging < 3; poging++) {
-    let etag = null, rem = { complexen: [], verwijderd: [] };
-    try {
-      etag = (await graph(`/me/drive/root:/${enc(GEDEELD)}`, {}, ui)).eTag;
-      rem = (await graph(`/me/drive/root:/${enc(GEDEELD)}:/content`, {}, ui)) || rem;
-    } catch (e) {
-      if (!String(e.message).startsWith("Graph 404")) throw e;   // bestand bestaat nog niet
-    }
+    let rem = { complexen: [], verwijderd: [] };
+    /* Eerst alleen de versie van het bestand ophalen (één kleine aanvraag) */
+    let meta = null;
+    try { meta = await graph(`/me/drive/root:/${enc(GEDEELD)}`, {}, ui); }
+    catch (e) { if (!String(e.message).startsWith("Graph 404")) throw e; }   // bestand bestaat nog niet
+    const opOneDrive = meta ? meta.eTag !== GEDEELD_ETAG : false;
     stempel();
+    const lokaal = stabiel(huidigeSnap()) !== stabiel(SNAP);
+    if (meta && !opOneDrive && !lokaal) return false;   // niets veranderd: geen verdere verzoeken
+    if (opOneDrive) rem = (await graph(`/me/drive/root:/${enc(GEDEELD)}:/content`, {}, ui)) || rem;
+    const etag = meta ? meta.eTag : null;
     const voor = stabiel(st);
     st = samenvoegen(st, rem);
     if (st.pasjes && st.pasjes.length) { PASJES = st.pasjes; localStorage.setItem("fa_pasjes", JSON.stringify(PASJES)); }
@@ -518,8 +529,10 @@ async function gedeeldSyncEcht(ui) {
     try {
       await zorgMap(CFG.map, ui);
       const blob = new Blob([JSON.stringify(st, null, 1)], { type: "application/json" });
-      await graph(`/me/drive/root:/${enc(GEDEELD)}:/content`, { method: "PUT", body: blob,
+      const geschreven = await graph(`/me/drive/root:/${enc(GEDEELD)}:/content`, { method: "PUT", body: blob,
         headers: { "Content-Type": "application/json", ...(etag ? { "If-Match": etag } : {}) } }, ui);
+      GEDEELD_ETAG = (geschreven && geschreven.eTag) || null;
+      localStorage.setItem("fa_etag", GEDEELD_ETAG || "");
       return veranderd;
     } catch (e) {
       if (String(e.message).startsWith("Graph 412")) continue;   // iemand anders schreef net: opnieuw samenvoegen
@@ -1495,7 +1508,7 @@ async function render() {
       const nieuw = await gedeeldSync(false);
       if (nieuw && !document.activeElement?.matches?.("input,textarea,select")) render();
     } catch (e) { console.warn("gedeelde sync", e); }
-  }, 60000);
+  }, 180000);   // elke 3 minuten: alleen een kleine controle, en alleen uploaden als er iets veranderd is
   window.addEventListener("online", () => { render(); sync(false); });
   if (navigator.onLine) sync(false);
 })();
