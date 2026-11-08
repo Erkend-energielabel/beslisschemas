@@ -601,6 +601,17 @@ function slaOp(blob, naam) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/* Maakt de tekst netjes: spaties weg, dubbele spaties eruit, hoofdletter aan het begin van elke zin, punt aan het eind */
+function opmerkingNetjes() {
+  const inp = $("nieuweOpm");
+  let t = inp.value.replace(/\s+/g, " ").trim();
+  if (!t) return;
+  t = t.replace(/\s+([.,!?;:])/g, "$1").replace(/([.!?])\s*(?=\S)/g, "$1 ");
+  t = t.replace(/(^|[.!?]\s+)([a-zà-ÿ])/g, (m, a, b) => a + b.toUpperCase());
+  if (!/[.!?]$/.test(t)) t += ".";
+  inp.value = t;
+  inp.focus();
+}
 function opmerkingToevoegen(cId, aId) {
   const inp = $("nieuweOpm");
   const tekst = inp.value.trim();
@@ -1061,7 +1072,8 @@ function vAdres(c, a) {
   }
   h += `<label for="nieuweOpm">Nieuwe opmerking</label>
     <textarea id="nieuweOpm" rows="2"></textarea>
-    <button class="sec" onclick="opmerkingToevoegen('${c.id}','${a.id}')">Opmerking opslaan</button>`;
+    <div class="acties"><button class="klein sec" style="width:auto" onclick="opmerkingNetjes()">✨ Tekst netjes maken</button>
+    <button class="sec" onclick="opmerkingToevoegen('${c.id}','${a.id}')">Opmerking opslaan</button></div>`;
   h += `
     <h2>Foto's toevoegen</h2>
     <label class="knop">📷 Foto's maken of kiezen
