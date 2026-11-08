@@ -1273,7 +1273,7 @@ function mapToon() {
   const el = $("mapLijst"); if (!el) return;
   const zoek = (view.zoek || "").toLowerCase();
   const lijst = MAPRAW.filter(m => m.name.toLowerCase().includes(zoek));
-  const s = view.sort || "naam";
+  const s = view.sort || "omgekeerd";
   if (s === "nieuw") lijst.sort((a, b) => b.mod.localeCompare(a.mod));
   else if (s === "omgekeerd") lijst.sort((a, b) => b.name.localeCompare(a.name, "nl", { numeric: true }));
   else lijst.sort((a, b) => a.name.localeCompare(b.name, "nl", { numeric: true }));
@@ -1288,8 +1288,8 @@ function mapControls() {
   return `<div class="acties" style="margin-top:8px;align-items:center">
     <input id="mapZoek" placeholder="🔍 Zoek map" value="${esc(view.zoek || "")}" oninput="mapZoekZet(this.value)" style="flex:1">
     <select id="mapSort" onchange="mapSortZet(this.value)" style="width:auto">
-      <option value="naam" ${(view.sort || "naam") === "naam" ? "selected" : ""}>A–Z</option>
-      <option value="omgekeerd" ${view.sort === "omgekeerd" ? "selected" : ""}>Z–A</option>
+      <option value="naam" ${view.sort === "naam" ? "selected" : ""}>A–Z</option>
+      <option value="omgekeerd" ${(view.sort || "omgekeerd") === "omgekeerd" ? "selected" : ""}>Z–A</option>
       <option value="nieuw" ${view.sort === "nieuw" ? "selected" : ""}>Laatst gewijzigd</option>
     </select></div>`;
 }
