@@ -74,6 +74,8 @@ input[type=checkbox]{width:30px;height:30px;min-height:0;margin:0;flex:0 0 auto}
 .pas-voet{background:#f2f4f2;padding:8px 14px;border-top:1px solid #e3e7e3;font-size:11px}
 .pas-blok{background:#fff;border:1px solid #e3e7e3;border-radius:14px;padding:12px;margin:14px 0}
 .pas-blok input{margin-top:6px}
+.no-print{}
+@media print{.no-print{display:none}}
 .pas-foto img{width:100%;height:100%;object-fit:cover}
 .pas-voet{background:#f2f4f2;color:var(--mut);font-size:11px;padding:6px 12px;text-align:center}
 .rij.vandaag{background:#e8f6ec;border-color:#bfe3c9}
@@ -143,8 +145,8 @@ const mapVan = c => c.map || (CFG.map + "/" + c.naam);
 let MAPNAMEN = [];
 /* Bedrijfspasjes: alleen voor eigen team, geen officiële legitimatie */
 let PASJES = JSON.parse(localStorage.getItem("fa_pasjes") || "null") || [
-  { id: "jdl", naam: "Jacob de Laat", functie: "EPA-adviseur en bouwbegeleider", foto: "" },
-  { id: "john", naam: "", functie: "", foto: "" }
+  { id: "jdl", naam: "Jacob de Laat", functie: "EPA-adviseur en bouwbegeleider", opdracht: "", foto: "" },
+  { id: "john", naam: "", functie: "", opdracht: "", foto: "" }
 ];
 function bewaarPasjes() { localStorage.setItem("fa_pasjes", JSON.stringify(PASJES)); }
 function pasWijzig(id, veld, waarde) {
@@ -172,20 +174,21 @@ function vPasGroot(p) {
     <div class="pas-kop"><img src="${logoSrc}" alt=""><span>Bedrijfspasje</span></div>
     <div class="pas-body">
       <div class="pas-foto">${p.foto ? `<img src="${p.foto}" alt="">` : "📷"}</div>
-      <div><strong style="font-size:20px">${esc(p.naam) || "Naam"}</strong><div>${esc(p.functie) || "Functie"}</div><div class="klein-tekst">Erkend-Energielabel.nl</div></div>
+      <div><strong style="font-size:20px">${esc(p.naam) || "Naam"}</strong><div>${esc(p.functie) || "Functie"}</div>${p.opdracht ? `<div class="klein-tekst" style="margin-top:4px">In opdracht van: <b>${esc(p.opdracht)}</b></div>` : ""}<div class="klein-tekst">Erkend-Energielabel.nl</div></div>
     </div>
     <div class="pas-voet">Bedrijfspasje · geen officieel identiteitsbewijs</div>
-  </div>`;
+  </div>
+  <div class="no-print" style="margin-top:10px"><button class="klein sec" style="width:auto" onclick="go({s:'pasjes'})">✏️ Naam, functie of opdrachtgever wijzigen</button></div>`;
 }
 function vPasjes() {
   const logoSrc = (document.querySelector(".logo img") || {}).src || "";
-  let h = `<p class="klein-tekst">Bedrijfspasjes voor ons eigen team. Vul naam en functie in en kies een foto.</p>`;
+  let h = `<p class="klein-tekst">Bedrijfspasjes voor ons eigen team. Wijzig hier naam, functie, "in opdracht van" of de foto. Dat verschijnt meteen op het pasje.</p>`;
   for (const p of PASJES) {
     h += `<div class="pas">
       <div class="pas-kop"><img src="${logoSrc}" alt=""><span>Bedrijfspasje</span></div>
       <div class="pas-body">
         <div class="pas-foto">${p.foto ? `<img src="${p.foto}" alt="">` : "📷"}</div>
-        <div><strong>${esc(p.naam) || "Naam"}</strong><div class="klein-tekst">${esc(p.functie) || "Functie"}</div><div class="klein-tekst">Erkend-Energielabel.nl</div></div>
+        <div><strong>${esc(p.naam) || "Naam"}</strong><div class="klein-tekst">${esc(p.functie) || "Functie"}</div>${p.opdracht ? `<div class="klein-tekst">In opdracht van: <b>${esc(p.opdracht)}</b></div>` : ""}<div class="klein-tekst">Erkend-Energielabel.nl</div></div>
       </div>
       <div class="pas-voet">Bedrijfspasje · geen officieel identiteitsbewijs</div>
     </div>
@@ -195,6 +198,7 @@ function vPasjes() {
     <button class="klein sec" style="width:auto;margin-bottom:6px" onclick="go({s:'pas',p:'${p.id}'})">🪪 Toon groot (aan bewoner)</button>
     <input value="${esc(p.naam)}" placeholder="Naam" onchange="pasWijzig('${p.id}','naam',this.value)">
     <input value="${esc(p.functie)}" placeholder="Functie" onchange="pasWijzig('${p.id}','functie',this.value)" style="margin-top:6px">
+    <input value="${esc(p.opdracht || "")}" placeholder="In opdracht van (bijv. naam opdrachtgever)" onchange="pasWijzig('${p.id}','opdracht',this.value)" style="margin-top:6px">
     </div>`;
   }
   return h;
