@@ -848,15 +848,26 @@ function voortgangBalk(klaar, totaal) {
     <div class="klein-tekst">${klaar} van ${totaal} woningen klaar (${pct}%)</div>`;
 }
 /* Haalt de mappen van dit complex op van OneDrive (stil, zonder inlogvenster) */
+let ODFOTO = {};   // complex-id -> { adresmapnaam: aantal foto's die al op OneDrive staan }
 async function laadAdresMappen(cId) {
   const c = findC(cId);
   if (!c || !accounts().length || !navigator.onLine) return;
   try {
     const r = await graph(`/me/drive/root:/${mapVan(c).split("/").map(encodeURIComponent).join("/")}:/children?$select=name,folder`, {}, false);
     const namen = (r.value || []).filter(x => x.folder).map(x => x.name);
-    const oud = JSON.stringify(ODMAP[cId] || []);
+    /* Per adresmap tellen hoeveel foto's er al staan */
+    const tellingen = {};
+    await Promise.all(namen.map(async n => {
+      try {
+        const pad = [...mapVan(c).split("/"), n].map(encodeURIComponent).join("/");
+        const f = await graph(`/me/drive/root:/${pad}:/children?$select=name,file`, {}, false);
+        tellingen[n] = (f.value || []).filter(x => x.file && /\.(jpe?g|png|heic)$/i.test(x.name)).length;
+      } catch (e) { tellingen[n] = 0; }
+    }));
+    const oud = JSON.stringify([ODMAP[cId] || [], ODFOTO[cId] || {}]);
     ODMAP[cId] = namen;
-    if (JSON.stringify(namen) !== oud) render();
+    ODFOTO[cId] = tellingen;
+    if (JSON.stringify([namen, tellingen]) !== oud) render();
   } catch (e) { /* map bestaat nog niet: niets tonen */ }
 }
 function adresUitMap(cId, i) {
@@ -1135,7 +1146,7 @@ function vComplex(c) {
       <input type="checkbox" ${a.klaar ? "checked" : ""} aria-label="klaar" onchange="klaarZet('${c.id}','${a.id}',this.checked)">
       <div class="info" onclick="go({s:'adres',c:'${c.id}',a:'${a.id}'})">
         <strong>${esc(a.straat)} ${nrLabel(a)}</strong>
-        <div class="klein-tekst">${fs.length} foto's${wacht ? ` · ${wacht} nog niet op OneDrive` : ""}${(ODMAP[c.id] || []).includes(mapNaam(a)) ? " · 📁 map op OneDrive" : ""}${a.afspraak ? " · 📅 " + fmt(a.afspraak.start) : ""}${a.opmerkingen.length ? " · 💬 " + a.opmerkingen.length : ""}</div>
+        <div class="klein-tekst">${fs.length} foto's${wacht ? ` · ${wacht} nog niet op OneDrive` : ""}${(ODMAP[c.id] || []).includes(mapNaam(a)) ? " · 📁 map op OneDrive" + ((ODFOTO[c.id] || {})[mapNaam(a)] ? " · 📷 " + ODFOTO[c.id][mapNaam(a)] + " op OneDrive" : "") : ""}${a.afspraak ? " · 📅 " + fmt(a.afspraak.start) : ""}${a.opmerkingen.length ? " · 💬 " + a.opmerkingen.length : ""}</div>
       </div>
       <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;margin:0 0 0 6px;font-size:12px;line-height:1.2;border-radius:6px" onclick="toevVoegToe('${c.id}','${a.id}')">+ toev.</button></div>`;
   }
@@ -1169,6 +1180,8 @@ function vAdres(c, a) {
     `;
 
   h += `<h2>Foto's (${fs.length})</h2>`;
+  const opOD = (ODFOTO[c.id] || {})[mapNaam(a)] || 0;
+  if (opOD) h += `<p class="klein-tekst">📷 In de OneDrive-map van dit adres staan al ${opOD} foto's. Die zijn veilig opgeslagen, ook als ze niet op dit toestel staan.</p>`;
   if (!fs.length) h += `<p class="klein-tekst">Nog geen foto's bij dit adres.</p>`;
   const andere = c.adressen.filter(x => x.id !== a.id);
   if (fs.length) {
