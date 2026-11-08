@@ -107,7 +107,8 @@ function bewaarState() {
   clearTimeout(backupTimer);
   backupTimer = setTimeout(() => stateNaarOneDrive(false), 3000);
 }
-function go(v) { view = v; render(); }
+let SEL = new Set();
+function go(v) { view = v; SEL = new Set(); render(); }
 function terug() {
   if (view.s === "adres") go({ s: "complex", c: view.c });
   else if (view.s === "complex") go({ s: "complexen" });
@@ -249,19 +250,47 @@ async function fotoWis(id) {
   await render();
 }
 
-async function fotoVerplaats(id, nieuwAdresId) {
-  const f = FOTOS.find(x => x.id === id);
-  const c = findC(f.complexId), a2 = findA(c, nieuwAdresId);
-  f.adresId = a2.id;
-  f.naam = bestandsnaam(a2.straat, nrLabel(a2));
-  if (f.uploaded) {
-    try {
-      const item = await graph(`/me/drive/items/${f.onedriveId}`,
-        { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: f.naam }) }, true);
-      f.naam = item.name;
-    } catch (e) { alert("Verplaatst in de app, maar de naam op OneDrive kon niet worden aangepast. Dat wordt later opnieuw geprobeerd."); }
+function selTellerBijwerken() {
+  const t = $("selTeller"); if (t) t.textContent = SEL.size;
+}
+function selZet(id, aan) {
+  if (aan) SEL.add(id); else SEL.delete(id);
+  selTellerBijwerken();
+}
+function selAlles(aId) {
+  FOTOS.filter(f => f.adresId === aId).forEach(f => SEL.add(f.id));
+  document.querySelectorAll("input[data-foto]").forEach(cb => { cb.checked = true; });
+  selTellerBijwerken();
+}
+function selWis() {
+  SEL = new Set();
+  document.querySelectorAll("input[data-foto]").forEach(cb => { cb.checked = false; });
+  selTellerBijwerken();
+}
+async function verplaatsGeselecteerd(cId) {
+  const c = findC(cId);
+  const doel = $("naarAdres") ? $("naarAdres").value : "";
+  if (!doel) return alert("Kies eerst het adres waarnaar je de foto's wilt verplaatsen.");
+  const ids = [...SEL];
+  if (!ids.length) return alert("Selecteer eerst één of meer foto's.");
+  const a2 = findA(c, doel);
+  let misluk = 0;
+  for (const id of ids) {
+    const f = FOTOS.find(x => x.id === id);
+    if (!f) continue;
+    f.adresId = a2.id;
+    f.naam = bestandsnaam(a2.straat, nrLabel(a2));
+    if (f.uploaded) {
+      try {
+        const item = await graph(`/me/drive/items/${f.onedriveId}`,
+          { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: f.naam }) }, true);
+        f.naam = item.name;
+      } catch (e) { misluk++; }
+    }
+    await fotoPut(f);
   }
-  await fotoPut(f);
+  SEL = new Set();
+  if (misluk) alert(`${misluk} foto('s) staan nu in het juiste adres in de app, maar de naam op OneDrive kon niet worden aangepast.`);
   await render();
 }
 
@@ -382,29 +411,36 @@ function vComplex(c) {
 function vAdres(c, a) {
   const fs = FOTOS.filter(f => f.adresId === a.id).sort((x, y) => x.createdAt - y.createdAt);
   let h = `<p class="klein-tekst">${esc(c.naam)}</p>
-    <label class="knop">📷 Foto's maken of kiezen
-      <input type="file" accept="image/*" multiple hidden onchange="fotosToevoegen(event,'${c.id}','${a.id}')">
-    </label>
-    <p class="klein-tekst">Foto's worden verkleind en automatisch naar OneDrive gestuurd. Het origineel in je fotoalbum blijft staan.</p>`;
+    `;
 
   h += `<h2>Foto's (${fs.length})</h2>`;
   if (!fs.length) h += `<p class="klein-tekst">Nog geen foto's bij dit adres.</p>`;
-  for (const f of fs) {
-    const u = URL.createObjectURL(f.blob); URLS.push(u);
-    const andere = c.adressen.filter(x => x.id !== a.id);
-    h += `<div class="rij" style="flex-wrap:wrap">
-      <img src="${u}" alt="">
-      <div class="info"><div>${esc(f.naam)}</div>
-        <div class="klein-tekst">${f.uploaded ? "✓ Staat op OneDrive" : "⏳ Nog niet op OneDrive"}</div></div>
-      <div class="foto-acties" style="width:100%">
-        <select onchange="if(this.value)fotoVerplaats('${f.id}',this.value)" aria-label="verplaats naar">
+  const andere = c.adressen.filter(x => x.id !== a.id);
+  if (fs.length) {
+    h += `<div class="kaart"><strong>Geselecteerd: <span id="selTeller">${SEL.size}</span></strong>
+      <div class="acties" style="margin-top:6px">
+        <button class="klein sec" onclick="selAlles('${a.id}')">Alles selecteren</button>
+        <button class="klein sec" onclick="selWis()">Wis selectie</button>
+      </div>
+      <div class="acties" style="margin-top:8px">
+        <select id="naarAdres" aria-label="verplaats naar" style="width:auto;flex:1;min-height:44px">
           <option value="">Verplaats naar…</option>
           ${andere.map(x => `<option value="${x.id}">${esc(x.straat)} ${nrLabel(x)}</option>`).join("")}
         </select>
-        ${f.uploaded
-          ? `<button class="klein gevaar" onclick="fotoWis('${f.id}')">Verwijderen</button>`
-          : `<span class="klein-tekst">Eerst uploaden, dan pas verwijderen</span>`}
+        <button class="klein" onclick="verplaatsGeselecteerd('${c.id}')">Verplaats</button>
       </div></div>`;
+  }
+  for (const f of fs) {
+    const u = URL.createObjectURL(f.blob); URLS.push(u);
+    h += `<div class="rij">
+      <input type="checkbox" data-foto="${f.id}" ${SEL.has(f.id) ? "checked" : ""} aria-label="selecteer foto" onchange="selZet('${f.id}',this.checked)">
+      <img src="${u}" alt="">
+      <div class="info"><div>${esc(f.naam)}</div>
+        <div class="klein-tekst">${f.uploaded ? "✓ Staat op OneDrive" : "⏳ Nog niet op OneDrive"}</div></div>
+      ${f.uploaded
+        ? `<button class="klein gevaar" onclick="fotoWis('${f.id}')">Wis</button>`
+        : `<span class="klein-tekst">Eerst uploaden</span>`}
+    </div>`;
   }
 
   h += `<h2>Afspraak</h2>`;
@@ -420,6 +456,12 @@ function vAdres(c, a) {
   h += `<label for="nieuweOpm">Nieuwe opmerking</label>
     <textarea id="nieuweOpm" rows="2"></textarea>
     <button class="sec" onclick="opmerkingToevoegen('${c.id}','${a.id}')">Opmerking opslaan</button>`;
+  h += `
+    <h2>Foto's toevoegen</h2>
+    <label class="knop">📷 Foto's maken of kiezen
+      <input type="file" accept="image/*" multiple hidden onchange="fotosToevoegen(event,'${c.id}','${a.id}')">
+    </label>
+    <p class="klein-tekst">Foto's worden verkleind en automatisch naar OneDrive gestuurd. Het origineel in je fotoalbum blijft staan.</p>`;
   return h;
 }
 
