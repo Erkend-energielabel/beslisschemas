@@ -867,22 +867,28 @@ function voortgangBalk(klaar, totaal) {
     <div class="klein-tekst">${klaar} van ${totaal} woningen klaar (${pct}%)</div>`;
 }
 /* Haalt de mappen van dit complex op van OneDrive (stil, zonder inlogvenster) */
-let ODFOTO = {};   // complex-id -> { adresmapnaam: aantal foto's die al op OneDrive staan }
+let ODFOTO = {};
+let ODFOTO_TIJD = {};   // wanneer de foto-telling per complex voor het laatst is opgehaald   // complex-id -> { adresmapnaam: aantal foto's die al op OneDrive staan }
 async function laadAdresMappen(cId) {
   const c = findC(cId);
   if (!c || !accounts().length || !navigator.onLine) return;
   try {
     const r = await graph(`/me/drive/root:/${mapVan(c).split("/").map(encodeURIComponent).join("/")}:/children?$select=name,folder`, {}, false);
     const namen = (r.value || []).filter(x => x.folder).map(x => x.name);
-    /* Per adresmap tellen hoeveel foto's er al staan */
-    const tellingen = {};
-    await Promise.all(namen.map(async n => {
-      try {
-        const pad = [...mapVan(c).split("/"), n].map(encodeURIComponent).join("/");
-        const f = await graph(`/me/drive/root:/${pad}:/children?$select=name,file`, {}, false);
-        tellingen[n] = (f.value || []).filter(x => x.file && /\.(jpe?g|png|heic)$/i.test(x.name)).length;
-      } catch (e) { tellingen[n] = 0; }
-    }));
+    /* Foto's per adresmap tellen: alleen als de mappenlijst is veranderd of de telling ouder is dan 5 minuten (scheelt veel OneDrive-verzoeken) */
+    let tellingen = ODFOTO[cId] || {};
+    const teOud = !ODFOTO_TIJD[cId] || Date.now() - ODFOTO_TIJD[cId] > 5 * 60000;
+    if (teOud || JSON.stringify(namen) !== JSON.stringify(ODMAP[cId] || [])) {
+      tellingen = {};
+      await Promise.all(namen.map(async n => {
+        try {
+          const pad = [...mapVan(c).split("/"), n].map(encodeURIComponent).join("/");
+          const f = await graph(`/me/drive/root:/${pad}:/children?$select=name,file`, {}, false);
+          tellingen[n] = (f.value || []).filter(x => x.file && /\.(jpe?g|png|heic)$/i.test(x.name)).length;
+        } catch (e) { tellingen[n] = 0; }
+      }));
+      ODFOTO_TIJD[cId] = Date.now();
+    }
     const oud = JSON.stringify([ODMAP[cId] || [], ODFOTO[cId] || {}]);
     ODMAP[cId] = namen;
     ODFOTO[cId] = tellingen;
