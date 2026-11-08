@@ -59,6 +59,9 @@ input[type=checkbox]{width:30px;height:30px;min-height:0;margin:0;flex:0 0 auto}
 .pas-kop img{height:28px}
 .pas-body{display:flex;gap:12px;padding:12px;align-items:center}
 .pas-foto{width:84px;height:104px;border:1px solid var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f2f4f2;font-size:28px;flex:none}
+.plat{position:relative;width:100%;touch-action:manipulation;cursor:crosshair}
+.plat img{width:100%;display:block;border-radius:10px;border:1px solid var(--line)}
+.stip{position:absolute;transform:translate(-50%,-50%);width:26px;height:26px;min-height:0;padding:0;border-radius:50%;background:#dc2626;color:#fff;border:2px solid #fff;font-size:12px;font-weight:700;line-height:22px;box-shadow:0 1px 4px #0006;margin:0}
 .pas-groot{max-width:100%}
 .pas-groot .pas-foto{width:140px;height:170px}
 .pas{max-width:360px;border:none;border-radius:16px;box-shadow:0 8px 22px rgba(15,74,44,.18);background:#fff}
@@ -287,6 +290,7 @@ function terug() {
   else if (view.s === "nieuwAdres") go({ s: "complex", c: view.c });
   else if (view.s === "map") go({ s: "complex", c: view.c });
   else if (view.s === "pas") go({ s: "pasjes" });
+  else if (view.s === "doc") go({ s: "complex", c: view.c });
   else go({ s: "complexen" });
 }
 
@@ -763,10 +767,51 @@ async function docToevoegen(ev, cId) {
 function docOpen(id) {
   const d = DOCS.find(x => x.id === id);
   if (!d) return;
+  if (d.type.startsWith("image/")) return go({ s: "doc", d: id, c: d.complexId });
   const url = URL.createObjectURL(d.blob);
   window.open(url, "_blank");
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
+/* Plattegrond met stipjes en aantekeningen (alleen op dit toestel) */
+function vDoc(d) {
+  const url = URL.createObjectURL(d.blob);
+  URLS.push(url);
+  const stipjes = d.stipjes || [];
+  let h = `<p class="klein-tekst">Tik op de plattegrond om een stip te zetten. Tik op een stip om de aantekening te wijzigen of te verwijderen.</p>
+    <div class="plat" onclick="platTik(event,'${d.id}')"><img src="${url}" alt="${esc(d.naam)}">`;
+  stipjes.forEach((s, i) => {
+    h += `<button class="stip" style="left:${s.x}%;top:${s.y}%" onclick="event.stopPropagation();stipOpen('${d.id}','${s.id}')">${i + 1}</button>`;
+  });
+  h += `</div><h2>Aantekeningen</h2>`;
+  if (!stipjes.length) h += `<p class="klein-tekst">Nog geen aantekeningen.</p>`;
+  stipjes.forEach((s, i) => { h += `<div class="rij"><div class="info"><strong>${i + 1}.</strong> ${esc(s.tekst)}</div></div>`; });
+  return h;
+}
+async function platTik(ev, dId) {
+  const d = DOCS.find(x => x.id === dId);
+  if (!d) return;
+  const r = ev.currentTarget.getBoundingClientRect();
+  const x = +((ev.clientX - r.left) / r.width * 100).toFixed(2);
+  const y = +((ev.clientY - r.top) / r.height * 100).toFixed(2);
+  const tekst = prompt("Aantekening bij deze stip:");
+  if (!tekst || !tekst.trim()) return;
+  d.stipjes = [...(d.stipjes || []), { id: uid(), x, y, tekst: tekst.trim() }];
+  await docPut(d);
+  await render();
+}
+async function stipOpen(dId, sId) {
+  const d = DOCS.find(x => x.id === dId);
+  const s = d && (d.stipjes || []).find(x => x.id === sId);
+  if (!s) return;
+  const nieuw = prompt("Aantekening wijzigen. Laat leeg om de stip te verwijderen:", s.tekst);
+  if (nieuw === null) return;
+  d.stipjes = nieuw.trim()
+    ? d.stipjes.map(x => x.id === sId ? { ...x, tekst: nieuw.trim() } : x)
+    : d.stipjes.filter(x => x.id !== sId);
+  await docPut(d);
+  await render();
+}
+
 async function docWis(id) {
   const d = DOCS.find(x => x.id === id);
   if (!d || !d.uploaded) return alert("Dit document staat nog niet op OneDrive en wordt dus niet verwijderd.");
@@ -1122,6 +1167,7 @@ async function render() {
   else if (view.s === "map" && c) { titel = "Map kiezen"; inhoud = vMap(c); }
   else if (view.s === "pasjes") { titel = "Bedrijfspasjes"; inhoud = vPasjes(); }
   else if (view.s === "pas") { const p = PASJES.find(x => x.id === view.p); titel = "Bedrijfspasje"; inhoud = p ? vPasGroot(p) : vPasjes(); }
+  else if (view.s === "doc") { const d = DOCS.find(x => x.id === view.d); titel = "Plattegrond"; inhoud = d ? vDoc(d) : vComplexen(); }
   else if (view.s === "nieuwAdres" && c) { titel = "Huisnummers"; inhoud = vNieuwAdres(c); }
   else { view = { s: "complexen" }; inhoud = vComplexen(); }
 
