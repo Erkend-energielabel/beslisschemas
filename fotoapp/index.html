@@ -393,6 +393,15 @@ function vComplex(c) {
   const klaar = c.adressen.filter(a => a.klaar).length;
   let h = `<p class="klein-tekst">${klaar} van ${c.adressen.length} adressen klaar</p>
     <button class="sec" onclick="go({s:'nieuwAdres',c:'${c.id}'})">+ Adressen toevoegen</button>`;
+  const gepland = c.adressen.filter(a => a.afspraak).sort((x, y) => x.afspraak.start.localeCompare(y.afspraak.start));
+  h += `<h2>Ingepland (${gepland.length})</h2>`;
+  if (!gepland.length) h += `<p class="klein-tekst">Nog niets ingepland voor dit complex.</p>`;
+  for (const a of gepland) {
+    h += `<div class="rij" style="cursor:pointer" onclick="go({s:'adres',c:'${c.id}',a:'${a.id}'})">
+      <div class="info"><strong>${fmt(a.afspraak.start)}</strong>
+        <div class="klein-tekst">${esc(a.straat)} ${nrLabel(a)}${a.klaar ? " · klaar" : ""}</div></div></div>`;
+  }
+  h += `<h2>Adressen</h2>`;
   if (!c.adressen.length) h += `<p class="klein-tekst">Nog geen adressen. Voeg huisnummers toe met de knop hierboven.</p>`;
   for (const a of c.adressen) {
     const fs = FOTOS.filter(f => f.adresId === a.id);
