@@ -73,7 +73,7 @@ const pca = (() => {
   if (!window.msal) return null;
   try {
     return new msal.PublicClientApplication({
-      auth: { clientId: CFG.clientId, authority: "https://login.microsoftonline.com/common", redirectUri: location.href.split("#")[0] },
+      auth: { clientId: CFG.clientId, authority: "https://login.microsoftonline.com/59e480d9-96d4-4fda-8be4-6138b1c8577c", redirectUri: location.href.split("#")[0] },
       cache: { cacheLocation: "localStorage" }
     });
   } catch (e) { console.error(e); return null; }
