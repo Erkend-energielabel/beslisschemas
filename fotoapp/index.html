@@ -51,8 +51,9 @@ input[type=checkbox]{width:30px;height:30px;min-height:0;margin:0;flex:0 0 auto}
 .opm{background:#f7f9f8;border-radius:10px;padding:8px 10px;margin:6px 0}
 .tijdblok{min-width:76px;text-align:center;border-radius:12px;padding:6px 8px;background:#eef3ef;color:var(--g)}
 .tijdblok .uur{font-size:26px;font-weight:700;line-height:1.1}
-.tijdblok.rood{background:#dc2626;color:#fff}
-.tijdblok.laat{background:#d97706;color:#fff}
+.tijdblok.groen{background:#16a34a;color:#fff}
+.tijdblok.rood{background:#d97706;color:#fff}
+.tijdblok.laat{background:#dc2626;color:#fff}
 .rij .info{flex:1}
 .pas{max-width:340px;border:2px solid var(--g);border-radius:14px;overflow:hidden;background:#fff;margin:10px 0}
 .pas-kop{background:var(--g);color:#fff;display:flex;align-items:center;gap:8px;padding:8px 12px;font-weight:700}
@@ -246,6 +247,7 @@ function updateAftel() {
     const g = el.dataset.gedaan === "1";
     el.classList.toggle("laat", teLaat(el.dataset.start, g));
     el.classList.toggle("rood", !teLaat(el.dataset.start, g) && binnen30(el.dataset.start, g));
+    el.classList.toggle("groen", groen30(el.dataset.start, g));
   });
   document.querySelectorAll(".nu-tijd").forEach(el => { el.textContent = `${datumVan(new Date())} ${hhmm(new Date())}`; });
 }
@@ -256,6 +258,12 @@ function binnen30(startIso, gedaan) {
   if (gedaan) return false;
   const min = (new Date(startIso).getTime() - Date.now()) / 60000;
   return min <= 30 && min >= -10;
+}
+/* Tussen 30 en 60 minuten voor de start, en nog niet afgerond */
+function groen30(startIso, gedaan) {
+  if (gedaan) return false;
+  const min = (new Date(startIso).getTime() - Date.now()) / 60000;
+  return min > 30 && min <= 60;
 }
 /* Meer dan 10 minuten na de start en nog niet afgerond */
 function teLaat(startIso, gedaan) {
@@ -927,6 +935,7 @@ function vComplex(c) {
     const dagD = a.afspraak.start.slice(0, 10);
     const rood = binnen30(a.afspraak.start, a.afspraak.gedaan);
     const laat = teLaat(a.afspraak.start, a.afspraak.gedaan);
+    const groen = groen30(a.afspraak.start, a.afspraak.gedaan);
     const eind = a.afspraak.eindMs ? hhmm(new Date(a.afspraak.eindMs)) : "";
     return `<div class="rij ${a.afspraak.gedaan ? "klaar" : ""} ${dagD === vandaagD ? "vandaag" : ""}">
       <input type="checkbox" ${a.afspraak.gedaan ? "checked" : ""} aria-label="afspraak afgerond" onchange="afspraakKlaar('${c.id}','${a.id}',this.checked)">
@@ -935,7 +944,7 @@ function vComplex(c) {
         <div><span class="pil"><span class="aftel" data-start="${a.afspraak.start}" data-gedaan="${a.afspraak.gedaan ? 1 : 0}">${aftelTekst(a.afspraak.start, a.afspraak.gedaan)}</span></span></div>
         <div class="klein-tekst">${a.klaar ? "woning klaar" : "nog niet klaar"}${dagD !== vandaagD ? " · " + dagD : ""}</div>
       </div>
-      <div class="tijdblok ${laat ? "laat" : rood ? "rood" : ""}" data-start="${a.afspraak.start}" data-gedaan="${a.afspraak.gedaan ? 1 : 0}">
+      <div class="tijdblok ${laat ? "laat" : rood ? "rood" : groen ? "groen" : ""}" data-start="${a.afspraak.start}" data-gedaan="${a.afspraak.gedaan ? 1 : 0}">
         <div class="uur">${a.afspraak.start.slice(11, 16)}</div>
         ${eind ? `<div class="klein-tekst">t/m ${eind}</div>` : ""}
       </div>
