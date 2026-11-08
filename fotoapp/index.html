@@ -304,6 +304,7 @@ async function stateNaarOneDrive(ui) {
   } catch (e) { console.warn("backup mislukt", e); }
 }
 
+let SYNC_FOUT = null;   // laatste uploadfout, zichtbaar in de balk onderaan
 async function sync(ui) {
   if (bezig) return;
   if (!navigator.onLine) { if (ui) alert("Geen internetverbinding. Je foto's blijven veilig op dit toestel."); return; }
@@ -319,6 +320,7 @@ async function sync(ui) {
     await stateNaarOneDrive(ui);
   } catch (e) { fout = e; console.error(e); }
   bezig = false;
+  SYNC_FOUT = fout ? fout.message : null;
   await render();
   if (fout && ui) alert("Uploaden gestopt: " + fout.message + "\n\nJe foto's blijven op dit toestel staan. Probeer het later opnieuw.");
 }
@@ -830,6 +832,7 @@ async function render() {
         ? `<button class="klein" onclick="sync(true)">Nu uploaden</button>`
         : `<button class="klein" onclick="login()">Inloggen</button>`}
     </div>
+    ${SYNC_FOUT ? `<div class="melding">Opslaan op OneDrive lukt niet: ${esc(SYNC_FOUT)}. Tik op "Nu uploaden". Je foto's blijven op dit toestel.</div>` : ""}
     ${("Notification" in window && Notification.permission === "default") ? `<button class="klein sec" onclick="meldingenAan()">🔔 Meldingen aanzetten</button>` : ""}
     ${navigator.onLine ? "" : `<div class="melding">Geen internet. Foto's blijven bewaard en worden later geüpload.</div>`}
     ${window.PERSISTENT ? "" : `<div class="klein-tekst">⚠ Opslag van dit toestel is niet vastgezet. Upload regelmatig naar OneDrive.</div>`}
