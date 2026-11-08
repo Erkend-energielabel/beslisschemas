@@ -98,7 +98,8 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const findC = id => st.complexen.find(c => c.id === id);
 const findA = (c, id) => c.adressen.find(a => a.id === id);
-const sorteer = c => c.adressen.sort((a, b) => (a.klaar - b.klaar) || a.straat.localeCompare(b.straat) || a.nr - b.nr);
+const nrLabel = a => String(a.nr) + (a.toev || "");
+const sorteer = c => c.adressen.sort((a, b) => (a.klaar - b.klaar) || a.straat.localeCompare(b.straat) || a.nr - b.nr || (a.toev || "").localeCompare(b.toev || ""));
 const fmt = iso => iso ? iso.replace("T", " ").slice(0, 16) : "";
 
 function bewaarState() {
@@ -226,7 +227,7 @@ async function fotosToevoegen(ev, cId, aId) {
   for (const file of files) {
     try {
       const blob = await comprimeer(file);
-      await fotoPut({ id: uid(), complexId: c.id, adresId: a.id, naam: bestandsnaam(a.straat, a.nr), blob, uploaded: false, createdAt: Date.now() });
+      await fotoPut({ id: uid(), complexId: c.id, adresId: a.id, naam: bestandsnaam(a.straat, nrLabel(a)), blob, uploaded: false, createdAt: Date.now() });
     } catch (e) {
       alert(`Foto "${file.name}" kon niet worden verwerkt. Het origineel is niet veranderd.`);
     }
@@ -252,7 +253,7 @@ async function fotoVerplaats(id, nieuwAdresId) {
   const f = FOTOS.find(x => x.id === id);
   const c = findC(f.complexId), a2 = findA(c, nieuwAdresId);
   f.adresId = a2.id;
-  f.naam = bestandsnaam(a2.straat, a2.nr);
+  f.naam = bestandsnaam(a2.straat, nrLabel(a2));
   if (f.uploaded) {
     try {
       const item = await graph(`/me/drive/items/${f.onedriveId}`,
@@ -296,10 +297,10 @@ async function afspraakMaken(cId, aId) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        subject: `Bezoek ${a.straat} ${a.nr} (${c.naam})`,
+        subject: `Bezoek ${a.straat} ${nrLabel(a)} (${c.naam})`,
         start: { dateTime: start, timeZone: "W. Europe Standard Time" },
         end: { dateTime: end, timeZone: "W. Europe Standard Time" },
-        location: { displayName: `${a.straat} ${a.nr}` },
+        location: { displayName: `${a.straat} ${nrLabel(a)}` },
         body: { contentType: "text", content: "Bewoner thuis – gemaakt via foto-app" }
       })
     }, true);
@@ -323,7 +324,20 @@ function bewaarNieuwAdres() {
   const straat = $("f1").value.trim(), van = parseInt($("f2").value, 10), tot = parseInt($("f3").value, 10);
   if (!straat || isNaN(van) || isNaN(tot) || tot < van) return alert("Controleer de straat en de huisnummers (tot moet gelijk of hoger zijn dan van).");
   if (tot - van > 200) return alert("Maximaal 200 huisnummers in één keer.");
-  for (let n = van; n <= tot; n++) c.adressen.push({ id: uid(), straat, nr: n, klaar: false, opmerkingen: [], afspraak: null });
+  const keuze = $("f4").value;
+  const toevs = ($("f5").value || "").split(",").map(t => t.trim().toUpperCase()).filter(Boolean);
+  const nieuw = [];
+  for (let n = van; n <= tot; n++) {
+    if (keuze === "even" && n % 2 !== 0) continue;
+    if (keuze === "oneven" && n % 2 === 0) continue;
+    if (toevs.length) toevs.forEach(t => nieuw.push({ nr: n, toev: t }));
+    else nieuw.push({ nr: n, toev: "" });
+  }
+  if (!nieuw.length) return alert("Geen huisnummers over met deze keuze.");
+  for (const x of nieuw) {
+    if (c.adressen.some(a => a.straat === straat && a.nr === x.nr && (a.toev || "") === x.toev)) continue;
+    c.adressen.push({ id: uid(), straat, nr: x.nr, toev: x.toev, klaar: false, opmerkingen: [], afspraak: null });
+  }
   bewaarState();
   go({ s: "complex", c: c.id });
 }
@@ -353,7 +367,7 @@ function vComplex(c) {
     h += `<div class="rij ${a.klaar ? "klaar" : ""}">
       <input type="checkbox" ${a.klaar ? "checked" : ""} aria-label="klaar" onchange="klaarZet('${c.id}','${a.id}',this.checked)">
       <div class="info" onclick="go({s:'adres',c:'${c.id}',a:'${a.id}'})">
-        <strong>${esc(a.straat)} ${a.nr}</strong>
+        <strong>${esc(a.straat)} ${nrLabel(a)}</strong>
         <div class="klein-tekst">${fs.length} foto's${wacht ? ` · ${wacht} nog niet op OneDrive` : ""}${a.afspraak ? " · 📅 " + fmt(a.afspraak.start) : ""}${a.opmerkingen.length ? " · 💬 " + a.opmerkingen.length : ""}</div>
       </div></div>`;
   }
@@ -380,7 +394,7 @@ function vAdres(c, a) {
       <div class="foto-acties" style="width:100%">
         <select onchange="if(this.value)fotoVerplaats('${f.id}',this.value)" aria-label="verplaats naar">
           <option value="">Verplaats naar…</option>
-          ${andere.map(x => `<option value="${x.id}">${esc(x.straat)} ${x.nr}</option>`).join("")}
+          ${andere.map(x => `<option value="${x.id}">${esc(x.straat)} ${nrLabel(x)}</option>`).join("")}
         </select>
         ${f.uploaded
           ? `<button class="klein gevaar" onclick="fotoWis('${f.id}')">Verwijderen</button>`
@@ -420,6 +434,15 @@ function vNieuwAdres(c) {
     <input id="f2" type="number" inputmode="numeric">
     <label for="f3">Tot en met huisnummer</label>
     <input id="f3" type="number" inputmode="numeric">
+    <label for="f4">Welke nummers</label>
+    <select id="f4">
+      <option value="alle">Alle nummers</option>
+      <option value="even">Alleen even</option>
+      <option value="oneven">Alleen oneven</option>
+    </select>
+    <label for="f5">Toevoegingen (optioneel)</label>
+    <input id="f5" placeholder="bijv. A,B,C of leeg" autocomplete="off">
+    <p class="klein-tekst">Met toevoegingen krijg je bijv. 12A, 12B, 12C. Leeg = geen toevoeging.</p>
     <button onclick="bewaarNieuwAdres()">Toevoegen</button>`;
 }
 
@@ -450,7 +473,7 @@ async function render() {
 
   if (view.s === "complexen") inhoud = vComplexen();
   else if (view.s === "complex" && c) { titel = c.naam; inhoud = vComplex(c); }
-  else if (view.s === "adres" && c && a) { titel = `${a.straat} ${a.nr}`; inhoud = vAdres(c, a); }
+  else if (view.s === "adres" && c && a) { titel = `${a.straat} ${nrLabel(a)}`; inhoud = vAdres(c, a); }
   else if (view.s === "nieuwComplex") { titel = "Nieuw complex"; inhoud = vNieuwComplex(); }
   else if (view.s === "nieuwAdres" && c) { titel = "Huisnummers"; inhoud = vNieuwAdres(c); }
   else { view = { s: "complexen" }; inhoud = vComplexen(); }
