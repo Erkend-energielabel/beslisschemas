@@ -1325,11 +1325,16 @@ function mapKies(cId) {
   go({ s: "complex", c: cId });
 }
 
+/* Naam van het complex = de hoofdmap met het werknummer (begint met EE, bijv. EE26-158 ...). Anders de laatste map. */
+function werkMap(pad) {
+  const delen = pad.split("/");
+  return delen.slice().reverse().find(d => /^EE[-\d]/i.test(d)) || delen[delen.length - 1];
+}
 function vNieuwComplex() {
   if (!view.pad) return `<h2>Nieuw complex</h2>
     <p class="klein-tekst">Kies eerst de map op OneDrive waar de foto's naartoe gaan. Naam en projectnummer nemen we over van die map.</p>
     <button onclick="go({s:'nieuwMap', pad: ''})">📁 Kies map op OneDrive</button>`;
-  const naam = view.pad.split("/").pop();
+  const naam = werkMap(view.pad);
   return `<h2>Nieuw complex</h2>
     <p class="klein-tekst">Map op OneDrive: <b>${esc(view.pad)}</b></p>
     <button class="klein sec" style="width:auto" onclick="go({s:'nieuwMap', pad: ''})">Andere map kiezen</button>
