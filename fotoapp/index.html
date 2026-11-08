@@ -686,10 +686,13 @@ async function mapLaad() {
   const el = $("mapLijst"); if (!el) return;
   try {
     const url = view.pad
-      ? `/me/drive/root:/${view.pad.split("/").map(encodeURIComponent).join("/")}:/children?$select=name,folder`
-      : `/me/drive/root/children?$select=name,folder`;
+      ? `/me/drive/root:/${view.pad.split("/").map(encodeURIComponent).join("/")}:/children?$select=name,folder,lastModifiedDateTime`
+      : `/me/drive/root/children?$select=name,folder,lastModifiedDateTime`;
     const r = await graph(url, {}, true);
-    MAPNAMEN = (r.value || []).filter(x => x.folder).map(x => x.name).sort((a, b) => a.localeCompare(b));
+    /* Laatst gewijzigde map staat bovenaan */
+    MAPNAMEN = (r.value || []).filter(x => x.folder)
+      .sort((a, b) => (b.lastModifiedDateTime || "").localeCompare(a.lastModifiedDateTime || ""))
+      .map(x => x.name);
     el.innerHTML = MAPNAMEN.length
       ? MAPNAMEN.map((n, i) => `<button class="sec" style="text-align:left" onclick="mapOpen(${i})">📁 ${esc(n)}</button>`).join("")
       : `<p class="klein-tekst">Geen mappen hier. Maak een nieuwe map of gebruik deze map.</p>`;
