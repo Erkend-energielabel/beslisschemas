@@ -1153,13 +1153,14 @@ function vComplex(c) {
   const nieuw = (ODMAP[c.id] || []).map((n, i) => ({ n, i })).filter(x => !c.adressen.some(a => mapNaam(a) === x.n));
   if (nieuw.length) {
     const herkend = nieuw.filter(x => parseerMap(x.n)).length;
-    h += `<h2>Gevonden op OneDrive</h2><p class="klein-tekst">Deze mappen staan al op OneDrive maar nog niet in de lijst:</p>`;
+    h += `<details style="margin-top:12px"><summary><b>📁 Gevonden op OneDrive (${nieuw.length})</b></summary><p class="klein-tekst">Deze mappen staan al op OneDrive maar nog niet in de lijst:</p>`;
     if (herkend > 1) h += `<button class="sec" onclick="alleMappenToevoegen('${c.id}')">Alle ${herkend} adressen uit de map toevoegen</button>`;
     for (const x of nieuw) {
       const ok = parseerMap(x.n);
       h += `<div class="rij"><div class="info"><strong>📁 ${esc(x.n)}</strong>${(ODFOTO[c.id] || {})[x.n] ? ` <span class="klein-tekst">· 📷 ${ODFOTO[c.id][x.n]} foto's</span>` : ""}
         ${ok ? `<div><button class="klein sec" onclick="adresUitMap('${c.id}',${x.i})">Toevoegen aan lijst</button></div>` : `<div class="klein-tekst">Naam niet herkend. Gebruik bijv. "Stationsweg 12A".</div>`}</div></div>`;
     }
+    h += `</details>`;
   }
   const dcs = DOCS.filter(d => d.complexId === c.id);
   h += `<h2>Documenten (${dcs.length})</h2>
