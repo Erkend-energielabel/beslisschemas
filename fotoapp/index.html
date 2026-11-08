@@ -413,8 +413,33 @@ function klaarZet(cId, aId, aan) {
     : `Woning ${naam} weer terugzetten naar niet klaar?`;
   if (!confirm(vraag)) { render(); return; }   // checkbox weer goedzetten
   a.klaar = aan;
+  a.klaarOp = aan ? new Date().toISOString() : null;
   bewaarState();
   render();
+}
+
+/* Overzicht per complex als CSV (opent in Excel, klaar om af te drukken) */
+function fmtLokaal(iso) { const d = new Date(iso); return `${datumVan(d)} ${hhmm(d)}`; }
+function exportComplex(cId) {
+  const c = findC(cId);
+  const q = s => `"${String(s ?? "").replace(/"/g, '""')}"`;
+  const rijen = [["Straat", "Huisnummer", "Woning klaar", "Klaar op", "Afspraak", "Foto's", "Opmerkingen"]];
+  for (const a of sortedAdressen(c)) {
+    const aantal = FOTOS.filter(f => f.adresId === a.id).length;
+    const afspraak = a.afspraak ? fmt(a.afspraak.start) + (a.afspraak.gedaan ? " (afgerond)" : "") : "";
+    const opm = (a.opmerkingen || []).map(o => `${fmtLokaal(o.t)}: ${o.tekst}`).join(" | ");
+    rijen.push([a.straat, nrLabel(a), a.klaar ? "ja" : "nee", a.klaarOp ? fmtLokaal(a.klaarOp) : "", afspraak, aantal, opm]);
+  }
+  const csv = rijen.map(r => r.map(q).join(";")).join("\r\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const el = document.createElement("a");
+  el.href = url;
+  el.download = `${c.naam} overzicht.csv`;
+  document.body.appendChild(el);
+  el.click();
+  el.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function opmerkingToevoegen(cId, aId) {
@@ -587,7 +612,8 @@ function sortedAdressen(c) {
 function vComplex(c) {
   const klaar = c.adressen.filter(a => a.klaar).length;
   let h = `<button class="sec" onclick="go({s:'map',c:'${c.id}'})">📁 Map op OneDrive: ${esc(mapVan(c))}</button>${voortgangBalk(klaar, c.adressen.length)}
-    <button class="sec" onclick="go({s:'nieuwAdres',c:'${c.id}'})">+ Adressen toevoegen</button>`;
+    <button class="sec" onclick="go({s:'nieuwAdres',c:'${c.id}'})">+ Adressen toevoegen</button>
+    <button class="sec" onclick="exportComplex('${c.id}')">⬇ Overzicht voor Excel (CSV)</button>`;
   const gepland = c.adressen.filter(a => a.afspraak).sort((x, y) => x.afspraak.start.localeCompare(y.afspraak.start));
   h += `<h2>Ingepland (${gepland.length})</h2>`;
   if (!gepland.length) h += `<p class="klein-tekst">Nog niets ingepland voor dit complex.</p>`;
