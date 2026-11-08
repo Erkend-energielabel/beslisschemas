@@ -1238,12 +1238,7 @@ function vAdres(c, a) {
     <textarea id="nieuweOpm" rows="2"></textarea>
     <div class="acties"><button class="klein sec" style="width:auto" onclick="opmerkingNetjes()">✨ Tekst netjes maken</button>
     <button class="sec" onclick="opmerkingToevoegen('${c.id}','${a.id}')">Opmerking opslaan</button></div>`;
-  h += `
-    <h2>Foto's toevoegen</h2>
-    <label class="knop">📷 Foto's maken of kiezen
-      <input type="file" accept="image/*" multiple hidden onchange="fotosToevoegen(event,'${c.id}','${a.id}')">
-    </label>
-    <p class="klein-tekst">Foto's worden verkleind en automatisch naar OneDrive gestuurd. Het origineel in je fotoalbum blijft staan.</p>`;
+  h += `<p class="klein-tekst">Foto's maken of kiezen: de knop 📷 Foto's staat altijd onderin. Foto's worden verkleind en automatisch naar OneDrive gestuurd. Het origineel in je fotoalbum blijft staan.</p>`;
   return h;
 }
 
@@ -1430,6 +1425,7 @@ async function render() {
   $("balk").innerHTML = `
     <div class="acties">
       ${view.s !== "complexen" ? `<button class="klein sec" style="min-height:48px;font-size:17px" onclick="terug()">← Terug</button>` : ""}
+      ${view.s === "adres" && c && a ? `<label class="knop" style="width:auto;margin:0;min-height:48px;font-size:17px;padding:10px 14px;cursor:pointer">📷 Foto's<input type="file" accept="image/*" multiple hidden onchange="fotosToevoegen(event,'${c.id}','${a.id}')"></label>` : ""}
       <span class="klein-tekst" style="flex:1;font-size:11px;line-height:1.3">${wacht} foto's wachten op OneDrive · ${FOTOS.length - wacht} op OneDrive</span>
       ${ingelogd
         ? `<button class="klein" onclick="sync(true)">Nu uploaden</button>`
