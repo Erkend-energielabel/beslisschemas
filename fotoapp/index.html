@@ -317,10 +317,10 @@ function terug() {
 
 /* Bestandsnaam: eerste 2 letters van de straat + huisnummer + tijd (bijv. ST12_1420.jpg). OneDrive hernoemt dubbelen zelf. */
 function bestandsnaam(straat, nr) {
-  const p = String(straat).normalize("NFD").replace(/[^a-zA-Z]/g, "").slice(0, 2).toUpperCase().padEnd(2, "X");
+  const s = String(straat).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[\\\/:*?"<>|]/g, "").trim().replace(/\s+/g, "-");
   const t = new Date();
   const ts = `${pad(t.getHours())}${pad(t.getMinutes())}`;
-  return `${p}${nr}_${ts}.jpg`;
+  return `${s}_${nr}_${ts}.jpg`;
 }
 
 /* ===== FOTO-OPSLAG (IndexedDB) ===== */
