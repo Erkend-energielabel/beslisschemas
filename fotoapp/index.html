@@ -793,6 +793,40 @@ function bewaarNieuwAdres() {
   go({ s: "complex", c: c.id });
 }
 
+/* Leest adressen uit een Excel- of CSV-bestand. Kolommen: Straat, Huisnummer en (optioneel) Toevoeging. */
+async function adressenImporteren(ev, cId) {
+  const c = findC(cId);
+  const file = ev.target.files[0];
+  ev.target.value = "";
+  if (!file) return;
+  if (!window.XLSX) return alert("De Excel-bibliotheek kon niet laden. Probeer het later opnieuw.");
+  try {
+    const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+    const rijen = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
+    if (!rijen.length) return alert("Het bestand is leeg.");
+    const sleutel = (r, deel) => Object.keys(r).find(k => k.toLowerCase().includes(deel));
+    const eerste = rijen[0];
+    const kStraat = sleutel(eerste, "straat");
+    const kNr = sleutel(eerste, "huis") || sleutel(eerste, "nummer") || sleutel(eerste, "nr");
+    const kToev = sleutel(eerste, "toev");
+    if (!kStraat || !kNr) return alert("Geen kolommen 'Straat' en 'Huisnummer' gevonden. Zet die in de eerste rij van het bestand.");
+    let toegevoegd = 0, overgeslagen = 0;
+    for (const r of rijen) {
+      const straat = String(r[kStraat] ?? "").trim();
+      const m = String(r[kNr] ?? "").trim().match(/^(\d+)\s*([A-Za-z]*)$/);
+      if (!straat || !m) { overgeslagen++; continue; }
+      const nr = parseInt(m[1], 10);
+      const toev = ((kToev ? String(r[kToev] ?? "") : "").trim() || m[2]).toUpperCase();
+      if (c.adressen.some(a => a.straat === straat && a.nr === nr && (a.toev || "") === toev)) { overgeslagen++; continue; }
+      c.adressen.push({ id: uid(), straat, nr, toev, klaar: false, opmerkingen: [], afspraak: null });
+      toegevoegd++;
+    }
+    bewaarState();
+    alert(`${toegevoegd} adres(sen) toegevoegd.` + (overgeslagen ? ` ${overgeslagen} overgeslagen (dubbel of onleesbaar).` : ""));
+    go({ s: "complex", c: cId });
+  } catch (e) { alert("Bestand kon niet worden gelezen: " + e.message); }
+}
+
 /* ===== SCHERMEN ===== */
 function voortgangBalk(klaar, totaal) {
   const pct = totaal ? Math.round(klaar / totaal * 100) : 0;
@@ -1299,6 +1333,9 @@ function vNieuwAdres(c) {
     <label for="f5">Toevoegingen (optioneel)</label>
     <input id="f5" placeholder="bijv. A,B,C of leeg" autocomplete="off">
     <p class="klein-tekst">Met toevoegingen krijg je bijv. 12A, 12B, 12C. Leeg = geen toevoeging.</p>
+    <label class="klein sec" style="display:block;text-align:center;padding:10px;border:1px dashed var(--g);border-radius:10px;cursor:pointer;margin-top:12px">📊 Of: adressen uit Excel of CSV inlezen
+      <input type="file" accept=".xlsx,.xls,.csv" hidden onchange="adressenImporteren(event,'${c.id}')"></label>
+    <p class="klein-tekst">In het bestand: kolommen Straat en Huisnummer (eventueel Toevoeging). "12A" in het huisnummer mag ook.</p>
     <button onclick="bewaarNieuwAdres()">Toevoegen</button>`;
 }
 
