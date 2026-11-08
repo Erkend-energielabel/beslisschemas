@@ -54,6 +54,13 @@ input[type=checkbox]{width:30px;height:30px;min-height:0;margin:0;flex:0 0 auto}
 .tijdblok.rood{background:#dc2626;color:#fff}
 .tijdblok.laat{background:#d97706;color:#fff}
 .rij .info{flex:1}
+.pas{max-width:340px;border:2px solid var(--g);border-radius:14px;overflow:hidden;background:#fff;margin:10px 0}
+.pas-kop{background:var(--g);color:#fff;display:flex;align-items:center;gap:8px;padding:8px 12px;font-weight:700}
+.pas-kop img{height:28px}
+.pas-body{display:flex;gap:12px;padding:12px;align-items:center}
+.pas-foto{width:84px;height:104px;border:1px solid var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f2f4f2;font-size:28px;flex:none}
+.pas-foto img{width:100%;height:100%;object-fit:cover}
+.pas-voet{background:#f2f4f2;color:var(--mut);font-size:11px;padding:6px 12px;text-align:center}
 .rij.vandaag{background:#e8f6ec;border-color:#bfe3c9}
 .pil{display:inline-block;padding:2px 10px;border-radius:999px;background:#eef3ef;color:var(--g);font-weight:600;font-size:13px}
 #meldBanner{position:fixed;top:70px;left:10px;right:10px;background:var(--dark);color:#fff;border-radius:12px;padding:12px 14px;z-index:20;box-shadow:0 4px 14px #0005;display:none}
@@ -118,6 +125,50 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
 const findC = id => st.complexen.find(c => c.id === id);
 const mapVan = c => c.map || (CFG.map + "/" + c.naam);
 let MAPNAMEN = [];
+/* Bedrijfspasjes: alleen voor eigen team, geen officiële legitimatie */
+let PASJES = JSON.parse(localStorage.getItem("fa_pasjes") || "null") || [
+  { id: "jdl", naam: "Jacob de Laat", functie: "EPA-adviseur en bouwbegeleider", foto: "" },
+  { id: "john", naam: "", functie: "", foto: "" }
+];
+function bewaarPasjes() { localStorage.setItem("fa_pasjes", JSON.stringify(PASJES)); }
+function pasWijzig(id, veld, waarde) {
+  const p = PASJES.find(x => x.id === id);
+  if (!p) return;
+  p[veld] = waarde.trim();
+  bewaarPasjes();
+  render();
+}
+async function pasFoto(ev, id) {
+  const f = ev.target.files[0];
+  ev.target.value = "";
+  if (!f) return;
+  try {
+    const blob = await comprimeer(f);
+    const url = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
+    PASJES.find(x => x.id === id).foto = url;
+    bewaarPasjes();
+    render();
+  } catch (e) { alert("Foto kon niet worden verwerkt. Het origineel is niet veranderd."); }
+}
+function vPasjes() {
+  const logoSrc = (document.querySelector(".logo img") || {}).src || "";
+  let h = `<p class="klein-tekst">Bedrijfspasjes voor ons eigen team. Vul naam en functie in en kies een foto.</p>`;
+  for (const p of PASJES) {
+    h += `<div class="pas">
+      <div class="pas-kop"><img src="${logoSrc}" alt=""><span>Bedrijfspasje</span></div>
+      <div class="pas-body">
+        <div class="pas-foto">${p.foto ? `<img src="${p.foto}" alt="">` : "📷"}</div>
+        <div><strong>${esc(p.naam) || "Naam"}</strong><div class="klein-tekst">${esc(p.functie) || "Functie"}</div><div class="klein-tekst">Erkend-Energielabel.nl</div></div>
+      </div>
+      <div class="pas-voet">Bedrijfspasje · geen officieel identiteitsbewijs</div>
+    </div>
+    <label class="klein sec" style="display:block;text-align:center;cursor:pointer">📷 Foto kiezen
+      <input type="file" accept="image/*" hidden onchange="pasFoto(event,'${p.id}')"></label>
+    <input value="${esc(p.naam)}" placeholder="Naam" onchange="pasWijzig('${p.id}','naam',this.value)">
+    <input value="${esc(p.functie)}" placeholder="Functie" onchange="pasWijzig('${p.id}','functie',this.value)" style="margin-top:6px">`;
+  }
+  return h;
+}
 let DOCS = [];
 const findA = (c, id) => c.adressen.find(a => a.id === id);
 const nrLabel = a => String(a.nr) + (a.toev || "");
@@ -703,7 +754,8 @@ async function complexWis(cId) {
 }
 
 function vComplexen() {
-  let h = `<button onclick="go({s:'nieuwComplex'})">+ Nieuw complex</button>`;
+  let h = `<button onclick="go({s:'nieuwComplex'})">+ Nieuw complex</button>
+    <button class="sec" onclick="go({s:'pasjes'})">🪪 Bedrijfspasjes</button>`;
   if (!st.complexen.length) h += `<p class="klein-tekst">Nog geen complexen. Maak er één aan met de knop hierboven.</p>`;
   for (const c of st.complexen) {
     const klaar = c.adressen.filter(a => a.klaar).length;
@@ -972,6 +1024,7 @@ async function render() {
   else if (view.s === "adres" && c && a) { titel = `${a.straat} ${nrLabel(a)}`; inhoud = vAdres(c, a); }
   else if (view.s === "nieuwComplex") { titel = "Nieuw complex"; inhoud = vNieuwComplex(); }
   else if (view.s === "map" && c) { titel = "Map kiezen"; inhoud = vMap(c); }
+  else if (view.s === "pasjes") { titel = "Bedrijfspasjes"; inhoud = vPasjes(); }
   else if (view.s === "nieuwAdres" && c) { titel = "Huisnummers"; inhoud = vNieuwAdres(c); }
   else { view = { s: "complexen" }; inhoud = vComplexen(); }
 
