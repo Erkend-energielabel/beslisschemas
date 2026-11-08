@@ -143,6 +143,7 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
 const findC = id => st.complexen.find(c => c.id === id);
 const mapVan = c => c.map || (CFG.map + "/" + c.naam);
 let MAPNAMEN = [];
+let MAPRAW = [];
 /* Bedrijfspasjes: alleen voor eigen team, geen officiële legitimatie */
 let PASJES = JSON.parse(localStorage.getItem("fa_pasjes") || "null") || [
   { id: "jdl", naam: "Jacob de Laat", functie: "EPA-adviseur en bouwbegeleider", opdracht: "", foto: "" },
@@ -1078,7 +1079,7 @@ function vMap(c) {
       <button class="klein sec" onclick="mapOmhoog()">⬆ Omhoog</button>
       <button class="klein sec" onclick="mapNieuw()">+ Nieuwe map</button>
     </div>
-    <div id="mapLijst" style="margin-top:8px"><p class="klein-tekst">Mappen laden…</p></div>
+    ${mapControls()}<div id="mapLijst" style="margin-top:8px"><p class="klein-tekst">Mappen laden…</p></div>
     <button onclick="mapKies('${c.id}')">Deze map gebruiken</button>
     <button class="sec" onclick="go({s:'complex',c:'${c.id}'})">Annuleren</button>`;
 }
@@ -1089,18 +1090,35 @@ async function mapLaad() {
       ? `/me/drive/root:/${view.pad.split("/").map(encodeURIComponent).join("/")}:/children?$select=name,folder,lastModifiedDateTime`
       : `/me/drive/root/children?$select=name,folder,lastModifiedDateTime`;
     const r = await graph(url, {}, true);
-    /* Mappen op naam A-Z, zoals OneDrive standaard doet (cijfers netjes in volgorde) */
-    MAPNAMEN = (r.value || []).filter(x => x.folder)
-      .sort((a, b) => a.name.localeCompare(b.name, "nl", { numeric: true }))
-      .map(x => x.name);
-    el.innerHTML = MAPNAMEN.length
-      ? MAPNAMEN.map((n, i) => `<button class="sec" style="text-align:left" onclick="mapOpen(${i})">📁 ${esc(n)}</button>`).join("")
-      : `<p class="klein-tekst">Geen mappen hier. Maak een nieuwe map of gebruik deze map.</p>`;
+    MAPRAW = (r.value || []).filter(x => x.folder).map(x => ({ name: x.name, mod: x.lastModifiedDateTime || "" }));
+    mapToon();
   } catch (e) {
     el.innerHTML = `<div class="melding">Mappen konden niet worden geladen. ${esc(e.message)}</div>`;
   }
 }
-function mapOpen(i) { view.pad = (view.pad ? view.pad + "/" : "") + MAPNAMEN[i]; render(); }
+/* Toont de mappen met zoekfilter en sortering (A–Z of laatst gewijzigd) */
+function mapToon() {
+  const el = $("mapLijst"); if (!el) return;
+  const zoek = (view.zoek || "").toLowerCase();
+  const lijst = MAPRAW.filter(m => m.name.toLowerCase().includes(zoek));
+  if ((view.sort || "naam") === "nieuw") lijst.sort((a, b) => b.mod.localeCompare(a.mod));
+  else lijst.sort((a, b) => a.name.localeCompare(b.name, "nl", { numeric: true }));
+  MAPNAMEN = lijst.map(m => m.name);
+  el.innerHTML = MAPNAMEN.length
+    ? MAPNAMEN.map((n, i) => `<button class="sec" style="text-align:left" onclick="mapOpen(${i})">📁 ${esc(n)}</button>`).join("")
+    : `<p class="klein-tekst">Geen mappen gevonden${zoek ? " voor “" + esc(view.zoek) + "”" : ""}.</p>`;
+}
+function mapZoekZet(v) { view.zoek = v; mapToon(); }
+function mapSortZet(v) { view.sort = v; mapToon(); }
+function mapControls() {
+  return `<div class="acties" style="margin-top:8px;align-items:center">
+    <input id="mapZoek" placeholder="🔍 Zoek map" value="${esc(view.zoek || "")}" oninput="mapZoekZet(this.value)" style="flex:1">
+    <select id="mapSort" onchange="mapSortZet(this.value)" style="width:auto">
+      <option value="naam" ${(view.sort || "naam") === "naam" ? "selected" : ""}>A–Z</option>
+      <option value="nieuw" ${view.sort === "nieuw" ? "selected" : ""}>Laatst gewijzigd</option>
+    </select></div>`;
+}
+function mapOpen(i) { view.pad = (view.pad ? view.pad + "/" : "") + MAPNAMEN[i]; view.zoek = ""; render(); }
 function mapOmhoog() { view.pad = view.pad.split("/").slice(0, -1).join("/"); render(); }
 async function mapNieuw() {
   const naam = (prompt("Naam van de nieuwe map") || "").trim();
@@ -1139,7 +1157,7 @@ function vNieuwMap() {
       <button class="klein sec" onclick="mapOmhoog()">⬆ Omhoog</button>
       <button class="klein sec" onclick="mapNieuw()">+ Nieuwe map</button>
     </div>
-    <div id="mapLijst" style="margin-top:8px"><p class="klein-tekst">Mappen laden…</p></div>
+    ${mapControls()}<div id="mapLijst" style="margin-top:8px"><p class="klein-tekst">Mappen laden…</p></div>
     <button onclick="nieuwMapKies()">Deze map gebruiken</button>
     <button class="sec" onclick="go({s:'nieuwComplex'})">Annuleren</button>`;
 }
