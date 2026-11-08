@@ -613,7 +613,8 @@ function vComplexen() {
     h += `<div class="kaart" onclick="go({s:'complex',c:'${c.id}'})">
       <strong>${esc(c.naam)}</strong>
       <div class="klein-tekst">${c.adressen.length} adressen · ${klaar} klaar</div>
-      ${voortgangBalk(klaar, c.adressen.length)}</div>`;
+      ${voortgangBalk(klaar, c.adressen.length)}
+      <button class="klein sec" style="width:auto;margin-top:6px" onclick="event.stopPropagation();exportComplex('${c.id}')">⬇ Excel</button></div>`;
   }
   return h;
 }
