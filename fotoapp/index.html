@@ -1175,7 +1175,7 @@ function vComplex(c) {
       <input type="checkbox" ${a.klaar ? "checked" : ""} aria-label="klaar" onchange="klaarZet('${c.id}','${a.id}',this.checked)">
       <div class="info" onclick="go({s:'adres',c:'${c.id}',a:'${a.id}'})">
         <strong>${stoplicht(a) ? `<span style="color:${stoplichtKleur[stoplicht(a)]}" title="${stoplicht(a)}">●</span> ` : ""}${a.straat === standaardStraat(c) ? nrLabel(a) : esc(a.straat) + " " + nrLabel(a)}</strong>
-        <div class="klein-tekst">${fs.length} foto's${wacht ? ` · ${wacht} nog niet op OneDrive` : ""}${(ODMAP[c.id] || []).includes(mapVoorAdres(c, a)) ? " · 📁 map op OneDrive" + ((ODFOTO[c.id] || {})[mapVoorAdres(c, a)] ? " · 📷 " + ODFOTO[c.id][mapVoorAdres(c, a)] + " op OneDrive" : "") : ""}${a.afspraak ? " · 📅 " + fmt(a.afspraak.start) : ""}${a.opmerkingen.length ? " · 💬 " + a.opmerkingen.length : ""}</div>
+        <div class="klein-tekst">${a.klaar && a.klaarOp ? "✓ afgevinkt " + fmtLokaal(a.klaarOp) + " · " : ""}${fs.length} foto's${wacht ? ` · ${wacht} nog niet op OneDrive` : ""}${(ODMAP[c.id] || []).includes(mapVoorAdres(c, a)) ? " · 📁 map op OneDrive" + ((ODFOTO[c.id] || {})[mapVoorAdres(c, a)] ? " · 📷 " + ODFOTO[c.id][mapVoorAdres(c, a)] + " op OneDrive" : "") : ""}${a.afspraak ? " · 📅 " + fmt(a.afspraak.start) : ""}${a.opmerkingen.length ? " · 💬 " + a.opmerkingen.length : ""}</div>
       </div>
       <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;margin:0 0 0 6px;font-size:12px;line-height:1.2;border-radius:6px" onclick="toevVoegToe('${c.id}','${a.id}')">+ toev.</button></div>`;
   }
