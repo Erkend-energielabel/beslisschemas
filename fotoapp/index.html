@@ -48,6 +48,11 @@ input[type=checkbox]{width:30px;height:30px;min-height:0;margin:0;flex:0 0 auto}
 .foto-acties{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
 .foto-acties select{width:auto;flex:1;min-height:44px}
 .opm{background:#f7f9f8;border-radius:10px;padding:8px 10px;margin:6px 0}
+details.afspraak{margin:10px 0}
+details.afspraak summary{cursor:pointer;list-style:none;padding:9px 12px;border-radius:10px;background:#fff;border:1px solid var(--line);color:var(--g);font-weight:600;font-size:16px}
+details.afspraak summary::-webkit-details-marker{display:none}
+details.afspraak[open] summary{border-bottom-left-radius:0;border-bottom-right-radius:0}
+.afspraak-inhoud{background:#fff;border:1px solid var(--line);border-top:none;border-radius:0 0 10px 10px;padding:8px 12px 12px}
 .voortgang{background:#dfe7e2;border-radius:99px;height:14px;overflow:hidden;margin:8px 0 4px}
 .voortgang span{display:block;height:100%;background:var(--acc);border-radius:99px;transition:width .3s}
 .voet{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font-size:11px;line-height:1.35;color:var(--mut);border-top:1px solid var(--acc);margin-top:8px;padding-top:8px}
@@ -465,15 +470,16 @@ function vAdres(c, a) {
     </div>`;
   }
 
-  h += `<h2>Afspraak</h2>`;
-  h += a.afspraak
-    ? `<p>📅 ${fmt(a.afspraak.start)}</p>`
-    : `<p class="klein-tekst">Geen afspraak.</p>`;
-  h += `<label for="afDatum">Datum</label>
-    <input id="afDatum" type="date" value="${a.afspraak ? a.afspraak.start.slice(0, 10) : ""}">
-    <label for="afTijd">Tijd</label>
-    <input id="afTijd" type="time" value="${a.afspraak ? a.afspraak.start.slice(11, 16) : ""}">
-    <button class="sec" onclick="afspraakMaken('${c.id}','${a.id}')">📅 ${a.afspraak ? "Afspraak wijzigen" : "Afspraak in agenda zetten"}</button>`;
+  h += `<details class="afspraak">
+    <summary>📅 ${a.afspraak ? "Afspraak: " + fmt(a.afspraak.start) : "Afspraak plannen"}</summary>
+    <div class="afspraak-inhoud">
+      <label for="afDatum">Datum</label>
+      <input id="afDatum" type="date" value="${a.afspraak ? a.afspraak.start.slice(0, 10) : ""}">
+      <label for="afTijd">Tijd</label>
+      <input id="afTijd" type="time" value="${a.afspraak ? a.afspraak.start.slice(11, 16) : ""}">
+      <button class="sec" onclick="afspraakMaken('${c.id}','${a.id}')">${a.afspraak ? "Afspraak wijzigen" : "In agenda zetten"}</button>
+    </div>
+  </details>`;
 
   h += `<h2>Opmerkingen</h2>`;
   for (const o of [...a.opmerkingen].reverse()) {
