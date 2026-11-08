@@ -102,6 +102,8 @@ const pad = n => String(n).padStart(2, "0");
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const findC = id => st.complexen.find(c => c.id === id);
+const mapVan = c => c.map || (CFG.map + "/" + c.naam);
+let MAPNAMEN = [];
 const findA = (c, id) => c.adressen.find(a => a.id === id);
 const nrLabel = a => String(a.nr) + (a.toev || "");
 const sorteer = c => c.adressen.sort((a, b) => (a.klaar - b.klaar) || a.straat.localeCompare(b.straat) || a.nr - b.nr || (a.toev || "").localeCompare(b.toev || ""));
@@ -118,6 +120,7 @@ function terug() {
   if (view.s === "adres") go({ s: "complex", c: view.c });
   else if (view.s === "complex") go({ s: "complexen" });
   else if (view.s === "nieuwAdres") go({ s: "complex", c: view.c });
+  else if (view.s === "map") go({ s: "complex", c: view.c });
   else go({ s: "complexen" });
 }
 
@@ -187,7 +190,7 @@ async function login() { if (!pca) return alert("Microsoft-inlog kon niet laden.
 
 /* Upload: pas wissen als OneDrive exact dezelfde grootte terugmeldt */
 async function uploadFoto(f, c, ui) {
-  const pathEnc = [CFG.map, c.naam, f.naam].map(encodeURIComponent).join("/");
+  const pathEnc = [...mapVan(c).split("/"), f.naam].map(encodeURIComponent).join("/");
   const item = await graph(`/me/drive/root:/${pathEnc}:/content?@microsoft.graph.conflictBehavior=rename`,
     { method: "PUT", body: f.blob, headers: { "Content-Type": "image/jpeg" } }, ui);
   if (item.size !== f.blob.size) throw new Error("grootte klopt niet na upload");
@@ -402,7 +405,7 @@ function vComplexen() {
 
 function vComplex(c) {
   const klaar = c.adressen.filter(a => a.klaar).length;
-  let h = `${voortgangBalk(klaar, c.adressen.length)}
+  let h = `<button class="sec" onclick="go({s:'map',c:'${c.id}'})">📁 Map op OneDrive: ${esc(mapVan(c))}</button>${voortgangBalk(klaar, c.adressen.length)}
     <button class="sec" onclick="go({s:'nieuwAdres',c:'${c.id}'})">+ Adressen toevoegen</button>`;
   const gepland = c.adressen.filter(a => a.afspraak).sort((x, y) => x.afspraak.start.localeCompare(y.afspraak.start));
   h += `<h2>Ingepland (${gepland.length})</h2>`;
@@ -488,6 +491,53 @@ function vAdres(c, a) {
   return h;
 }
 
+function vMap(c) {
+  if (view.pad === undefined) view.pad = mapVan(c);
+  return `<h2>Map op OneDrive kiezen</h2>
+    <p class="klein-tekst">Huidige keuze: <b>${esc(view.pad) || "(hoofdmap)"}</b></p>
+    <div class="acties">
+      <button class="klein sec" onclick="mapOmhoog()">⬆ Omhoog</button>
+      <button class="klein sec" onclick="mapNieuw()">+ Nieuwe map</button>
+    </div>
+    <div id="mapLijst" style="margin-top:8px"><p class="klein-tekst">Mappen laden…</p></div>
+    <button onclick="mapKies('${c.id}')">Deze map gebruiken</button>
+    <button class="sec" onclick="go({s:'complex',c:'${c.id}'})">Annuleren</button>`;
+}
+async function mapLaad() {
+  const el = $("mapLijst"); if (!el) return;
+  try {
+    const url = view.pad
+      ? `/me/drive/root:/${view.pad.split("/").map(encodeURIComponent).join("/")}:/children?$select=name,folder`
+      : `/me/drive/root/children?$select=name,folder`;
+    const r = await graph(url, {}, true);
+    MAPNAMEN = (r.value || []).filter(x => x.folder).map(x => x.name).sort((a, b) => a.localeCompare(b));
+    el.innerHTML = MAPNAMEN.length
+      ? MAPNAMEN.map((n, i) => `<button class="sec" style="text-align:left" onclick="mapOpen(${i})">📁 ${esc(n)}</button>`).join("")
+      : `<p class="klein-tekst">Geen mappen hier. Maak een nieuwe map of gebruik deze map.</p>`;
+  } catch (e) {
+    el.innerHTML = `<div class="melding">Mappen konden niet worden geladen. ${esc(e.message)}</div>`;
+  }
+}
+function mapOpen(i) { view.pad = (view.pad ? view.pad + "/" : "") + MAPNAMEN[i]; render(); }
+function mapOmhoog() { view.pad = view.pad.split("/").slice(0, -1).join("/"); render(); }
+async function mapNieuw() {
+  const naam = (prompt("Naam van de nieuwe map") || "").trim();
+  if (!naam) return;
+  try {
+    const url = view.pad ? `/me/drive/root:/${view.pad.split("/").map(encodeURIComponent).join("/")}:/children` : `/me/drive/root/children`;
+    await graph(url, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: naam, folder: {}, "@microsoft.graph.conflictBehavior": "fail" }) }, true);
+  } catch (e) { alert("Map kon niet worden aangemaakt: " + e.message); return; }
+  render();
+}
+function mapKies(cId) {
+  if (!view.pad) return alert("Kies eerst een map. De hoofdmap kan niet.");
+  const c = findC(cId);
+  c.map = view.pad;
+  bewaarState();
+  go({ s: "complex", c: cId });
+}
+
 function vNieuwComplex() {
   return `<h2>Nieuw complex</h2>
     <label for="f1">Naam van het complex</label>
@@ -545,6 +595,7 @@ async function render() {
   else if (view.s === "complex" && c) { titel = c.naam; inhoud = vComplex(c); }
   else if (view.s === "adres" && c && a) { titel = `${a.straat} ${nrLabel(a)}`; inhoud = vAdres(c, a); }
   else if (view.s === "nieuwComplex") { titel = "Nieuw complex"; inhoud = vNieuwComplex(); }
+  else if (view.s === "map" && c) { titel = "Map kiezen"; inhoud = vMap(c); }
   else if (view.s === "nieuwAdres" && c) { titel = "Huisnummers"; inhoud = vNieuwAdres(c); }
   else { view = { s: "complexen" }; inhoud = vComplexen(); }
 
@@ -565,6 +616,7 @@ async function render() {
   $("titel").textContent = titel;
   $("terugknop").style.display = view.s === "complexen" ? "none" : "block";
   $("app").innerHTML = inhoud;
+  if (view.s === "map") mapLaad();
 
   const wacht = FOTOS.filter(f => !f.uploaded).length;
   $("balk").innerHTML = `
