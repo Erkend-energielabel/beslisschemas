@@ -59,6 +59,8 @@ input[type=checkbox]{width:30px;height:30px;min-height:0;margin:0;flex:0 0 auto}
 .pas-kop img{height:28px}
 .pas-body{display:flex;gap:12px;padding:12px;align-items:center}
 .pas-foto{width:84px;height:104px;border:1px solid var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#f2f4f2;font-size:28px;flex:none}
+.pas-groot{max-width:100%}
+.pas-groot .pas-foto{width:140px;height:170px}
 .pas-foto img{width:100%;height:100%;object-fit:cover}
 .pas-voet{background:#f2f4f2;color:var(--mut);font-size:11px;padding:6px 12px;text-align:center}
 .rij.vandaag{background:#e8f6ec;border-color:#bfe3c9}
@@ -150,6 +152,17 @@ async function pasFoto(ev, id) {
     render();
   } catch (e) { alert("Foto kon niet worden verwerkt. Het origineel is niet veranderd."); }
 }
+function vPasGroot(p) {
+  const logoSrc = (document.querySelector(".logo img") || {}).src || "";
+  return `<div class="pas pas-groot">
+    <div class="pas-kop"><img src="${logoSrc}" alt=""><span>Bedrijfspasje</span></div>
+    <div class="pas-body">
+      <div class="pas-foto">${p.foto ? `<img src="${p.foto}" alt="">` : "📷"}</div>
+      <div><strong style="font-size:20px">${esc(p.naam) || "Naam"}</strong><div>${esc(p.functie) || "Functie"}</div><div class="klein-tekst">Erkend-Energielabel.nl</div></div>
+    </div>
+    <div class="pas-voet">Bedrijfspasje · geen officieel identiteitsbewijs</div>
+  </div>`;
+}
 function vPasjes() {
   const logoSrc = (document.querySelector(".logo img") || {}).src || "";
   let h = `<p class="klein-tekst">Bedrijfspasjes voor ons eigen team. Vul naam en functie in en kies een foto.</p>`;
@@ -164,6 +177,7 @@ function vPasjes() {
     </div>
     <label class="klein sec" style="display:block;text-align:center;cursor:pointer">📷 Foto kiezen
       <input type="file" accept="image/*" hidden onchange="pasFoto(event,'${p.id}')"></label>
+    <button class="klein sec" style="width:auto;margin-bottom:6px" onclick="go({s:'pas',p:'${p.id}'})">🪪 Toon groot (aan bewoner)</button>
     <input value="${esc(p.naam)}" placeholder="Naam" onchange="pasWijzig('${p.id}','naam',this.value)">
     <input value="${esc(p.functie)}" placeholder="Functie" onchange="pasWijzig('${p.id}','functie',this.value)" style="margin-top:6px">`;
   }
@@ -260,6 +274,7 @@ function terug() {
   else if (view.s === "complex") go({ s: "complexen" });
   else if (view.s === "nieuwAdres") go({ s: "complex", c: view.c });
   else if (view.s === "map") go({ s: "complex", c: view.c });
+  else if (view.s === "pas") go({ s: "pasjes" });
   else go({ s: "complexen" });
 }
 
@@ -777,7 +792,8 @@ function vComplex(c) {
   const klaar = c.adressen.filter(a => a.klaar).length;
   let h = `<button class="sec" onclick="go({s:'map',c:'${c.id}'})">📁 Map op OneDrive: ${esc(mapVan(c))}</button>${voortgangBalk(klaar, c.adressen.length)}
     <button class="sec" onclick="go({s:'nieuwAdres',c:'${c.id}'})">+ Adressen toevoegen</button>
-    <button class="sec" onclick="exportComplex('${c.id}')">⬇ Overzicht voor Excel (CSV)</button>`;
+    <button class="sec" onclick="exportComplex('${c.id}')">⬇ Overzicht voor Excel (CSV)</button>
+    <button class="sec" onclick="go({s:'pasjes'})">🪪 Bedrijfspasje tonen</button>`;
   const gepland = c.adressen.filter(a => a.afspraak).sort((x, y) => x.afspraak.start.localeCompare(y.afspraak.start));
   h += `<h2>Ingepland (${gepland.length})</h2>`;
   if (!gepland.length) h += `<p class="klein-tekst">Nog niets ingepland voor dit complex.</p>`;
@@ -1025,6 +1041,7 @@ async function render() {
   else if (view.s === "nieuwComplex") { titel = "Nieuw complex"; inhoud = vNieuwComplex(); }
   else if (view.s === "map" && c) { titel = "Map kiezen"; inhoud = vMap(c); }
   else if (view.s === "pasjes") { titel = "Bedrijfspasjes"; inhoud = vPasjes(); }
+  else if (view.s === "pas") { const p = PASJES.find(x => x.id === view.p); titel = "Bedrijfspasje"; inhoud = p ? vPasGroot(p) : vPasjes(); }
   else if (view.s === "nieuwAdres" && c) { titel = "Huisnummers"; inhoud = vNieuwAdres(c); }
   else { view = { s: "complexen" }; inhoud = vComplexen(); }
 
