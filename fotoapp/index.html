@@ -1099,13 +1099,13 @@ function complexKlaarZet(cId, aan) {
 function complexKaart(c, arch) {
   const klaar = c.adressen.filter(a => a.klaar).length;
   return `<div class="kaart" style="position:relative" onclick="go({s:'complex',c:'${c.id}'})">
-    <label style="position:absolute;top:10px;right:12px;display:flex;align-items:center;gap:4px;font-size:11px;margin:0;color:var(--mut)" onclick="event.stopPropagation()">
-      <input type="checkbox" ${arch ? "checked" : ""} onchange="complexKlaarZet('${c.id}',this.checked)">
-      ${arch ? "Geargiveerd" : "Afgerond"}</label>
     <strong>${esc(c.naam)}</strong>
     <div class="klein-tekst">${c.adressen.length} adressen · ${klaar} klaar</div>
     ${voortgangBalk(klaar, c.adressen.length)}
-    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;margin-top:6px">
+    <div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-top:6px">
+      <label title="${arch ? "Terugzetten naar actieve lijst" : "Archiveren (naar Geargiveerde projecten)"}" onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:4px;font-size:11px;margin:0;color:var(--mut);cursor:pointer;padding:2px 6px;border:1px solid var(--line);border-radius:6px">
+        <input type="checkbox" ${arch ? "checked" : ""} onchange="complexKlaarZet('${c.id}',this.checked)" style="width:14px;height:14px;margin:0">
+        🗄️ ${arch ? "gearchiveerd" : "archief"}</label>
       <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;font-size:11px;line-height:1.2;border-radius:6px" onclick="event.stopPropagation();complexWis('${c.id}')">🗑 Verwijder</button>
     </div></div>`;
 }
