@@ -219,6 +219,8 @@ const fmt = iso => iso ? iso.replace("T", " ").slice(0, 16) : "";
 /* Mapnaam per adres op OneDrive, bijv. "Stationsweg 12A" */
 const mapNaam = a => `${a.straat} ${nrLabel(a)}`.replace(/[\\\/:*?"<>|]/g, "").trim();
 const adresMap = (c, a) => mapVan(c) + "/" + mapNaam(a);
+/* Gebruikt de map die al bestaat (bv. alleen het huisnummer) en maakt alleen een nieuwe aan als er echt geen is */
+const adresMapOD = (c, a) => mapVan(c) + "/" + mapVoorAdres(c, a);
 const ZEKER = new Set();          // mappen die in deze sessie al bestaan
 let ODMAP = {};                   // complex-id -> namen van mappen die op OneDrive staan
 /* Mapnaam als "Straat 12A". Alleen een huisnummer ("12A") geldt voor de standaardstraat van het complex. */
@@ -427,7 +429,8 @@ async function zorgMap(pad, ui) {
 
 async function uploadFoto(f, c, ui) {
   const a = findA(c, f.adresId);
-  const pad = a ? adresMap(c, a) : mapVan(c);
+  if (!ODMAP[c.id] && accounts().length) await laadAdresMappen(c.id);
+  const pad = a ? adresMapOD(c, a) : mapVan(c);
   await zorgMap(pad, ui);
   const pathEnc = [...pad.split("/"), f.naam].map(encodeURIComponent).join("/");
   const item = await graph(`/me/drive/root:/${pathEnc}:/content?@microsoft.graph.conflictBehavior=rename`,
@@ -558,7 +561,7 @@ function gedeeldSync(ui) {
 let SYNC_FOUT = null;   // laatste uploadfout, zichtbaar in de balk onderaan
 /* Zet alle opmerkingen van een adres in een tekstbestand in de adresmap op OneDrive */
 async function uploadOpmerkingen(c, a, ui) {
-  const pad = adresMap(c, a);
+  const pad = adresMapOD(c, a);
   await zorgMap(pad, ui);
   const tekst = (a.opmerkingen || []).map(o => `${fmtLokaal(o.t)}  ${o.tekst}`).join("\r\n");
   const blob = new Blob(["\uFEFF" + tekst], { type: "text/plain;charset=utf-8" });
@@ -668,7 +671,7 @@ async function verplaatsGeselecteerd(cId) {
     f.naam = bestandsnaam(a2.straat, nrLabel(a2));
     if (f.uploaded) {
       try {
-        const pad = adresMap(c, a2);
+        const pad = adresMapOD(c, a2);
         await zorgMap(pad, true);
         const item = await graph(`/me/drive/items/${f.onedriveId}`,
           { method: "PATCH", headers: { "Content-Type": "application/json" },
