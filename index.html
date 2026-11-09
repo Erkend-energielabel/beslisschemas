@@ -2833,7 +2833,9 @@ function bzPdf(){
     styles:{font:'helvetica',fontSize:8.5,cellPadding:1.6,lineColor:[214,226,216],lineWidth:0.2,textColor:[29,42,34]},
     headStyles:{fillColor:HEX('#0B3D2E'),textColor:255,fontStyle:'bold'},
     alternateRowStyles:{fillColor:[243,248,244]},
-    didParseCell:d=>{if(d.section==='body'&&d.column.index===1){const r=rows[d.row.index],k=r&&klasseVan(r);
+    didParseCell:d=>{if(d.section==='body'&&d.column.index!==1){const r=rows[d.row.index];
+      if(r&&r.label&&!r.label.fout&&datumNum(r.label.registratiedatum)&&datumNum(r.label.registratiedatum)<20210101){d.cell.styles.fillColor=[251,220,220]}}
+      if(d.section==='body'&&d.column.index===1){const r=rows[d.row.index],k=r&&klasseVan(r);
       if(k&&KLEUR[k]){d.cell.styles.fillColor=HEX(KLEUR[k]);d.cell.styles.textColor=/^(C|D|E)$/.test(k)?[29,42,34]:[255,255,255];d.cell.styles.fontStyle='bold'}}}});
   const y2=doc.lastAutoTable.finalY+6;
   doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(90,110,100);
