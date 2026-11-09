@@ -2873,9 +2873,9 @@ async function complex(items,naam){
   $('bz-verw').innerHTML='';render(true);voortgang(0,S.rij.length);status(`${S.rij.length} adressen in het complex. Labels opzoeken in EP-Online…`);
   await labels(S.rij,tok);if(tok!==S.tok)return;
   voortgang(0,0);
-  S.rij.forEach(r=>{if(r.label&&!r.label.fout)S.sel.add(r.weergave)});
-  const fouten=S.rij.filter(x=>x.label&&x.label.fout).length;
-  status(`${naam}: ${S.rij.length} adressen, ${S.sel.size} met een geregistreerd label (geselecteerd).`+(fouten?` ${fouten} adres(sen) mislukt — klik "Opnieuw".`:''),fouten?'err':'ok');
+  S.rij.forEach(r=>S.sel.add(r.weergave));
+  const fouten=S.rij.filter(x=>x.label&&x.label.fout).length, met=S.rij.filter(x=>x.label&&!x.label.fout).length;
+  status(`${naam}: ${S.rij.length} adressen (alle geselecteerd), ${met} met een geregistreerd label.`+(fouten?` ${fouten} adres(sen) mislukt — klik "Opnieuw".`:''),fouten?'err':'ok');
   $('bz-opnieuw').hidden=!fouten;render();
 }
 return{complex,toon(){const b=voorstel();if(S.map)setTimeout(()=>S.map.invalidateSize(),30);
