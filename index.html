@@ -1868,6 +1868,10 @@ function labelHtml(p,res){
     l.ag!=null&&`Ag ${fmt(l.ag,1)} m²`,l.energieindex!=null&&`EI ${fmt(l.energieindex,2)}`,l.berekening&&esc(l.berekening),l.certificaathouder&&esc(l.certificaathouder),l.ingetrokken&&'<b style="color:#c0392b">ingetrokken</b>'].filter(Boolean).join(' · ');
   return`${kop}<button class="actie licht bag-buurtknop" type="button" onclick="window.kiesTab&&kiesTab('buurt')">🏘️ Labels in de buurt</button><span class="bag-lklasse" style="background:${kc};color:${donker?'#1d2a22':'#fff'}">${esc(kl)}</span><span>${det}</span>`;
 }
+function complexLabels(b){
+  const items=b.vbos.map(v=>{const p=v.p;return{adres:adrTxt(p),postcode:p.postcode||'',plaats:p.woonplaatsnaam||'',straat:p.openbare_ruimte||'',hnr:+p.huisnummer||0,toev:(p.huisletter||'')+(p.toevoeging||''),q:vboZoek(p),vbo:String(p.identificatie||'').replace('NL.IMBAG.Verblijfsobject.','')}});
+  if(window.BUURT&&BUURT.complex) BUURT.complex(items,'complex '+(b.adressen&&b.adressen[0]?b.adressen[0]:'pand')+(b.vbos.length>1?' e.o.':''));
+}
 /* keuzelijst van alle woningen/verblijfsobjecten in het pand + bestaand energielabel */
 function renderVbo(b){
   const el=$('bag-vbo');if(!el)return;
@@ -1875,9 +1879,10 @@ function renderVbo(b){
   const lijst=[...b.vbos].sort(vboSort),cur=vboOf(b);
   const k=cur&&(cur.identificatie||vboZoek(cur)),c=k&&labelCache[k],res=c&&!c.then?c:null;
   el.innerHTML=(lijst.length>1?`<label class="bag-vbosel">Woning in dit pand (${lijst.length})
-      <select id="bag-vbosel">${lijst.map(v=>{const lv=labelVan(v.p);return`<option value="${esc(v.p.identificatie||'')}"${cur&&v.p===cur?' selected':''}>${esc(adrTxt(v.p))}${v.p.oppervlakte?' · '+v.p.oppervlakte+' m²':''}${v.p.gebruiksdoel&&v.p.gebruiksdoel!=='woonfunctie'?' · '+esc(v.p.gebruiksdoel):''}${lv?' · label '+esc(lv.klasse):''}</option>`}).join('')}</select></label>`:'')+
+      <select id="bag-vbosel">${lijst.map(v=>{const lv=labelVan(v.p);return`<option value="${esc(v.p.identificatie||'')}"${cur&&v.p===cur?' selected':''}>${esc(adrTxt(v.p))}${v.p.oppervlakte?' · '+v.p.oppervlakte+' m²':''}${v.p.gebruiksdoel&&v.p.gebruiksdoel!=='woonfunctie'?' · '+esc(v.p.gebruiksdoel):''}${lv?' · label '+esc(lv.klasse):''}</option>`}).join('')}</select></label><button type="button" class="actie licht" id="bag-cplx" title="Zoek alle verblijfsobjecten in dit pand op in de labels-tab en selecteer de labels">🏘️ Labels van dit complex</button>`:'')+
     (cur?`<div class="bag-label" id="bag-label">${labelHtml(cur,res)}</div>`:'')+
     (cur&&cur.postcode&&verwCache[cur.postcode]?window.VERW.html(verwCache[cur.postcode]):'');
+  const cx=$('bag-cplx');if(cx)cx.onclick=()=>complexLabels(b);
   const s=$('bag-vbosel');if(s)s.onchange=()=>{const v=b.vbos.find(x=>x.p.identificatie===s.value);if(!v)return;S.vboId=s.value;S.addr=vboAdres(v.p);
     $('bag-q').value=S.addr;try{window.bagAdresGekozen&&window.bagAdresGekozen(S.addr)}catch(e){}renderPand();renderOpp();renderRaming();changed()};
   const cp=$('bag-epcopy');if(cp)cp.onclick=async()=>{const t=vboZoek(cur);try{await navigator.clipboard.writeText(t);cp.textContent='Gekopieerd: '+t}catch(e){cp.textContent=t}setTimeout(()=>{if($('bag-epcopy'))$('bag-epcopy').textContent='Kopieer postcode + huisnr'},2500)};
@@ -2856,7 +2861,24 @@ function bind(){
   try{const q=localStorage.getItem('ee_bz_q');if(q)$('bz-q').value=q}catch(e){}
 }
 bind();
-return{toon(){const b=voorstel();if(S.map)setTimeout(()=>S.map.invalidateSize(),30);
+async function complex(items,naam){
+  if(!api()){status('Label-server niet ingesteld (zie ⚙️ bij Bestaand energielabel in de pand analyse).','err');return}
+  if(window.kiesTab)kiesTab('buurt');
+  const tok=++S.tok;S.gebied=naam;S.filter=null;S.minHern=null;S.sel.clear();S.vol=[];
+  const gezien=new Set();
+  S.rij=items.filter(x=>{const k=x.vbo||x.adres;if(gezien.has(k))return false;gezien.add(k);return true})
+    .map(x=>({adres:x.adres,weergave:`${x.adres}, ${x.postcode} ${x.plaats}`.trim(),postcode:x.postcode,plaats:x.plaats,straat:x.straat,hnr:x.hnr,toev:x.toev,q:x.q,vbo:x.vbo,ll:null,afstand:null,label:undefined}))
+    .sort((a,b)=>a.straat.localeCompare(b.straat,'nl')||a.hnr-b.hnr||a.toev.localeCompare(b.toev,'nl',{numeric:true}));
+  $('bz-q').value='Complex: '+naam;$('bz-q').dataset.q='';
+  $('bz-verw').innerHTML='';render(true);voortgang(0,S.rij.length);status(`${S.rij.length} adressen in het complex. Labels opzoeken in EP-Online…`);
+  await labels(S.rij,tok);if(tok!==S.tok)return;
+  voortgang(0,0);
+  S.rij.forEach(r=>{if(r.label&&!r.label.fout)S.sel.add(r.weergave)});
+  const fouten=S.rij.filter(x=>x.label&&x.label.fout).length;
+  status(`${naam}: ${S.rij.length} adressen, ${S.sel.size} met een geregistreerd label (geselecteerd).`+(fouten?` ${fouten} adres(sen) mislukt — klik "Opnieuw".`:''),fouten?'err':'ok');
+  $('bz-opnieuw').hidden=!fouten;render();
+}
+return{complex,toon(){const b=voorstel();if(S.map)setTimeout(()=>S.map.invalidateSize(),30);
   /* automatisch de labels rond het adres van de pand analyse zoeken (één keer per adres) */
   if(b&&b.ll&&b.adres&&S.auto!==b.adres){S.auto=b.adres;zoek(rondQ(b,150))}},zoek};
 })();
