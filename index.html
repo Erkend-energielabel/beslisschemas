@@ -2654,6 +2654,7 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const fmt=(v,d=1)=>v==null||isNaN(v)?'–':Number(v).toLocaleString('nl-NL',{minimumFractionDigits:d,maximumFractionDigits:d});
 const api=()=>window.BAG&&BAG.labelApi?BAG.labelApi():'';
 const S={rij:[],filter:null,sort:'adres',asc:true,tok:0,gebied:'',map:null,laag:null,sel:new Set(),vol:[]};
+const regNum=d=>{const a=/(\d{4})-(\d{1,2})-(\d{1,2})/.exec(d||'');if(a)return +(a[1]+a[2].padStart(2,'0')+a[3].padStart(2,'0'));const b=/(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/.exec(d||'');return b?+(b[3]+b[2].padStart(2,'0')+b[1].padStart(2,'0')):0};
 const datumNum=d=>{const m=/(\d{2})-(\d{2})-(\d{4})/.exec(d||'');return m?+(m[3]+m[2]+m[1]):0};
 const verlopen=l=>l&&l.geldigTot&&datumNum(l.geldigTot)<+new Date().toISOString().slice(0,10).replace(/-/g,'');
 const klasseVan=r=>r.label&&r.label.klasse?String(r.label.klasse).toUpperCase():null;
@@ -2837,7 +2838,7 @@ function bzPdf(){
     headStyles:{fillColor:HEX('#0B3D2E'),textColor:255,fontStyle:'bold'},
     alternateRowStyles:{fillColor:[243,248,244]},
     didParseCell:d=>{if(d.section==='body'&&d.column.index!==1){const r=rows[d.row.index];
-      if(r&&r.label&&!r.label.fout&&datumNum(r.label.registratiedatum)&&datumNum(r.label.registratiedatum)<20210101){d.cell.styles.fillColor=[251,220,220]}}
+      if(r&&r.label&&!r.label.fout&&regNum(r.label.registratiedatum)&&regNum(r.label.registratiedatum)<20210101){d.cell.styles.fillColor=[251,220,220]}}
       if(d.section==='body'&&d.column.index===1){const r=rows[d.row.index],k=r&&klasseVan(r);
       if(k&&KLEUR[k]){d.cell.styles.fillColor=HEX(KLEUR[k]);d.cell.styles.textColor=/^(C|D|E)$/.test(k)?[29,42,34]:[255,255,255];d.cell.styles.fontStyle='bold'}}}});
   const y2=doc.lastAutoTable.finalY+6;
