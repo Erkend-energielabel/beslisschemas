@@ -455,6 +455,9 @@ body.tab-bag .wrap{max-width:1180px}
 #bag .off-vink{display:flex;flex-wrap:wrap;gap:6px 16px;margin:8px 0;font-size:.82rem}
 #bag .off-sam{background:#eef7ef;border-radius:8px;padding:8px 10px;font-size:.84rem;margin:8px 0}
 #bz .bz-hern-hoog{background:#1e7a3c;color:#fff;border-radius:6px;padding:0 6px;font-weight:700}
+
+#bz .bz-selk{width:34px;text-align:center}
+#bz .bz-selk input{width:18px;height:18px;cursor:pointer}
 #vbs{
   --bg:#F2F4F3; --surface:#FFFFFF; --ink:#18232A; --muted:#5A6870; --line:#D5DCDE; --soft:#E9EEEE;
   --accent:#5B2D86; --accent-ink:#FFFFFF; --accent-soft:#EFE8F6;
@@ -901,7 +904,7 @@ body.tab-bag .wrap{max-width:1180px}
         <div class="bz-status" id="bz-status" hidden></div>
         <div id="bz-sam"></div>
         <div id="bz-verw" class="bz-verw"></div>
-        <div class="acties" id="bz-acties" hidden><button class="actie licht" type="button" id="bz-csv">⬇️ Download CSV (Excel)</button><button class="actie licht" type="button" id="bz-opnieuw" hidden>↻ Opnieuw (mislukte)</button></div>
+        <div class="acties" id="bz-acties" hidden><button class="actie" type="button" id="bz-pdf" disabled>📄 PDF van selectie (<span id="bz-pdfn">0</span>)</button><button class="actie licht" type="button" id="bz-csv">⬇️ Download CSV (Excel)</button><button class="actie licht" type="button" id="bz-opnieuw" hidden>↻ Opnieuw (mislukte)</button></div>
       </div>
       <div class="kaart bz-kaartblok"><div id="bz-kaart" hidden></div></div>
       <div class="kaart"><div id="bz-tabel"><p class="klein">Nog niets gezocht.</p></div></div>
@@ -2650,7 +2653,7 @@ const GEEN='#b8c2bc';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=(v,d=1)=>v==null||isNaN(v)?'–':Number(v).toLocaleString('nl-NL',{minimumFractionDigits:d,maximumFractionDigits:d});
 const api=()=>window.BAG&&BAG.labelApi?BAG.labelApi():'';
-const S={rij:[],filter:null,sort:'adres',asc:true,tok:0,gebied:'',map:null,laag:null};
+const S={rij:[],filter:null,sort:'adres',asc:true,tok:0,gebied:'',map:null,laag:null,sel:new Set(),vol:[]};
 const datumNum=d=>{const m=/(\d{2})-(\d{2})-(\d{4})/.exec(d||'');return m?+(m[3]+m[2]+m[1]):0};
 const verlopen=l=>l&&l.geldigTot&&datumNum(l.geldigTot)<+new Date().toISOString().slice(0,10).replace(/-/g,'');
 const klasseVan=r=>r.label&&r.label.klasse?String(r.label.klasse).toUpperCase():null;
@@ -2718,7 +2721,7 @@ async function labels(lijst,tok){
 async function zoek(invoer,weergave){
   invoer=(invoer||$('bz-q').value).trim();if(!invoer)return;if(/^rond:/.test(invoer)&&!weergave)weergave=invoer.split('|')[1];
   if(!api()){status('Label-server niet ingesteld (zie ⚙️ bij Bestaand energielabel in de pand analyse).','err');return}
-  const tok=++S.tok;$('bz-q').value=weergave?('Rond '+weergave):invoer;$('bz-q').dataset.q=invoer;S.filter=null;S.rij=[];$('bz-verw').innerHTML='';render();voortgang(0,0);status('Adressen ophalen…');
+  const tok=++S.tok;$('bz-q').value=weergave?('Rond '+weergave):invoer;$('bz-q').dataset.q=invoer;S.filter=null;S.rij=[];S.sel.clear();S.vol=[];$('bz-verw').innerHTML='';render();voortgang(0,0);status('Adressen ophalen…');
   try{if(!/^rond:/.test(invoer))localStorage.setItem('ee_bz_q',invoer)}catch(e){}
   let r;try{r=await adressen(invoer)}catch(e){if(tok===S.tok)status(e.message||String(e),'err');return}
   if(tok!==S.tok)return;
@@ -2749,14 +2752,17 @@ function render(fit){
   const hi=$('bz-hern');if(hi)hi.onchange=()=>{S.minHern=+hi.value||null;render()};
   const zicht=rij.filter(r=>(!S.filter||(S.filter==='geen'?r.label===null:S.filter==='verlopen'?r.label&&!r.label.fout&&verlopen(r.label):klasseVan(r)===S.filter))&&(!S.minHern||(r.label&&r.label.hernieuwbaar!=null&&r.label.hernieuwbaar>=S.minHern)));
   const sleutel={adres:r=>r.straat+' '+String(r.hnr).padStart(6,'0')+r.toev,label:r=>{const k=klasseVan(r);return k?KLASSEN.indexOf(k):99},geldig:r=>datumNum(r.label&&r.label.geldigTot),reg:r=>datumNum(r.label&&r.label.registratiedatum),ep2:r=>r.label&&r.label.ep2!=null?r.label.ep2:1e9,cert:r=>(r.label&&r.label.certificaathouder)||'~',hern:r=>r.label&&r.label.hernieuwbaar!=null?r.label.hernieuwbaar:-1};
-  const f=sleutel[S.sort]||sleutel.adres;zicht.sort((a,b)=>{const x=f(a),y=f(b);return(x<y?-1:x>y?1:0)*(S.asc?1:-1)});
+  const f=sleutel[S.sort]||sleutel.adres;zicht.sort((a,b)=>{const x=f(a),y=f(b);return(x<y?-1:x>y?1:0)*(S.asc?1:-1)});S.vol=zicht;
   const kop=(k,t)=>`<th data-s="${k}" class="${S.sort===k?(S.asc?'op':'af'):''}">${t}</th>`;
-  $('bz-tabel').innerHTML=!rij.length?'':`<table><thead><tr>${kop('adres','Adres')}${kop('label','Label')}${kop('geldig','Geldig tot')}${kop('reg','Geregistreerd')}${kop('ep2','EP2')}${kop('hern','Hernieuwbaar')}${kop('cert','Certificaathouder')}</tr></thead><tbody>
+  $('bz-tabel').innerHTML=!rij.length?'':`<table><thead><tr><th class="bz-selk"><input type="checkbox" id="bz-selall" title="Alle zichtbare selecteren"></th>${kop('adres','Adres')}${kop('label','Label')}${kop('geldig','Geldig tot')}${kop('reg','Geregistreerd')}${kop('ep2','EP2')}${kop('hern','Hernieuwbaar')}${kop('cert','Certificaathouder')}</tr></thead><tbody>
     ${zicht.map(r=>{const l=r.label,k=klasseVan(r);
       const lab=l===undefined?'<span class="bz-bezig">…</span>':l&&l.fout?'<span class="bz-fout" title="'+esc(l.fout)+'">fout</span>':!l?'<span class="bz-geen">geen</span>':`<span class="bz-kl" style="background:${KLEUR[k]||'#6b7a73'};color:${/^(C|D|E)$/.test(k)?'#1d2a22':'#fff'}">${esc(k)}</span>${l.ingetrokken?' <small>ingetrokken</small>':''}`;
-      return`<tr data-a="${esc(r.weergave)}"><td><b>${esc(r.adres)}</b><small>${esc(r.postcode)}${r.afstand!=null?' · '+r.afstand+' m':''}</small></td><td>${lab}</td><td>${l&&!l.fout&&l.geldigTot?esc(l.geldigTot)+(verlopen(l)?' <span class="bz-verl">verlopen</span>':''):''}</td><td>${l&&!l.fout&&l.registratiedatum?esc(l.registratiedatum):''}</td><td>${l&&!l.fout&&l.ep2!=null?fmt(l.ep2,1):''}</td><td>${l&&!l.fout&&l.hernieuwbaar!=null?`<span class="${l.hernieuwbaar>=30?'bz-hern-hoog':''}">${fmt(l.hernieuwbaar,0)}%</span>`:''}</td><td class="bz-cert">${l&&!l.fout?esc(l.certificaathouder||''):''}</td></tr>`}).join('')}</tbody></table>`;
+      return`<tr data-a="${esc(r.weergave)}"><td class="bz-selk"><input type="checkbox" class="bz-sel" data-k="${esc(r.weergave)}"${S.sel.has(r.weergave)?" checked":""}></td><td><b>${esc(r.adres)}</b><small>${esc(r.postcode)}${r.afstand!=null?' · '+r.afstand+' m':''}</small></td><td>${lab}</td><td>${l&&!l.fout&&l.geldigTot?esc(l.geldigTot)+(verlopen(l)?' <span class="bz-verl">verlopen</span>':''):''}</td><td>${l&&!l.fout&&l.registratiedatum?esc(l.registratiedatum):''}</td><td>${l&&!l.fout&&l.ep2!=null?fmt(l.ep2,1):''}</td><td>${l&&!l.fout&&l.hernieuwbaar!=null?`<span class="${l.hernieuwbaar>=30?'bz-hern-hoog':''}">${fmt(l.hernieuwbaar,0)}%</span>`:''}</td><td class="bz-cert">${l&&!l.fout?esc(l.certificaathouder||''):''}</td></tr>`}).join('')}</tbody></table>`;
   $('bz-tabel').querySelectorAll('th[data-s]').forEach(th=>th.onclick=()=>{if(S.sort===th.dataset.s)S.asc=!S.asc;else{S.sort=th.dataset.s;S.asc=true}render()});
-  $('bz-tabel').querySelectorAll('tr[data-a]').forEach(tr=>tr.onclick=()=>openPand(tr.dataset.a));
+  $('bz-tabel').querySelectorAll('tr[data-a]').forEach(tr=>tr.onclick=e=>{if(e.target.closest('.bz-selk'))return;openPand(tr.dataset.a)});
+  $('bz-tabel').querySelectorAll('.bz-sel').forEach(c=>c.onchange=()=>{c.checked?S.sel.add(c.dataset.k):S.sel.delete(c.dataset.k);bzSelUi()});
+  const sa=$('bz-selall');if(sa)sa.onchange=()=>{const aan=sa.checked;S.vol.forEach(r=>aan?S.sel.add(r.weergave):S.sel.delete(r.weergave));render()};
+  bzSelUi();
   $('bz-acties').hidden=!rij.length;
   kaart(zicht,fit);
 }
@@ -2801,12 +2807,45 @@ function voorstel(){
   el.querySelectorAll('[data-q]').forEach(k=>k.onclick=()=>zoek(k.dataset.q));
   return b;
 }
+function bzSelUi(){
+  const b=$('bz-pdf');if(b){b.disabled=!S.sel.size;$('bz-pdfn').textContent=S.sel.size}
+  const sa=$('bz-selall');if(sa){const v=S.vol.filter(r=>S.sel.has(r.weergave)).length;sa.checked=!!S.vol.length&&v===S.vol.length;sa.indeterminate=v>0&&v<S.vol.length}
+}
+function bzPdf(){
+  const st=(t,s)=>status(t,s);
+  if(!window.jspdf){st('PDF-bibliotheek niet geladen (geen internet?).','err');return}
+  const rows=S.rij.filter(r=>S.sel.has(r.weergave));
+  if(!rows.length){st('Selecteer eerst een of meer adressen.','err');return}
+  const {jsPDF}=window.jspdf, doc=new jsPDF({unit:'mm',format:'a4'});
+  const t=x=>pdfTekst(String(x??''));
+  let y=pdfKop(doc,'Energielabels – selectie',`${S.gebied||'Zoekresultaat'} · ${rows.length} adres${rows.length>1?'sen':''}`);
+  const body=rows.map(r=>{const l=r.label,k=klasseVan(r),ok=l&&!l.fout;
+    return[t(r.adres+(r.postcode?' · '+r.postcode:'')),
+      l===undefined?'…':l&&l.fout?'fout':!l?'geen':t((k||'')+(l.ingetrokken?' (ingetrokken)':'')),
+      ok&&l.geldigTot?t(l.geldigTot+(verlopen(l)?' (verlopen)':'')):'',
+      ok&&l.registratiedatum?t(l.registratiedatum):'',
+      ok&&l.ep2!=null?fmt(l.ep2,1):'',
+      ok&&l.hernieuwbaar!=null?fmt(l.hernieuwbaar,0)+'%':'',
+      ok?t(l.certificaathouder||''):''];});
+  doc.autoTable({startY:y,margin:{left:PM,right:PM,bottom:24},theme:'grid',
+    head:[['Adres','Label','Geldig tot','Geregistreerd','EP2','Hernieuwbaar','Certificaathouder']],body,
+    styles:{font:'helvetica',fontSize:8.5,cellPadding:1.6,lineColor:[214,226,216],lineWidth:0.2,textColor:[29,42,34]},
+    headStyles:{fillColor:HEX('#0B3D2E'),textColor:255,fontStyle:'bold'},
+    alternateRowStyles:{fillColor:[243,248,244]},
+    didParseCell:d=>{if(d.section==='body'&&d.column.index===1){const r=rows[d.row.index],k=r&&klasseVan(r);
+      if(k&&KLEUR[k]){d.cell.styles.fillColor=HEX(KLEUR[k]);d.cell.styles.textColor=/^(C|D|E)$/.test(k)?[29,42,34]:[255,255,255];d.cell.styles.fontStyle='bold'}}}});
+  const y2=doc.lastAutoTable.finalY+6;
+  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(90,110,100);
+  doc.text(t('Bron: EP-Online (energielabels) en BAG. Gegevens zoals geregistreerd; controleer geldigheid en ingetrokken labels.'),PM,y2,{maxWidth:PBR});
+  const dd=new Date().toISOString().slice(0,10);
+  doc.save(`Energielabels selectie ${(S.gebied||'zoekresultaat').replace(/[\\/:*?"<>|]/g,'')} - ${dd}.pdf`.replace(/\s+/g,' '));
+}
 function bind(){
   const vrij=()=>{const v=$('bz-q').value.trim();return /^Rond /.test(v)&&$('bz-q').dataset.q?$('bz-q').dataset.q:v};
   $('bz-go').onclick=()=>zoek(vrij());
   $('bz-q').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();zoek(vrij())}});
   $('bz-q').addEventListener('input',()=>{delete $('bz-q').dataset.q});
-  $('bz-csv').onclick=csv;$('bz-opnieuw').onclick=opnieuw;
+  $('bz-csv').onclick=csv;$('bz-pdf').onclick=bzPdf;$('bz-opnieuw').onclick=opnieuw;
   try{const q=localStorage.getItem('ee_bz_q');if(q)$('bz-q').value=q}catch(e){}
 }
 bind();
