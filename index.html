@@ -2853,7 +2853,7 @@ function bzPdf(){
   doc.text(t('Bron: EP-Online (energielabels) en BAG. Gegevens zoals geregistreerd; controleer geldigheid en ingetrokken labels.'),PM,y2,{maxWidth:PBR});
   const dd=new Date().toISOString().slice(0,10);
   const np=doc.internal.getNumberOfPages();
-  for(let i=1;i<=np;i++){doc.setPage(i);try{doc.saveGraphicsState();doc.setGState(new doc.GState({opacity:0.16}));doc.addImage(STEMPEL_IMG,'JPEG',(210-150)/2,(297-150*484/531)/2,150,150*484/531);doc.restoreGraphicsState()}catch(e){}}
+  for(let i=1;i<=np;i++){doc.setPage(i);try{doc.saveGraphicsState();doc.setGState(new doc.GState({opacity:0.16}));doc.addImage(STEMPEL_IMG,'JPEG',35,(297-200*484/531)/2,200,200*484/531);doc.restoreGraphicsState()}catch(e){}}
   doc.save(`Energielabels selectie ${(S.gebied||'zoekresultaat').replace(/[\\/:*?"<>|]/g,'')} - ${dd}.pdf`.replace(/\s+/g,' '));
 }
 function bind(){
