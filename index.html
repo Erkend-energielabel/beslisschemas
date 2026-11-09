@@ -2660,6 +2660,8 @@ const fmt=(v,d=1)=>v==null||isNaN(v)?'–':Number(v).toLocaleString('nl-NL',{min
 const api=()=>window.BAG&&BAG.labelApi?BAG.labelApi():'';
 const S={rij:[],filter:null,sort:'adres',asc:true,tok:0,gebied:'',map:null,laag:null,sel:new Set(),vol:[]};
 const regNum=d=>{const a=/(\d{4})-(\d{1,2})-(\d{1,2})/.exec(d||'');if(a)return +(a[1]+a[2].padStart(2,'0')+a[3].padStart(2,'0'));const b=/(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/.exec(d||'');return b?+(b[3]+b[2].padStart(2,'0')+b[1].padStart(2,'0')):0};
+const BENG_G=[380,335,290,250,190,160,105,75,50,30,0],BENG_K=['F','E','D','C','B','A','A+','A++','A+++','A++++'];
+function bengBand(v){if(v==null||isNaN(v))return'';if(v>=BENG_G[0])return'G (≥380)';for(let i=0;i<BENG_K.length;i++){if(v>=BENG_G[i+1])return BENG_K[i]+' ('+BENG_G[i+1]+'–'+BENG_G[i]+')'}return'A++++ (0–30)'}
 const datumNum=d=>{const m=/(\d{2})-(\d{2})-(\d{4})/.exec(d||'');return m?+(m[3]+m[2]+m[1]):0};
 const verlopen=l=>l&&l.geldigTot&&datumNum(l.geldigTot)<+new Date().toISOString().slice(0,10).replace(/-/g,'');
 const klasseVan=r=>r.label&&r.label.klasse?String(r.label.klasse).toUpperCase():null;
@@ -2763,7 +2765,7 @@ function render(fit){
   $('bz-tabel').innerHTML=!rij.length?'':`<table><thead><tr><th class="bz-selk"><input type="checkbox" id="bz-selall" title="Alle zichtbare selecteren"></th>${kop('adres','Adres')}${kop('label','Label')}${kop('ag','Ag (m²)')}${kop('ligging','Ligging')}${kop('geldig','Geldig tot')}${kop('reg','Geregistreerd')}${kop('ep2','EP2')}${kop('emg','Prim. fossiel EMG')}${kop('hern','Hernieuwbaar')}${kop('cert','Certificaathouder')}</tr></thead><tbody>
     ${zicht.map(r=>{const l=r.label,k=klasseVan(r);
       const lab=l===undefined?'<span class="bz-bezig">…</span>':l&&l.fout?'<span class="bz-fout" title="'+esc(l.fout)+'">fout</span>':!l?'<span class="bz-geen">geen</span>':`<span class="bz-kl" style="background:${KLEUR[k]||'#6b7a73'};color:${/^(C|D|E)$/.test(k)?'#1d2a22':'#fff'}">${esc(k)}</span>${l.ingetrokken?' <small>ingetrokken</small>':''}`;
-      return`<tr data-a="${esc(r.weergave)}"><td class="bz-selk"><input type="checkbox" class="bz-sel" data-k="${esc(r.weergave)}"${S.sel.has(r.weergave)?" checked":""}></td><td><b>${esc(r.adres)}</b><small>${esc(r.postcode)}${r.afstand!=null?' · '+r.afstand+' m':''}${l&&!l.fout&&l.pand?' · pand '+esc(String(l.pand).replace('NL.IMBAG.Pand.','')):''}</small></td><td>${lab}</td><td>${l&&!l.fout&&l.ag!=null?fmt(l.ag,1):''}</td><td>${l&&!l.fout&&l.gebouwtype?esc(l.gebouwtype):''}</td><td>${l&&!l.fout&&l.geldigTot?esc(l.geldigTot)+(verlopen(l)?' <span class="bz-verl">verlopen</span>':''):''}</td><td>${l&&!l.fout&&l.registratiedatum?esc(l.registratiedatum):''}</td><td>${l&&!l.fout&&l.ep2!=null?fmt(l.ep2,1):''}</td><td>${l&&!l.fout&&l.emg!=null?fmt(l.emg,1):''}</td><td>${l&&!l.fout&&l.hernieuwbaar!=null?`<span class="${l.hernieuwbaar>=30?'bz-hern-hoog':''}">${fmt(l.hernieuwbaar,0)}%</span>`:''}</td><td class="bz-cert">${l&&!l.fout?esc(l.certificaathouder||''):''}</td></tr>`}).join('')}</tbody></table>`;
+      return`<tr data-a="${esc(r.weergave)}"><td class="bz-selk"><input type="checkbox" class="bz-sel" data-k="${esc(r.weergave)}"${S.sel.has(r.weergave)?" checked":""}></td><td><b>${esc(r.adres)}</b><small>${esc(r.postcode)}${r.afstand!=null?' · '+r.afstand+' m':''}${l&&!l.fout&&l.pand?' · pand '+esc(String(l.pand).replace('NL.IMBAG.Pand.','')):''}</small></td><td>${lab}</td><td>${l&&!l.fout&&l.ag!=null?fmt(l.ag,1):''}</td><td>${l&&!l.fout&&l.gebouwtype?esc(l.gebouwtype):''}</td><td>${l&&!l.fout&&l.geldigTot?esc(l.geldigTot)+(verlopen(l)?' <span class="bz-verl">verlopen</span>':''):''}</td><td>${l&&!l.fout&&l.registratiedatum?esc(l.registratiedatum):''}</td><td>${l&&!l.fout&&l.ep2!=null?fmt(l.ep2,1):''}</td><td>${l&&!l.fout&&l.emg!=null?fmt(l.emg,1)+'<br><small>'+bengBand(l.emg)+'</small>':''}</td><td>${l&&!l.fout&&l.hernieuwbaar!=null?`<span class="${l.hernieuwbaar>=30?'bz-hern-hoog':''}">${fmt(l.hernieuwbaar,0)}%</span>`:''}</td><td class="bz-cert">${l&&!l.fout?esc(l.certificaathouder||''):''}</td></tr>`}).join('')}</tbody></table>`;
   $('bz-tabel').querySelectorAll('th[data-s]').forEach(th=>th.onclick=()=>{if(S.sort===th.dataset.s)S.asc=!S.asc;else{S.sort=th.dataset.s;S.asc=true}render()});
   $('bz-tabel').querySelectorAll('tr[data-a]').forEach(tr=>tr.onclick=e=>{if(e.target.closest('.bz-selk'))return;openPand(tr.dataset.a)});
   $('bz-tabel').querySelectorAll('.bz-sel').forEach(c=>c.onchange=()=>{c.checked?S.sel.add(c.dataset.k):S.sel.delete(c.dataset.k);bzSelUi()});
@@ -2834,7 +2836,7 @@ function bzPdf(){
       ok&&l.geldigTot?t(l.geldigTot+(verlopen(l)?' (verlopen)':'')):'',
       ok&&l.registratiedatum?t(l.registratiedatum):'',
       ok&&l.ep2!=null?fmt(l.ep2,1):'',
-      ok&&l.emg!=null?fmt(l.emg,1):'',
+      ok&&l.emg!=null?fmt(l.emg,1)+' · '+bengBand(l.emg):'',
       ok&&l.hernieuwbaar!=null?fmt(l.hernieuwbaar,0)+'%':'',
       ok?t(l.certificaathouder||''):''];});
   doc.autoTable({startY:y,margin:{left:PM,right:PM,bottom:24},theme:'grid',

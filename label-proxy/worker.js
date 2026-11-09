@@ -104,7 +104,7 @@ function parseSite(html) {
       ag: getal('Gebr. opp. thermische zone'),
       energiebehoefte: getal('Energiebehoefte'), ep2: getal('Prim. fossiel energiegebruik'),
       hernieuwbaar: getal('Aandeel hernieuwbare energie'), warmtebehoefte: getal('Warmtebehoefte'),
-      emg: getal('Prim. fossiel energiegebruik EMG'),
+      emg: getal('Prim. fossiel energiegebruik EMG forf.') ?? getal('Prim. fossiel energiegebruik EMG'),
       gebouwtype: leeg(v['Ligging']) || leeg(v['Woningtype']) || leeg(v['Gebouwtype']) || leeg(v['Type woning']) || null,
       energieindex: getal('Energie-index') ?? getal('Energieindex')
     };
