@@ -176,6 +176,24 @@ async function pasFoto(ev, id) {
     render();
   } catch (e) { alert("Foto kon niet worden verwerkt. Het origineel is niet veranderd."); }
 }
+/* Foto van het rijbewijs: alleen op dit toestel (localStorage), niet in de gedeelde status op OneDrive */
+const rijbewijsFoto = id => localStorage.getItem("fa_rb_" + id) || "";
+async function rijbewijsKies(ev, id) {
+  const f = ev.target.files[0];
+  ev.target.value = "";
+  if (!f) return;
+  try {
+    const blob = await comprimeer(f);
+    const url = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
+    localStorage.setItem("fa_rb_" + id, url);
+    render();
+  } catch (e) { alert("Foto kon niet worden opgeslagen. Probeer een kleinere foto of verwijder eerst een andere."); }
+}
+function rijbewijsWis(id) {
+  if (!confirm("Foto van het rijbewijs verwijderen van dit toestel?")) return;
+  localStorage.removeItem("fa_rb_" + id);
+  render();
+}
 function vPasGroot(p) {
   const logoSrc = (document.querySelector(".logo img") || {}).src || "";
   return `<div class="pas pas-groot">
@@ -186,6 +204,7 @@ function vPasGroot(p) {
     </div>
     <div class="pas-voet">Bedrijfspasje · geen officieel identiteitsbewijs</div>
   </div>
+  ${rijbewijsFoto(p.id) ? `<div class="kaart" style="margin-top:12px"><div class="klein-tekst">Rijbewijs</div><img src="${rijbewijsFoto(p.id)}" alt="Rijbewijs" style="width:100%;border-radius:8px"></div>` : ""}
   `;
 }
 function vPasjes() {
@@ -203,6 +222,9 @@ function vPasjes() {
     <div class="pas-blok">
     <label class="klein sec" style="display:block;text-align:center;cursor:pointer">📷 Foto kiezen
       <input type="file" accept="image/*" hidden onchange="pasFoto(event,'${p.id}')"></label>
+    <label class="klein sec" style="display:block;text-align:center;cursor:pointer">🪪 Foto rijbewijs kiezen
+      <input type="file" accept="image/*" hidden onchange="rijbewijsKies(event,'${p.id}')"></label>
+    ${rijbewijsFoto(p.id) ? `<button class="klein sec" style="width:auto;margin-bottom:6px" onclick="rijbewijsWis('${p.id}')">Rijbewijs-foto verwijderen</button>` : ""}
     <button class="klein sec" style="width:auto;margin-bottom:6px" onclick="go({s:'pas',p:'${p.id}'})">🪪 Toon groot (aan bewoner)</button>
     <input value="${esc(p.naam)}" placeholder="Naam" onchange="pasWijzig('${p.id}','naam',this.value)">
     <input value="${esc(p.functie)}" placeholder="Functie" onchange="pasWijzig('${p.id}','functie',this.value)" style="margin-top:6px">
