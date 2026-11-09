@@ -2827,7 +2827,7 @@ function bzPdf(){
   const {jsPDF}=window.jspdf, doc=new jsPDF({unit:'mm',format:'a4'});
   const t=x=>pdfTekst(String(x??''));
   let y=pdfKop(doc,'Energielabels – selectie',`${S.gebied||'Zoekresultaat'} · ${rows.length} adres${rows.length>1?'sen':''}`);
-  const bh=PBR*0.8*332/800; doc.addImage(BENG_IMG,'JPEG',PM,y,PBR*0.8,bh); y+=bh+5;
+  const bh=PBR*332/800; doc.addImage(BENG_IMG,'JPEG',PM,y,PBR,bh); y+=bh+5;
   const body=rows.map(r=>{const l=r.label,k=klasseVan(r),ok=l&&!l.fout;
     return[t(r.adres+(r.postcode?' · '+r.postcode:'')+(ok&&l.pand?' · pand '+String(l.pand).replace('NL.IMBAG.Pand.',''):'')),
       l===undefined?'…':l&&l.fout?'fout':!l?'geen':t((k||'')+(l.ingetrokken?' (ingetrokken)':'')),
