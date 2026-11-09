@@ -2751,13 +2751,13 @@ function render(fit){
   $('bz-sam').querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{S.filter=b.dataset.f||null;render()});
   const hi=$('bz-hern');if(hi)hi.onchange=()=>{S.minHern=+hi.value||null;render()};
   const zicht=rij.filter(r=>(!S.filter||(S.filter==='geen'?r.label===null:S.filter==='verlopen'?r.label&&!r.label.fout&&verlopen(r.label):klasseVan(r)===S.filter))&&(!S.minHern||(r.label&&r.label.hernieuwbaar!=null&&r.label.hernieuwbaar>=S.minHern)));
-  const sleutel={adres:r=>r.straat+' '+String(r.hnr).padStart(6,'0')+r.toev,label:r=>{const k=klasseVan(r);return k?KLASSEN.indexOf(k):99},geldig:r=>datumNum(r.label&&r.label.geldigTot),reg:r=>datumNum(r.label&&r.label.registratiedatum),ep2:r=>r.label&&r.label.ep2!=null?r.label.ep2:1e9,cert:r=>(r.label&&r.label.certificaathouder)||'~',hern:r=>r.label&&r.label.hernieuwbaar!=null?r.label.hernieuwbaar:-1};
+  const sleutel={adres:r=>r.straat+' '+String(r.hnr).padStart(6,'0')+r.toev,label:r=>{const k=klasseVan(r);return k?KLASSEN.indexOf(k):99},geldig:r=>datumNum(r.label&&r.label.geldigTot),reg:r=>datumNum(r.label&&r.label.registratiedatum),ep2:r=>r.label&&r.label.ep2!=null?r.label.ep2:1e9,cert:r=>(r.label&&r.label.certificaathouder)||'~',hern:r=>r.label&&r.label.hernieuwbaar!=null?r.label.hernieuwbaar:-1,ag:r=>r.label&&r.label.ag!=null?r.label.ag:-1};
   const f=sleutel[S.sort]||sleutel.adres;zicht.sort((a,b)=>{const x=f(a),y=f(b);return(x<y?-1:x>y?1:0)*(S.asc?1:-1)});S.vol=zicht;
   const kop=(k,t)=>`<th data-s="${k}" class="${S.sort===k?(S.asc?'op':'af'):''}">${t}</th>`;
-  $('bz-tabel').innerHTML=!rij.length?'':`<table><thead><tr><th class="bz-selk"><input type="checkbox" id="bz-selall" title="Alle zichtbare selecteren"></th>${kop('adres','Adres')}${kop('label','Label')}${kop('geldig','Geldig tot')}${kop('reg','Geregistreerd')}${kop('ep2','EP2')}${kop('hern','Hernieuwbaar')}${kop('cert','Certificaathouder')}</tr></thead><tbody>
+  $('bz-tabel').innerHTML=!rij.length?'':`<table><thead><tr><th class="bz-selk"><input type="checkbox" id="bz-selall" title="Alle zichtbare selecteren"></th>${kop('adres','Adres')}${kop('label','Label')}${kop('ag','Ag (m²)')}${kop('geldig','Geldig tot')}${kop('reg','Geregistreerd')}${kop('ep2','EP2')}${kop('hern','Hernieuwbaar')}${kop('cert','Certificaathouder')}</tr></thead><tbody>
     ${zicht.map(r=>{const l=r.label,k=klasseVan(r);
       const lab=l===undefined?'<span class="bz-bezig">…</span>':l&&l.fout?'<span class="bz-fout" title="'+esc(l.fout)+'">fout</span>':!l?'<span class="bz-geen">geen</span>':`<span class="bz-kl" style="background:${KLEUR[k]||'#6b7a73'};color:${/^(C|D|E)$/.test(k)?'#1d2a22':'#fff'}">${esc(k)}</span>${l.ingetrokken?' <small>ingetrokken</small>':''}`;
-      return`<tr data-a="${esc(r.weergave)}"><td class="bz-selk"><input type="checkbox" class="bz-sel" data-k="${esc(r.weergave)}"${S.sel.has(r.weergave)?" checked":""}></td><td><b>${esc(r.adres)}</b><small>${esc(r.postcode)}${r.afstand!=null?' · '+r.afstand+' m':''}</small></td><td>${lab}</td><td>${l&&!l.fout&&l.geldigTot?esc(l.geldigTot)+(verlopen(l)?' <span class="bz-verl">verlopen</span>':''):''}</td><td>${l&&!l.fout&&l.registratiedatum?esc(l.registratiedatum):''}</td><td>${l&&!l.fout&&l.ep2!=null?fmt(l.ep2,1):''}</td><td>${l&&!l.fout&&l.hernieuwbaar!=null?`<span class="${l.hernieuwbaar>=30?'bz-hern-hoog':''}">${fmt(l.hernieuwbaar,0)}%</span>`:''}</td><td class="bz-cert">${l&&!l.fout?esc(l.certificaathouder||''):''}</td></tr>`}).join('')}</tbody></table>`;
+      return`<tr data-a="${esc(r.weergave)}"><td class="bz-selk"><input type="checkbox" class="bz-sel" data-k="${esc(r.weergave)}"${S.sel.has(r.weergave)?" checked":""}></td><td><b>${esc(r.adres)}</b><small>${esc(r.postcode)}${r.afstand!=null?' · '+r.afstand+' m':''}</small></td><td>${lab}</td><td>${l&&!l.fout&&l.ag!=null?fmt(l.ag,1):''}</td><td>${l&&!l.fout&&l.geldigTot?esc(l.geldigTot)+(verlopen(l)?' <span class="bz-verl">verlopen</span>':''):''}</td><td>${l&&!l.fout&&l.registratiedatum?esc(l.registratiedatum):''}</td><td>${l&&!l.fout&&l.ep2!=null?fmt(l.ep2,1):''}</td><td>${l&&!l.fout&&l.hernieuwbaar!=null?`<span class="${l.hernieuwbaar>=30?'bz-hern-hoog':''}">${fmt(l.hernieuwbaar,0)}%</span>`:''}</td><td class="bz-cert">${l&&!l.fout?esc(l.certificaathouder||''):''}</td></tr>`}).join('')}</tbody></table>`;
   $('bz-tabel').querySelectorAll('th[data-s]').forEach(th=>th.onclick=()=>{if(S.sort===th.dataset.s)S.asc=!S.asc;else{S.sort=th.dataset.s;S.asc=true}render()});
   $('bz-tabel').querySelectorAll('tr[data-a]').forEach(tr=>tr.onclick=e=>{if(e.target.closest('.bz-selk'))return;openPand(tr.dataset.a)});
   $('bz-tabel').querySelectorAll('.bz-sel').forEach(c=>c.onchange=()=>{c.checked?S.sel.add(c.dataset.k):S.sel.delete(c.dataset.k);bzSelUi()});
@@ -2822,13 +2822,14 @@ function bzPdf(){
   const body=rows.map(r=>{const l=r.label,k=klasseVan(r),ok=l&&!l.fout;
     return[t(r.adres+(r.postcode?' · '+r.postcode:'')),
       l===undefined?'…':l&&l.fout?'fout':!l?'geen':t((k||'')+(l.ingetrokken?' (ingetrokken)':'')),
+      ok&&l.ag!=null?fmt(l.ag,1):'',
       ok&&l.geldigTot?t(l.geldigTot+(verlopen(l)?' (verlopen)':'')):'',
       ok&&l.registratiedatum?t(l.registratiedatum):'',
       ok&&l.ep2!=null?fmt(l.ep2,1):'',
       ok&&l.hernieuwbaar!=null?fmt(l.hernieuwbaar,0)+'%':'',
       ok?t(l.certificaathouder||''):''];});
   doc.autoTable({startY:y,margin:{left:PM,right:PM,bottom:24},theme:'grid',
-    head:[['Adres','Label','Geldig tot','Geregistreerd','EP2','Hernieuwbaar','Certificaathouder']],body,
+    head:[['Adres','Label','Ag (m2)','Geldig tot','Geregistreerd','EP2','Hernieuwbaar','Certificaathouder']],body,
     styles:{font:'helvetica',fontSize:8.5,cellPadding:1.6,lineColor:[214,226,216],lineWidth:0.2,textColor:[29,42,34]},
     headStyles:{fillColor:HEX('#0B3D2E'),textColor:255,fontStyle:'bold'},
     alternateRowStyles:{fillColor:[243,248,244]},
