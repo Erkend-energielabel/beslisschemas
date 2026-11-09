@@ -104,6 +104,8 @@ function parseSite(html) {
       ag: getal('Gebr. opp. thermische zone'),
       energiebehoefte: getal('Energiebehoefte'), ep2: getal('Prim. fossiel energiegebruik'),
       hernieuwbaar: getal('Aandeel hernieuwbare energie'), warmtebehoefte: getal('Warmtebehoefte'),
+      emg: getal('Prim. fossiel energiegebruik EMG'),
+      gebouwtype: leeg(v['Ligging']) || leeg(v['Woningtype']) || leeg(v['Gebouwtype']) || leeg(v['Type woning']) || null,
       energieindex: getal('Energie-index') ?? getal('Energieindex')
     };
   }).filter(l => l.klasse || l.vbo);
@@ -132,6 +134,6 @@ async function viaApi(q, vbo, key) {
     statusRegistratie: x.Gebouwklasse || null, soortOpname: x.SoortOpname || null, berekening: x.Berekeningstype || null,
     ag: x.Gebruiksoppervlakte_thermische_zone ?? null, energiebehoefte: x.Energiebehoefte ?? null,
     ep2: x.PrimaireFossieleEnergie ?? null, hernieuwbaar: x.Aandeel_hernieuwbare_energie ?? null,
-    warmtebehoefte: x.Warmtebehoefte ?? null, energieindex: x.EnergieIndex ?? null
+    warmtebehoefte: x.Warmtebehoefte ?? null, energieindex: x.EnergieIndex ?? null, emg: null, gebouwtype: null
   }));
 }
