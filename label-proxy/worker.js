@@ -43,7 +43,7 @@ export default {
 const normQ = q => String(q || '').trim().toUpperCase().replace(/\s+/g, ' ');
 async function zoekEen(q, vbo, sessie, ctx) {
   const env = sessie.env;
-  const sleutel = new Request('https://cache.label/v2/' + encodeURIComponent(q + '|' + vbo + '|' + (env.EP_KEY ? 'api' : 'site')));
+  const sleutel = new Request('https://cache.label/v3/' + encodeURIComponent(q + '|' + vbo + '|' + (env.EP_KEY ? 'api' : 'site')));
   const hit = await caches.default.match(sleutel);
   if (hit) return await hit.json();
   let labels;
