@@ -317,7 +317,7 @@ function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
 let SEL = new Set();
-function go(v) { view = v; SEL = new Set(); render(); }
+function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
   if (view.s === "adres") go({ s: "complex", c: view.c });
   else if (view.s === "complex") go({ s: "complexen" });
@@ -331,10 +331,18 @@ function terug() {
 
 /* Bestandsnaam: eerste 2 letters van de straat + huisnummer + tijd (bijv. ST12_1420.jpg). OneDrive hernoemt dubbelen zelf. */
 function bestandsnaam(straat, nr) {
-  const s = String(straat).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[\\\/:*?"<>|]/g, "").trim().replace(/\s+/g, "-");
-  const t = new Date();
-  const ts = `${pad(t.getHours())}${pad(t.getMinutes())}`;
-  return `${s}_${nr}_${ts}.jpg`;
+  /* Staat de volledige complexnaam ("EE26-158  Vorrinklaan, Dordrecht ...") als straat, dan alleen de straatnaam gebruiken */
+  const kort = String(straat).match(/^EE[\d-]+\s+([^,]+)/i);
+  const s = (kort ? kort[1] : String(straat)).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[\\\/:*?"<>|]/g, "").trim().replace(/\s+/g, "-");
+  return `${s}_${nr}`;
+}
+/* Eerste foto van een adres heet "Straat_12-1", de volgende "Straat_12-2", enz. */
+function volgendeNaam(c, a, extra = [], uitzondering = null) {
+  const basis = bestandsnaam(a.straat, nrLabel(a));
+  const bezet = new Set([...FOTOS.filter(f => f.complexId === c.id && f.adresId === a.id && f.id !== uitzondering).map(f => f.naam), ...extra]);
+  let n = 1;
+  while (bezet.has(`${basis}-${n}.jpg`)) n++;
+  return `${basis}-${n}.jpg`;
 }
 
 /* ===== FOTO-OPSLAG (IndexedDB) ===== */
@@ -433,6 +441,18 @@ async function uploadFoto(f, c, ui) {
   const pad = a ? adresMapOD(c, a) : mapVan(c);
   await zorgMap(pad, ui);
   const pathEnc = [...pad.split("/"), f.naam].map(encodeURIComponent).join("/");
+  f.pogingen = (f.pogingen || 0) + 1;
+  await fotoPut(f);
+  if (f.pogingen > 1) {   /* eerdere poging kan wel gelukt zijn zonder dat we het hebben gehoord */
+    try {
+      const bestaand = await graph(`/me/drive/root:/${pathEnc}`, {}, ui);
+      if (bestaand && bestaand.size === f.blob.size) {
+        f.uploaded = true; f.onedriveId = bestaand.id; f.naam = bestaand.name;
+        await fotoPut(f);
+        return;
+      }
+    } catch (e) { /* bestaat nog niet: gewoon uploaden */ }
+  }
   const item = await graph(`/me/drive/root:/${pathEnc}:/content?@microsoft.graph.conflictBehavior=rename`,
     { method: "PUT", body: f.blob, headers: { "Content-Type": "image/jpeg" } }, ui);
   if (item.size !== f.blob.size) throw new Error("grootte klopt niet na upload");
@@ -579,7 +599,9 @@ async function sync(ui) {
     const wachtend = (await fotosAll()).filter(f => !f.uploaded);
     for (const f of wachtend) {
       const c = findC(f.complexId);
-      if (c) await uploadFoto(f, c, ui);
+      if (!c) continue;
+      try { await uploadFoto(f, c, ui); }
+      catch (e) { fout = e; console.error(e); }   /* één mislukte foto stopt niet de rest */
     }
     for (const d of (await docsAll()).filter(x => !x.uploaded)) {
       const c = findC(d.complexId);
@@ -613,10 +635,13 @@ async function fotosToevoegen(ev, cId, aId) {
   const c = findC(cId), a = findA(c, aId);
   const files = [...ev.target.files];
   ev.target.value = "";
+  const deze = [];
   for (const file of files) {
     try {
       const blob = await comprimeer(file);
-      await fotoPut({ id: uid(), complexId: c.id, adresId: a.id, naam: bestandsnaam(a.straat, nrLabel(a)), blob, uploaded: false, createdAt: Date.now() });
+      const naam = volgendeNaam(c, a, deze);
+      deze.push(naam);
+      await fotoPut({ id: uid(), complexId: c.id, adresId: a.id, naam, blob, uploaded: false, createdAt: Date.now() });
     } catch (e) {
       alert(`Foto "${file.name}" kon niet worden verwerkt. Het origineel is niet veranderd.`);
     }
@@ -664,11 +689,13 @@ async function verplaatsGeselecteerd(cId) {
   const a2 = findA(c, doel);
   if (!confirm(`${SEL.size} foto('s) verplaatsen naar ${a2.straat} ${nrLabel(a2)}?\n\nDe foto's worden ook op OneDrive naar die map verplaatst.`)) return;
   let misluk = 0;
+  const nieuwNamen = [];
   for (const id of ids) {
     const f = FOTOS.find(x => x.id === id);
     if (!f) continue;
     f.adresId = a2.id;
-    f.naam = bestandsnaam(a2.straat, nrLabel(a2));
+    f.naam = volgendeNaam(c, a2, nieuwNamen, f.id);
+    nieuwNamen.push(f.naam);
     if (f.uploaded) {
       try {
         const pad = adresMapOD(c, a2);
@@ -1207,7 +1234,14 @@ function vComplex(c) {
       </div>
       <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;margin:0 0 0 6px;font-size:12px;line-height:1.2;border-radius:6px" onclick="toevVoegToe('${c.id}','${a.id}')">+ toev.</button></div>`;
   }
-  const nieuw = (ODMAP[c.id] || []).map((n, i) => ({ n, i })).filter(x => !c.adressen.some(a => mapVoorAdres(c, a) === x.n));
+  const SPECIAAL = ["algemeen", "ketelruimte"];
+  const isSpeciaal = n => SPECIAAL.includes(String(n).trim().toLowerCase());
+  const speciaal = (ODMAP[c.id] || []).map((n, i) => ({ n, i })).filter(x => isSpeciaal(x.n));
+  const nieuw = (ODMAP[c.id] || []).map((n, i) => ({ n, i })).filter(x => !isSpeciaal(x.n) && !c.adressen.some(a => mapVoorAdres(c, a) === x.n));
+  if (speciaal.length) {
+    h += `<h2>Algemene ruimtes</h2>`;
+    for (const x of speciaal) h += `<div class="rij"><div class="info"><strong>📁 ${esc(x.n)}</strong>${(ODFOTO[c.id] || {})[x.n] ? ` <span class="klein-tekst">· 📷 ${ODFOTO[c.id][x.n]} foto's</span>` : ""}</div></div>`;
+  }
   if (nieuw.length) {
     const herkend = nieuw.filter(x => parseerMap(x.n, standaardStraat(c))).length;
     h += `<details style="margin-top:12px"><summary><b>📁 Gevonden op OneDrive (${nieuw.length})</b></summary><p class="klein-tekst">Deze mappen staan al op OneDrive maar nog niet in de lijst:</p>`;
@@ -1430,7 +1464,13 @@ function vNieuwAdres(c) {
 }
 
 /* ===== RENDER ===== */
+/* Het scherm opnieuw opbouwen mag de positie op de pagina niet veranderen (anders spring je na elke foto naar boven) */
 async function render() {
+  const y = window.scrollY;
+  await renderInhoud();
+  window.scrollTo(0, y);
+}
+async function renderInhoud() {
   try {
     FOTOS = await Promise.race([
       fotosAll(),
@@ -1519,6 +1559,13 @@ async function render() {
     } catch (e) { console.warn("gedeelde sync", e); }
   }, 180000);   // elke 3 minuten: alleen een kleine controle, en alleen uploaden als er iets veranderd is
   window.addEventListener("online", () => { render(); sync(false); });
+  /* Wachtende foto's: ook als de app op de achtergrond stond, en elke 2 minuten zolang er iets wacht */
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && navigator.onLine && !bezig) sync(false); });
+  setInterval(() => {
+    if (!navigator.onLine || bezig || !FOTOS.some(f => !f.uploaded)) return;
+    if (document.activeElement?.matches?.("input,textarea,select")) return;
+    sync(false);
+  }, 120000);
   if (navigator.onLine) sync(false);
 })();
 </script>
