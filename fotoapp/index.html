@@ -339,7 +339,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "12-12 18:40";
+const APP_VERSIE = "13-11 nieuw uploaden";
 let SEL = new Set();
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
@@ -482,6 +482,7 @@ async function uploadFoto(f, c, ui) {
   await zorgMap(pad, ui);
   const pathEnc = [...pad.split("/"), f.naam].map(encodeURIComponent).join("/");
   f.pogingen = (f.pogingen || 0) + 1;
+  f.laatstePoging = Date.now();
   await fotoPut(f);
   if (f.pogingen > 1) {   /* eerdere poging kan wel gelukt zijn zonder dat we het hebben gehoord */
     try {
@@ -618,10 +619,97 @@ function gedeeldSync(ui) {
   return p;
 }
 
-let UPL = null;          // voortgang van de upload die nu bezig is
+/* ===== UPLOAD-MOTOR =====
+   Foto's gaan één voor één naar OneDrive, los van al het andere (documenten, opmerkingen, gedeelde status).
+   - Elke foto heeft zijn eigen wachttijd: mislukt hij, dan wacht alleen díe foto (30 s, 1, 2, 5 min) en gaat de rest door.
+   - Na 5 mislukte pogingen stopt het automatisch proberen voor die foto en zie je een melding.
+   - Er draait altijd maar één motor. Een hartslag laat zien of hij nog leeft; is hij 2,5 min stil, dan start een nieuwe.
+   - Elke stap heeft een tijdslimiet, dus niets kan eindeloos blijven wachten.
+   - Foto's worden pas als "op OneDrive" gemarkeerd als OneDrive dezelfde grootte terugmeldt. */
+const NOOIT = 8.64e15;
+let INLOG_NODIG = false;
+const WACHT = [30, 60, 120, 300];   // seconden wachten na 1e, 2e, 3e, 4e mislukte poging; na de 5e: alleen nog met de hand
+const MOTOR = { gen: 0, hart: 0, actief: false, ok: 0, forceerVan: 0, naam: "" };
+let WAKELOCK = null;
+async function schermAan() {   /* scherm niet laten uitgaan tijdens uploaden (anders stopt iOS de app) */
+  try { if (!WAKELOCK && navigator.wakeLock && !document.hidden) { WAKELOCK = await navigator.wakeLock.request("screen"); WAKELOCK.addEventListener("release", () => { WAKELOCK = null; }); } } catch (e) {}
+}
+function schermVrij() { try { WAKELOCK && WAKELOCK.release(); } catch (e) {} WAKELOCK = null; }
+const magNu = (f, nu) => !f.volgende || f.volgende <= nu || (MOTOR.forceerVan && (f.laatstePoging || 0) < MOTOR.forceerVan);
+function uploadTekst() {
+  const wacht = FOTOS.filter(f => !f.uploaded && !f.kapot);
+  const opOD = FOTOS.filter(f => f.uploaded).length;
+  if (MOTOR.actief) return `⏫ Bezig met uploaden${MOTOR.naam ? ": " + MOTOR.naam : ""} · nog ${wacht.length} · ${MOTOR.ok} gelukt`;
+  if (!wacht.length) return `✓ Alles staat op OneDrive (${opOD})`;
+  const gestopt = wacht.filter(f => (f.volgende || 0) >= NOOIT).length;
+  const eerst = Math.min(...wacht.map(f => f.volgende || 0));
+  const over = Math.max(0, Math.round((eerst - Date.now()) / 1000));
+  return `${wacht.length} foto's wachten op OneDrive${gestopt ? ` (${gestopt} gestopt na 5 pogingen)` : ""}${eerst < NOOIT && over > 0 ? ` · volgende poging over ${over < 60 ? over + " s" : Math.ceil(over / 60) + " min"}` : ""} · ${opOD} op OneDrive`;
+}
 function updateUploadStatus() {
   const el = $("uploadStatus");
-  if (el && UPL) el.textContent = `Bezig met uploaden: foto ${UPL.i} van ${UPL.n} (${UPL.ok} gelukt)`;
+  if (el) el.textContent = uploadTekst() + " · versie " + APP_VERSIE;
+}
+function motorStart(handmatig) {
+  if (handmatig) MOTOR.forceerVan = Date.now();   /* "Nu uploaden": alle wachtende foto's nu één keer proberen */
+  if (MOTOR.actief && Date.now() - MOTOR.hart < 150000) return;   /* draait al en leeft nog (één foto duurt maximaal 90 s) */
+  if (!navigator.onLine || !accounts().length) return;
+  const gen = ++MOTOR.gen;
+  MOTOR.actief = true; MOTOR.ok = 0; MOTOR.hart = Date.now();
+  motorLoop(gen);
+}
+async function motorLoop(gen) {
+  schermAan();
+  updateUploadStatus();
+  let teller = 0;
+  try {
+    while (gen === MOTOR.gen) {
+      MOTOR.hart = Date.now();
+      if (!navigator.onLine || !accounts().length) break;
+      const lijst = (await fotosAll()).filter(f => !f.uploaded && !f.kapot);
+      if (gen !== MOTOR.gen) return;
+      const nu = Date.now();
+      const f = lijst.filter(x => magNu(x, nu)).sort((x, y) => x.createdAt - y.createdAt)[0];
+      if (!f) break;   /* niets dat nu mag: de klok (elke 20 s) start de motor weer als een wachttijd voorbij is */
+      const c = findC(f.complexId);
+      if (!c) { f.volgende = NOOIT; f.laatstePoging = Date.now(); f.fout = "Complex niet meer in de app"; await fotoPut(f); continue; }
+      if (!f.blob || !f.blob.size) { f.kapot = true; f.fout = "Foto is beschadigd op dit toestel en kan niet worden geüpload. Verwijder hem."; await fotoPut(f); continue; }
+      MOTOR.naam = f.naam;
+      updateUploadStatus();
+      try {
+        await metLimiet(uploadFoto(f, c, false), 90000, "Upload");
+        f.fout = null; f.volgende = 0;
+        MOTOR.ok++; INLOG_NODIG = false;
+      } catch (e) {
+        console.error(e);
+        /* Inlog verlopen: dat ligt niet aan de foto. Niet meetellen, motor stoppen en melden. */
+        if (e.name === "InteractionRequiredAuthError" || /interaction_required|login_required|consent_required|niet ingelogd|Microsoft-inlog/i.test(String(e.errorCode || "") + " " + String(e.message || ""))) {
+          f.pogingen = Math.max(0, (f.pogingen || 1) - 1);
+          await fotoPut(f).catch(() => {});
+          INLOG_NODIG = true;
+          SYNC_FOUT = "Je moet opnieuw inloggen bij Microsoft. Tik bovenaan op de rode knop.";
+          break;
+        }
+        f.laatstePoging = Date.now();
+        const n = f.pogingen || 1;
+        f.volgende = n >= 5 ? NOOIT : Date.now() + WACHT[Math.min(n - 1, WACHT.length - 1)] * 1000;
+        const msg = e.name === "AbortError" ? "verbinding te traag, upload afgebroken" : String(e.message || e).slice(0, 120);
+        f.fout = n >= 5 ? `5× mislukt (${msg}). Tik "Nu uploaden" om opnieuw te proberen, of verwijder de foto.` : `${msg} · poging ${n} van 5`;
+      }
+      if (gen !== MOTOR.gen) return;
+      await fotoPut(f).catch(() => {});
+      const i = FOTOS.findIndex(x => x.id === f.id);
+      if (i >= 0) FOTOS[i] = f;
+      if (++teller % 5 === 0) render(); else updateUploadStatus();
+    }
+  } catch (e) { console.error("upload-motor", e); SYNC_FOUT = String(e.message || e); }
+  finally {
+    if (gen === MOTOR.gen) {
+      MOTOR.actief = false; MOTOR.naam = ""; MOTOR.forceerVan = 0;
+      schermVrij();
+      render();
+    }
+  }
 }
 let SYNC_FOUT = null;   // laatste uploadfout, zichtbaar in de balk onderaan
 /* Zet alle opmerkingen van een adres in een tekstbestand in de adresmap op OneDrive */
@@ -634,67 +722,44 @@ async function uploadOpmerkingen(c, a, ui) {
     { method: "PUT", body: blob, headers: { "Content-Type": "text/plain" } }, ui);
 }
 
-let BEZIG_SINDS = 0;
-let SYNC_ID = 0;   /* elke upload-ronde heeft een nummer; een oude ronde stopt zodra er een nieuwe is begonnen (geen dubbele uploads) */
-async function sync(ui) {
-  if (bezig && Date.now() - BEZIG_SINDS > 4 * 60000) { bezig = false; }   /* waakhond: oude ronde stopt, nieuwe mag beginnen */
-  if (bezig) { if (ui) alert("Het uploaden is al bezig. Kijk onderaan hoe ver hij is."); return; }
-  const id = ++SYNC_ID;
-  let mislukt = 0;
-  BEZIG_SINDS = Date.now();
-  if (!navigator.onLine) { if (ui) alert("Geen internetverbinding. Je foto's blijven veilig op dit toestel."); return; }
-  if (!accounts().length && !ui) return;
-  bezig = true;
+/* Overige sync (documenten, opmerkingen, gedeelde status): eigen slot, staat los van de foto's */
+let OVERIG_SINDS = 0;
+async function overigSync(ui) {
+  if (bezig && Date.now() - OVERIG_SINDS < 120000) return;
+  if (!navigator.onLine || !accounts().length) return;
+  bezig = true; OVERIG_SINDS = Date.now();
   let fout = null;
   try {
-    const wachtend = (await fotosAll()).filter(f => !f.uploaded);
-    UPL = { i: 0, n: wachtend.length, ok: 0 };
-    for (const f of wachtend) {
-      if (id !== SYNC_ID) break;   /* een nieuwere ronde heeft het overgenomen */
-      if (mislukt >= 2) { fout = fout || new Error("verbinding wisselvallig, het uploaden stopt. Probeer later opnieuw."); break; }
-      UPL.i++;
-      const c = findC(f.complexId);
-      if (!c) continue;
-      if (!f.blob || !f.blob.size) {   /* foto is op dit toestel kapotgegaan: kan nooit worden geüpload */
-        f.fout = "Foto is beschadigd op dit toestel en kan niet worden geüpload. Verwijder hem."; await fotoPut(f).catch(() => {});
-        continue;
-      }
-      if (!ui && (f.pogingen || 0) >= 3) continue;   /* vastgelopen foto: automatisch overslaan, met de knop "Nu uploaden" kun je het nog proberen */
-      updateUploadStatus();
-      try { await uploadFoto(f, c, ui); f.fout = null; await fotoPut(f); UPL.ok++; mislukt = 0; }
-      catch (e) {   /* één mislukte foto stopt niet de rest; na 2 keer na elkaar stopt de ronde */
-        fout = e; console.error(e); mislukt++;
-        f.fout = e.name === "AbortError" ? "Verbinding te traag, upload afgebroken" : String(e.message || e).slice(0, 120);
-        await fotoPut(f).catch(() => {});
-      }
-    }
-    UPL = null;
     for (const d of (await docsAll()).filter(x => !x.uploaded)) {
       const c = findC(d.complexId);
       if (!c) continue;
-      const pad = mapVan(c) + "/Documenten";
-      await zorgMap(pad, ui);
-      const item = await graph(`/me/drive/root:/${[...pad.split("/"), d.naam].map(encodeURIComponent).join("/")}:/content?@microsoft.graph.conflictBehavior=rename`,
-        { method: "PUT", body: d.blob, headers: { "Content-Type": d.type } }, ui);
-      if (item.size !== d.blob.size) throw new Error("grootte klopt niet na upload");
-      d.uploaded = true;
-      d.onedriveId = item.id;
-      d.naam = item.name;
-      await docPut(d);
+      try {
+        const pad = mapVan(c) + "/Documenten";
+        await zorgMap(pad, ui);
+        const item = await graph(`/me/drive/root:/${[...pad.split("/"), d.naam].map(encodeURIComponent).join("/")}:/content?@microsoft.graph.conflictBehavior=rename`,
+          { method: "PUT", body: d.blob, headers: { "Content-Type": d.type } }, ui);
+        if (item.size !== d.blob.size) throw new Error("grootte klopt niet na upload");
+        d.uploaded = true; d.onedriveId = item.id; d.naam = item.name;
+        await docPut(d);
+      } catch (e) { fout = e; console.error(e); }
     }
     for (const c of st.complexen) for (const a of c.adressen) {
       if (!a.opmerkingWacht) continue;
-      await uploadOpmerkingen(c, a, ui);
-      a.opmerkingWacht = false;
-      bewaarState();
+      try { await uploadOpmerkingen(c, a, ui); a.opmerkingWacht = false; bewaarState(); }
+      catch (e) { fout = e; console.error(e); }
     }
-    await gedeeldSync(ui);
+    await metLimiet(gedeeldSync(ui), 60000, "Gedeelde status");
   } catch (e) { fout = e; console.error(e); }
-  if (id !== SYNC_ID) return;   /* een nieuwere ronde is bezig: die beheert de status */
   bezig = false;
-  SYNC_FOUT = fout ? fout.message : null;
-  await render();
-  if (fout && ui) alert("Uploaden gestopt: " + fout.message + "\n\nJe foto's blijven op dit toestel staan. Probeer het later opnieuw.");
+  SYNC_FOUT = fout ? (fout.name === "AbortError" ? "verbinding te traag" : fout.message) : null;
+  render();
+}
+/* Start alles. ui = jij tikte op "Nu uploaden" */
+async function sync(ui) {
+  if (!navigator.onLine) { if (ui) alert("Geen internetverbinding. Je foto's blijven veilig op dit toestel en gaan later vanzelf."); return; }
+  if (!accounts().length) { if (ui) login(); return; }
+  motorStart(!!ui);
+  overigSync(ui);
 }
 
 /* ===== ACTIES ===== */
@@ -1566,7 +1631,7 @@ function toonInlogStatus() {
   const b = $("inlogStatus");
   if (!b) return;
   const acc = accounts()[0];
-  if (acc) {
+  if (acc && !INLOG_NODIG) {
     b.textContent = "✓ " + (acc.username || "ingelogd").split("@")[0];
     b.style.background = "#16a34a";
     b.title = "Ingelogd als " + acc.username + ". Tik om opnieuw in te loggen.";
@@ -1639,7 +1704,7 @@ async function renderInhoud() {
       ${view.s !== "complexen" ? `<button class="klein sec" style="min-height:48px;font-size:17px" onclick="terug()">← Terug</button>` : ""}
       ${view.s === "adres" && c && a ? `<label class="knop" style="width:auto;margin:0;min-height:48px;font-size:17px;padding:10px 14px;cursor:pointer">📷 Foto's<input type="file" accept="image/*" multiple hidden onchange="fotosToevoegen(event,'${c.id}','${a.id}')"></label>
         <button class="knop ${a.klaar ? "sec" : ""}" style="width:auto;margin:0;min-height:48px;font-size:17px;padding:10px 14px" onclick="klaarZet('${c.id}','${a.id}',${!a.klaar})">${a.klaar ? "↩ Niet klaar" : "✅ Woning gereed"}</button>` : ""}
-      <span id="uploadStatus" class="klein-tekst" style="flex:0 0 100%;order:2;text-align:center;font-size:11px;line-height:1.3">${UPL ? `Bezig met uploaden: foto ${UPL.i} van ${UPL.n} (${UPL.ok} gelukt)` : `${wacht} foto's wachten op OneDrive · ${FOTOS.length - wacht} op OneDrive`} · versie ${APP_VERSIE}</span>
+      <span id="uploadStatus" class="klein-tekst" style="flex:0 0 100%;order:2;text-align:center;font-size:11px;line-height:1.3">${uploadTekst()} · versie ${APP_VERSIE}</span>
       ${ingelogd
         ? `<button class="klein" onclick="sync(true)">Nu uploaden</button>`
         : `<button class="klein" onclick="login()">Inloggen</button>`}
@@ -1667,13 +1732,18 @@ async function renderInhoud() {
     } catch (e) { console.warn("gedeelde sync", e); }
   }, 180000);   // elke 3 minuten: alleen een kleine controle, en alleen uploaden als er iets veranderd is
   window.addEventListener("online", () => { render(); sync(false); });
-  /* Wachtende foto's: ook als de app op de achtergrond stond, en elke 2 minuten zolang er iets wacht */
-  document.addEventListener("visibilitychange", () => { if (!document.hidden && navigator.onLine && !bezig) sync(false); });
+  /* Terug in de app: motor (opnieuw) starten en scherm-aan weer aanvragen */
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) return;
+    if (MOTOR.actief) schermAan();
+    if (navigator.onLine) motorStart(false);
+  });
+  /* Klok: elke 20 s kijken of er een foto is waarvan de wachttijd voorbij is, en de status bijwerken */
   setInterval(() => {
-    if (!navigator.onLine || bezig || !FOTOS.some(f => !f.uploaded)) return;
-    if (document.activeElement?.matches?.("input,textarea,select")) return;
-    sync(false);
-  }, 120000);
+    updateUploadStatus();
+    const nu = Date.now();
+    if (navigator.onLine && FOTOS.some(f => !f.uploaded && !f.kapot && magNu(f, nu))) motorStart(false);
+  }, 20000);
   if (navigator.onLine) sync(false);
 })();
 </script>
