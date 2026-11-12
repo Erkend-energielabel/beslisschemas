@@ -348,7 +348,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "12-11 22:55";
+const APP_VERSIE = "12-11 23:00";
 let SEL = new Set();
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
@@ -1470,7 +1470,8 @@ function vComplex(c) {
 
 function vAdres(c, a) {
   const fs = FOTOS.filter(f => f.adresId === a.id).sort((x, y) => x.createdAt - y.createdAt);
-  let h = `<p class="klein-tekst">${esc(c.naam)}</p>
+  let h = `<div style="display:flex;align-items:center;gap:8px"><p class="klein-tekst" style="flex:1;margin:0">${esc(c.naam)}</p>
+    <button style="width:auto;min-height:0;margin:0;padding:3px 8px;font-size:11px;background:none;color:#b91c1c;border:1px solid #e5b4b4;border-radius:6px" onclick="adresWis('${c.id}','${a.id}')" aria-label="Adres verwijderen">🗑 verwijder</button></div>
     <div class="acties" style="margin:6px 0 10px"><span class="klein-tekst" style="flex:0 0 100%">Stoplicht (tik nogmaals om weg te halen):</span>
       ${["groen", "oranje", "rood"].map(k => `<button class="klein ${stoplicht(a) === k ? "" : "sec"}" style="width:auto;flex:1;${stoplicht(a) === k ? `background:${stoplichtKleur[k]}` : `color:${stoplichtKleur[k]};border-color:${stoplichtKleur[k]}`}" onclick="adresStoplicht('${c.id}','${a.id}','${stoplicht(a) === k ? "" : k}')">● ${k}</button>`).join("")}
     </div>
@@ -1536,7 +1537,6 @@ function vAdres(c, a) {
     <div class="acties"><button class="klein sec" style="width:auto" onclick="opmerkingNetjes()">✨ Tekst netjes maken</button>
     <button class="sec" onclick="opmerkingToevoegen('${c.id}','${a.id}')">Opmerking opslaan</button></div>`;
   h += `<p class="klein-tekst">Foto's maken of kiezen: met de knop 📷 Foto's onderin. Foto's worden verkleind en automatisch naar OneDrive gestuurd.</p>`;
-  h += `<button class="klein gevaar" style="width:auto;margin-top:24px" onclick="adresWis('${c.id}','${a.id}')">🗑 Adres verwijderen</button>`;
   return h;
 }
 /* Adres uit de app halen. Kan pas als alle foto's van dit adres op OneDrive staan; de map en foto's op OneDrive blijven staan. */
