@@ -339,7 +339,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "12-11 13:40";
+const APP_VERSIE = "12-12 18:40";
 let SEL = new Set();
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
@@ -434,7 +434,7 @@ async function graph(path, opts = {}, ui = false, poging = 0) {
   const t = await token(ui);
   /* Een verzoek dat op een wankel mobiel netwerk blijft hangen, breekt na een tijd af, zodat het uploaden doorgaat */
   const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), opts.body ? 120000 : 30000);
+  const timer = setTimeout(() => ctl.abort(), opts.body ? 60000 : 20000);
   let r;
   try {
     r = await fetch("https://graph.microsoft.com/v1.0" + path, {
@@ -635,9 +635,12 @@ async function uploadOpmerkingen(c, a, ui) {
 }
 
 let BEZIG_SINDS = 0;
+let SYNC_ID = 0;   /* elke upload-ronde heeft een nummer; een oude ronde stopt zodra er een nieuwe is begonnen (geen dubbele uploads) */
 async function sync(ui) {
-  if (bezig && Date.now() - BEZIG_SINDS > 4 * 60000) bezig = false;   /* waakhond: hangt hij langer dan 4 min, opnieuw beginnen */
+  if (bezig && Date.now() - BEZIG_SINDS > 4 * 60000) { bezig = false; }   /* waakhond: oude ronde stopt, nieuwe mag beginnen */
   if (bezig) { if (ui) alert("Het uploaden is al bezig. Kijk onderaan hoe ver hij is."); return; }
+  const id = ++SYNC_ID;
+  let mislukt = 0;
   BEZIG_SINDS = Date.now();
   if (!navigator.onLine) { if (ui) alert("Geen internetverbinding. Je foto's blijven veilig op dit toestel."); return; }
   if (!accounts().length && !ui) return;
@@ -647,6 +650,8 @@ async function sync(ui) {
     const wachtend = (await fotosAll()).filter(f => !f.uploaded);
     UPL = { i: 0, n: wachtend.length, ok: 0 };
     for (const f of wachtend) {
+      if (id !== SYNC_ID) break;   /* een nieuwere ronde heeft het overgenomen */
+      if (mislukt >= 2) { fout = fout || new Error("verbinding wisselvallig, het uploaden stopt. Probeer later opnieuw."); break; }
       UPL.i++;
       const c = findC(f.complexId);
       if (!c) continue;
@@ -656,9 +661,9 @@ async function sync(ui) {
       }
       if (!ui && (f.pogingen || 0) >= 3) continue;   /* vastgelopen foto: automatisch overslaan, met de knop "Nu uploaden" kun je het nog proberen */
       updateUploadStatus();
-      try { await uploadFoto(f, c, ui); f.fout = null; await fotoPut(f); UPL.ok++; }
-      catch (e) {   /* één mislukte foto stopt niet de rest */
-        fout = e; console.error(e);
+      try { await uploadFoto(f, c, ui); f.fout = null; await fotoPut(f); UPL.ok++; mislukt = 0; }
+      catch (e) {   /* één mislukte foto stopt niet de rest; na 2 keer na elkaar stopt de ronde */
+        fout = e; console.error(e); mislukt++;
         f.fout = e.name === "AbortError" ? "Verbinding te traag, upload afgebroken" : String(e.message || e).slice(0, 120);
         await fotoPut(f).catch(() => {});
       }
@@ -685,6 +690,7 @@ async function sync(ui) {
     }
     await gedeeldSync(ui);
   } catch (e) { fout = e; console.error(e); }
+  if (id !== SYNC_ID) return;   /* een nieuwere ronde is bezig: die beheert de status */
   bezig = false;
   SYNC_FOUT = fout ? fout.message : null;
   await render();
