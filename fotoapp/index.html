@@ -338,6 +338,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
+const APP_VERSIE = "12-11 13:10";
 let SEL = new Set();
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
@@ -360,7 +361,12 @@ function bestandsnaam(straat, nr) {
 }
 /* Eerste foto van een adres heet "Straat_12-1", de volgende "Straat_12-2", enz. */
 function volgendeNaam(c, a, extra = [], uitzondering = null) {
-  const basis = bestandsnaam(a.straat, nrLabel(a));
+  let straat = a.straat;
+  if (/^\d{2,3}\s/.test(straat) || /^EE[\d-]+\s/i.test(straat)) {   /* bv. "010 FOTO'S": straat uit de complexnaam halen */
+    const m = String(c.naam || "").match(/^EE[\d-]+\s+([^,]+)/i) || String(mapVan(c)).match(/EE[\d-]+\s+([^,\/]+)/i);
+    if (m) straat = m[1].trim();
+  }
+  const basis = bestandsnaam(straat, nrLabel(a));
   const bezet = new Set([...FOTOS.filter(f => f.complexId === c.id && f.adresId === a.id && f.id !== uitzondering).map(f => f.naam), ...extra]);
   let n = 1;
   while (bezet.has(`${basis}-${n}.jpg`)) n++;
@@ -607,6 +613,11 @@ function gedeeldSync(ui) {
   return p;
 }
 
+let UPL = null;          // voortgang van de upload die nu bezig is
+function updateUploadStatus() {
+  const el = $("uploadStatus");
+  if (el && UPL) el.textContent = `Bezig met uploaden: foto ${UPL.i} van ${UPL.n} (${UPL.ok} gelukt)`;
+}
 let SYNC_FOUT = null;   // laatste uploadfout, zichtbaar in de balk onderaan
 /* Zet alle opmerkingen van een adres in een tekstbestand in de adresmap op OneDrive */
 async function uploadOpmerkingen(c, a, ui) {
@@ -626,13 +637,25 @@ async function sync(ui) {
   let fout = null;
   try {
     const wachtend = (await fotosAll()).filter(f => !f.uploaded);
+    UPL = { i: 0, n: wachtend.length, ok: 0 };
     for (const f of wachtend) {
+      UPL.i++;
       const c = findC(f.complexId);
       if (!c) continue;
+      if (!f.blob || !f.blob.size) {   /* foto is op dit toestel kapotgegaan: kan nooit worden geüpload */
+        f.fout = "Foto is beschadigd op dit toestel en kan niet worden geüpload. Verwijder hem."; await fotoPut(f).catch(() => {});
+        continue;
+      }
       if (!ui && (f.pogingen || 0) >= 3) continue;   /* vastgelopen foto: automatisch overslaan, met de knop "Nu uploaden" kun je het nog proberen */
-      try { await uploadFoto(f, c, ui); }
-      catch (e) { fout = e; console.error(e); }   /* één mislukte foto stopt niet de rest */
+      updateUploadStatus();
+      try { await uploadFoto(f, c, ui); f.fout = null; await fotoPut(f); UPL.ok++; }
+      catch (e) {   /* één mislukte foto stopt niet de rest */
+        fout = e; console.error(e);
+        f.fout = e.name === "AbortError" ? "Verbinding te traag, upload afgebroken" : String(e.message || e).slice(0, 120);
+        await fotoPut(f).catch(() => {});
+      }
     }
+    UPL = null;
     for (const d of (await docsAll()).filter(x => !x.uploaded)) {
       const c = findC(d.complexId);
       if (!c) continue;
@@ -1338,7 +1361,8 @@ function vAdres(c, a) {
       <input type="checkbox" data-foto="${f.id}" ${SEL.has(f.id) ? "checked" : ""} aria-label="selecteer foto" onchange="selZet('${f.id}',this.checked)">
       <img src="${u}" alt="">
       <div class="info"><div>${esc(f.naam)}</div>
-        <div class="klein-tekst">${f.uploaded ? "✓ Staat op OneDrive" : "⏳ Nog niet op OneDrive"}</div></div>
+        <div class="klein-tekst">${f.uploaded ? "✓ Staat op OneDrive" : "⏳ Nog niet op OneDrive"}${!f.uploaded && f.pogingen ? ` · ${f.pogingen}× geprobeerd` : ""}</div>
+        ${!f.uploaded && f.fout ? `<div class="klein-tekst" style="color:#b91c1c">⚠️ ${esc(f.fout)}</div>` : ""}</div>
       ${f.uploaded
         ? `<button class="klein gevaar" onclick="fotoWis('${f.id}')">Wis</button>`
         : `<button class="klein gevaar" onclick="fotoWisNogNiet('${f.id}')">Verwijder</button>`}
@@ -1571,7 +1595,7 @@ async function renderInhoud() {
       ${view.s !== "complexen" ? `<button class="klein sec" style="min-height:48px;font-size:17px" onclick="terug()">← Terug</button>` : ""}
       ${view.s === "adres" && c && a ? `<label class="knop" style="width:auto;margin:0;min-height:48px;font-size:17px;padding:10px 14px;cursor:pointer">📷 Foto's<input type="file" accept="image/*" multiple hidden onchange="fotosToevoegen(event,'${c.id}','${a.id}')"></label>
         <button class="knop ${a.klaar ? "sec" : ""}" style="width:auto;margin:0;min-height:48px;font-size:17px;padding:10px 14px" onclick="klaarZet('${c.id}','${a.id}',${!a.klaar})">${a.klaar ? "↩ Niet klaar" : "✅ Woning gereed"}</button>` : ""}
-      <span class="klein-tekst" style="flex:0 0 100%;order:2;text-align:center;font-size:11px;line-height:1.3">${wacht} foto's wachten op OneDrive · ${FOTOS.length - wacht} op OneDrive</span>
+      <span id="uploadStatus" class="klein-tekst" style="flex:0 0 100%;order:2;text-align:center;font-size:11px;line-height:1.3">${UPL ? `Bezig met uploaden: foto ${UPL.i} van ${UPL.n} (${UPL.ok} gelukt)` : `${wacht} foto's wachten op OneDrive · ${FOTOS.length - wacht} op OneDrive`} · versie ${APP_VERSIE}</span>
       ${ingelogd
         ? `<button class="klein" onclick="sync(true)">Nu uploaden</button>`
         : `<button class="klein" onclick="login()">Inloggen</button>`}
