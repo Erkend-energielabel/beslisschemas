@@ -339,7 +339,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "13-11 nieuw uploaden";
+const APP_VERSIE = "12-11 22:20";
 let SEL = new Set();
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
@@ -645,6 +645,23 @@ function uploadTekst() {
   const eerst = Math.min(...wacht.map(f => f.volgende || 0));
   const over = Math.max(0, Math.round((eerst - Date.now()) / 1000));
   return `${wacht.length} foto's wachten op OneDrive${gestopt ? ` (${gestopt} gestopt na 5 pogingen)` : ""}${eerst < NOOIT && over > 0 ? ` · volgende poging over ${over < 60 ? over + " s" : Math.ceil(over / 60) + " min"}` : ""} · ${opOD} op OneDrive`;
+}
+/* Melding met de adressen waar foto's met een fout in zitten; tik om naar dat adres te gaan */
+function foutAdressen() {
+  const per = {};
+  for (const f of FOTOS) {
+    if (f.uploaded || !f.fout) continue;
+    const k = f.complexId + "|" + f.adresId;
+    per[k] = (per[k] || 0) + 1;
+  }
+  const items = Object.entries(per).map(([k, n]) => {
+    const [cId, aId] = k.split("|");
+    const c = findC(cId), a = c && findA(c, aId);
+    if (!a) return "";
+    return `<button class="klein sec" style="width:auto;margin:4px 6px 0 0;border-color:#dc2626;color:#b91c1c" onclick="go({s:'adres',c:'${cId}',a:'${aId}'})">${esc(a.straat)} ${nrLabel(a)} (${n})</button>`;
+  }).filter(Boolean);
+  if (!items.length) return "";
+  return `<div class="melding" style="border-color:#dc2626">⚠ Foto's met een uploadfout bij:<div>${items.join("")}</div></div>`;
 }
 function updateUploadStatus() {
   const el = $("uploadStatus");
@@ -1709,6 +1726,7 @@ async function renderInhoud() {
         ? `<button class="klein" onclick="sync(true)">Nu uploaden</button>`
         : `<button class="klein" onclick="login()">Inloggen</button>`}
     </div>
+    ${foutAdressen()}
     ${SYNC_FOUT ? `<div class="melding">Opslaan op OneDrive lukt niet: ${esc(SYNC_FOUT)}. Tik op "Nu uploaden". Je foto's blijven op dit toestel.</div>` : ""}
     ${("Notification" in window && Notification.permission === "default") ? `<button class="klein sec" onclick="meldingenAan()">🔔 Meldingen aanzetten</button>` : ""}
     ${navigator.onLine ? "" : `<div class="melding">Geen internet. Foto's blijven bewaard en worden later geüpload.</div>`}
