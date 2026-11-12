@@ -672,6 +672,15 @@ async function fotosToevoegen(ev, cId, aId) {
   sync(false);
 }
 
+/* Foto die nog niet op OneDrive staat en vastloopt: alleen door jou zelf te verwijderen, na twee bevestigingen */
+async function fotoWisNogNiet(id) {
+  const f = FOTOS.find(x => x.id === id);
+  if (!f || f.uploaded) return render();
+  if (!confirm(`Foto ${f.naam} verwijderen?\n\nDeze foto staat nog NIET op OneDrive. Hij bestaat dan alleen op dit toestel.`)) return;
+  if (!confirm("Weet je het zeker? Deze foto is dan definitief weg en kan NIET meer worden teruggehaald.")) return;
+  await fotoDel(id);
+  await render();
+}
 async function fotoWis(id) {
   const f = FOTOS.find(x => x.id === id);
   if (!f || !f.uploaded) return alert("Deze foto staat nog niet op OneDrive en wordt dus niet verwijderd.");
@@ -1324,7 +1333,7 @@ function vAdres(c, a) {
         <div class="klein-tekst">${f.uploaded ? "✓ Staat op OneDrive" : "⏳ Nog niet op OneDrive"}</div></div>
       ${f.uploaded
         ? `<button class="klein gevaar" onclick="fotoWis('${f.id}')">Wis</button>`
-        : `<span class="klein-tekst">Eerst uploaden</span>`}
+        : `<button class="klein gevaar" onclick="fotoWisNogNiet('${f.id}')">Verwijder (niet op OneDrive)</button>`}
     </div>`;
   }
 
