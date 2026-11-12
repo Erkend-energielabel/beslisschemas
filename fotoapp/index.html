@@ -622,7 +622,7 @@ async function sync(ui) {
     for (const f of wachtend) {
       const c = findC(f.complexId);
       if (!c) continue;
-      if (!ui && (f.pogingen || 0) >= 5) continue;   /* vastgelopen foto: automatisch overslaan, met de knop "Nu uploaden" kun je het nog proberen */
+      if (!ui && (f.pogingen || 0) >= 3) continue;   /* vastgelopen foto: automatisch overslaan, met de knop "Nu uploaden" kun je het nog proberen */
       try { await uploadFoto(f, c, ui); }
       catch (e) { fout = e; console.error(e); }   /* één mislukte foto stopt niet de rest */
     }
