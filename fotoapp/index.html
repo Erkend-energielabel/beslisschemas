@@ -338,7 +338,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "12-11 13:10";
+const APP_VERSIE = "12-11 13:30";
 let SEL = new Set();
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
@@ -374,25 +374,34 @@ function volgendeNaam(c, a, extra = [], uitzondering = null) {
 }
 
 /* ===== FOTO-OPSLAG (IndexedDB) ===== */
-const DB = new Promise((res, rej) => {
+const metLimiet = (p, ms, wat) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(wat + " reageert niet (time-out)")), ms))]);
+const openDB = () => new Promise((res, rej) => {
   const r = indexedDB.open("fotoapp", 2);
   r.onupgradeneeded = () => {
     const db = r.result;
     if (!db.objectStoreNames.contains("fotos")) db.createObjectStore("fotos", { keyPath: "id" });
     if (!db.objectStoreNames.contains("docs")) db.createObjectStore("docs", { keyPath: "id" });
   };
-  r.onsuccess = () => res(r.result);
+  r.onsuccess = () => { r.result.onclose = () => { DB = openDB(); }; res(r.result); };
   r.onerror = () => rej(r.error);
 });
-async function dbDo(mode, fn, winkel = "fotos") {
-  const db = await DB;
-  return new Promise((res, rej) => {
-    const tx = db.transaction(winkel, mode);
-    const req = fn(tx.objectStore(winkel));
-    tx.oncomplete = () => res(req.result);
-    tx.onerror = () => rej(tx.error);
-    tx.onabort = () => rej(tx.error);
-  });
+let DB = openDB();
+/* iOS sluit de opslag soms als de app op de achtergrond stond: dan opnieuw openen en nog één keer proberen */
+async function dbDo(mode, fn, winkel = "fotos", poging = 0) {
+  try {
+    const db = await metLimiet(DB, 10000, "Opslag op dit toestel");
+    return await metLimiet(new Promise((res, rej) => {
+      const tx = db.transaction(winkel, mode);
+      const req = fn(tx.objectStore(winkel));
+      tx.oncomplete = () => res(req.result);
+      tx.onerror = () => rej(tx.error);
+      tx.onabort = () => rej(tx.error);
+    }), 15000, "Opslag op dit toestel");
+  } catch (e) {
+    if (poging) throw e;
+    DB = openDB();
+    return dbDo(mode, fn, winkel, 1);
+  }
 }
 const fotoPut = f => dbDo("readwrite", s => s.put(f));
 const fotoDel = id => dbDo("readwrite", s => s.delete(id));
@@ -419,7 +428,7 @@ async function token(ui) {
   const acc = accounts()[0];
   if (!acc && !ui) throw new Error("niet ingelogd");
   try {
-    return (await pca.acquireTokenSilent({ scopes: SCOPES, account: acc })).accessToken;
+    return (await metLimiet(pca.acquireTokenSilent({ scopes: SCOPES, account: acc }), 20000, "Microsoft-inlog")).accessToken;
   } catch (e) {
     if (!ui) throw e;
     await pca.acquireTokenRedirect({ scopes: SCOPES });
@@ -472,7 +481,7 @@ async function zorgMap(pad, ui) {
 
 async function uploadFoto(f, c, ui) {
   const a = findA(c, f.adresId);
-  if (!ODMAP[c.id] && accounts().length) await laadAdresMappen(c.id);
+  if (!ODMAP[c.id] && accounts().length) await laadMapNamen(c);
   const pad = a ? adresMapOD(c, a) : mapVan(c);
   await zorgMap(pad, ui);
   const pathEnc = [...pad.split("/"), f.naam].map(encodeURIComponent).join("/");
@@ -629,8 +638,11 @@ async function uploadOpmerkingen(c, a, ui) {
     { method: "PUT", body: blob, headers: { "Content-Type": "text/plain" } }, ui);
 }
 
+let BEZIG_SINDS = 0;
 async function sync(ui) {
-  if (bezig) return;
+  if (bezig && Date.now() - BEZIG_SINDS > 4 * 60000) bezig = false;   /* waakhond: hangt hij langer dan 4 min, opnieuw beginnen */
+  if (bezig) { if (ui) alert("Het uploaden is al bezig. Kijk onderaan hoe ver hij is."); return; }
+  BEZIG_SINDS = Date.now();
   if (!navigator.onLine) { if (ui) alert("Geen internetverbinding. Je foto's blijven veilig op dit toestel."); return; }
   if (!accounts().length && !ui) return;
   bezig = true;
@@ -980,9 +992,18 @@ function voortgangBalk(klaar, totaal) {
 /* Haalt de mappen van dit complex op van OneDrive (stil, zonder inlogvenster) */
 let ODFOTO = {};
 let ODFOTO_TIJD = {};   // wanneer de foto-telling per complex voor het laatst is opgehaald   // complex-id -> { adresmapnaam: aantal foto's die al op OneDrive staan }
+/* Alleen de namen van de adresmappen (snel, 1 verzoek) */
+async function laadMapNamen(c) {
+  try {
+    const r = await graph(`/me/drive/root:/${mapVan(c).split("/").map(encodeURIComponent).join("/")}:/children?$select=name,folder&$top=999`, {}, false);
+    ODMAP[c.id] = (r.value || []).filter(x => x.folder).map(x => x.name);
+  } catch (e) { /* map bestaat nog niet */ }
+}
+const LAAD_BEZIG = new Set();
 async function laadAdresMappen(cId) {
   const c = findC(cId);
-  if (!c || !accounts().length || !navigator.onLine) return;
+  if (!c || !accounts().length || !navigator.onLine || LAAD_BEZIG.has(cId)) return;
+  LAAD_BEZIG.add(cId);
   try {
     const r = await graph(`/me/drive/root:/${mapVan(c).split("/").map(encodeURIComponent).join("/")}:/children?$select=name,folder`, {}, false);
     const namen = (r.value || []).filter(x => x.folder).map(x => x.name);
@@ -991,12 +1012,16 @@ async function laadAdresMappen(cId) {
     const teOud = !ODFOTO_TIJD[cId] || Date.now() - ODFOTO_TIJD[cId] > 5 * 60000;
     if (teOud || JSON.stringify(namen) !== JSON.stringify(ODMAP[cId] || [])) {
       tellingen = {};
-      await Promise.all(namen.map(async n => {
-        try {
-          const pad = [...mapVan(c).split("/"), n].map(encodeURIComponent).join("/");
-          const f = await graph(`/me/drive/root:/${pad}:/children?$select=name,file`, {}, false);
-          tellingen[n] = (f.value || []).filter(x => x.file && /\.(jpe?g|png|heic)$/i.test(x.name)).length;
-        } catch (e) { tellingen[n] = 0; }
+      const rij = [...namen];
+      await Promise.all([1, 2, 3, 4].map(async () => {   /* max 4 tegelijk, anders remt OneDrive alles af */
+        while (rij.length) {
+          const n = rij.shift();
+          try {
+            const pad = [...mapVan(c).split("/"), n].map(encodeURIComponent).join("/");
+            const f = await graph(`/me/drive/root:/${pad}:/children?$select=name,file&$top=999`, {}, false);
+            tellingen[n] = (f.value || []).filter(x => x.file && /\.(jpe?g|png|heic)$/i.test(x.name)).length;
+          } catch (e) { tellingen[n] = 0; }
+        }
       }));
       ODFOTO_TIJD[cId] = Date.now();
     }
@@ -1005,6 +1030,7 @@ async function laadAdresMappen(cId) {
     ODFOTO[cId] = tellingen;
     if (JSON.stringify([namen, tellingen]) !== oud) render();
   } catch (e) { /* map bestaat nog niet: niets tonen */ }
+  finally { LAAD_BEZIG.delete(cId); }
 }
 function adresUitMap(cId, i) {
   const c = findC(cId), p = parseerMap((ODMAP[cId] || [])[i], c && standaardStraat(c));
