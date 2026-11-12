@@ -261,7 +261,16 @@ const standaardStraat = c => {
   return Object.keys(tel).sort((x, y) => tel[y] - tel[x])[0] || mapVan(c).split("/").pop();
 };
 /* Welke OneDrive-map hoort bij dit adres: "Straat 12A" of alleen "12A" */
-const mapVoorAdres = (c, a) => [mapNaam(a), nrLabel(a)].find(n => (ODMAP[c.id] || []).includes(n)) || mapNaam(a);
+/* Vergelijken zonder spaties en hoofdletters, zodat "13 C", "13c" en "13C" dezelfde map zijn */
+const mapSleutel = n => String(n).toLowerCase().replace(/\s+/g, "");
+const mapVoorAdres = (c, a) => {
+  const mappen = ODMAP[c.id] || [];
+  for (const kandidaat of [mapNaam(a), nrLabel(a)]) {
+    const gevonden = mappen.find(n => mapSleutel(n) === mapSleutel(kandidaat));
+    if (gevonden) return gevonden;
+  }
+  return mapNaam(a);
+};
 
 function bewaarState() {
   localStorage.setItem(KEY, JSON.stringify(st));
@@ -339,7 +348,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "12-11 22:20";
+const APP_VERSIE = "12-11 22:35";
 let SEL = new Set();
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
@@ -444,7 +453,7 @@ async function graph(path, opts = {}, ui = false, poging = 0) {
     });
   } finally { clearTimeout(timer); }
   /* OneDrive vraagt soms even te wachten (429 / 503): dan wachten en opnieuw proberen, tot 4 keer */
-  if ((r.status === 429 || r.status === 503) && poging < 4) {
+  if ([429, 500, 502, 503, 504].includes(r.status) && poging < 4) {   /* OneDrive heeft het even druk of hapert: wachten en opnieuw */
     const na = parseInt(r.headers.get("Retry-After") || "0", 10) || (5 * (poging + 1));
     await new Promise(res => setTimeout(res, Math.min(na, 30) * 1000));
     return graph(path, opts, ui, poging + 1);
