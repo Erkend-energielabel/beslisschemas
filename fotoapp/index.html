@@ -421,10 +421,17 @@ async function token(ui) {
 }
 async function graph(path, opts = {}, ui = false, poging = 0) {
   const t = await token(ui);
-  const r = await fetch("https://graph.microsoft.com/v1.0" + path, {
-    ...opts,
-    headers: { Authorization: "Bearer " + t, ...(opts.headers || {}) }
-  });
+  /* Een verzoek dat op een wankel mobiel netwerk blijft hangen, breekt na een tijd af, zodat het uploaden doorgaat */
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), opts.body ? 120000 : 30000);
+  let r;
+  try {
+    r = await fetch("https://graph.microsoft.com/v1.0" + path, {
+      ...opts,
+      signal: ctl.signal,
+      headers: { Authorization: "Bearer " + t, ...(opts.headers || {}) }
+    });
+  } finally { clearTimeout(timer); }
   /* OneDrive vraagt soms even te wachten (429 / 503): dan wachten en opnieuw proberen, tot 4 keer */
   if ((r.status === 429 || r.status === 503) && poging < 4) {
     const na = parseInt(r.headers.get("Retry-After") || "0", 10) || (5 * (poging + 1));
