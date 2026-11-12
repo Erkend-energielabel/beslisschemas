@@ -348,7 +348,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "12-11 22:35";
+const APP_VERSIE = "12-11 22:45";
 let SEL = new Set();
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
@@ -1125,6 +1125,19 @@ async function laadAdresMappen(cId) {
   } catch (e) { /* map bestaat nog niet: niets tonen */ }
   finally { LAAD_BEZIG.delete(cId); }
 }
+/* Eén adres toevoegen: "Straat 13C" of alleen "13C" (dan de straat die het meest voorkomt in dit complex) */
+function eenAdresToevoegen(cId) {
+  const c = findC(cId), veld = $("eenAdres");
+  if (!c || !veld) return;
+  const p = parseerMap(veld.value.trim(), standaardStraat(c));
+  if (!p) return alert('Niet herkend. Typ bijv. "Vorrinklaan 13C" of alleen "13C".');
+  if (c.adressen.some(a => a.straat === p.straat && a.nr === p.nr && (a.toev || "") === p.toev)) return alert(`${p.straat} ${p.nr}${p.toev} staat al in de lijst.`);
+  c.adressen.push({ id: uid(), straat: p.straat, nr: p.nr, toev: p.toev, klaar: false, opmerkingen: [], afspraak: null });
+  sorteer(c);
+  bewaarState();
+  veld.value = "";
+  render();
+}
 function adresUitMap(cId, i) {
   const c = findC(cId), p = parseerMap((ODMAP[cId] || [])[i], c && standaardStraat(c));
   if (!c || !p) return;
@@ -1366,7 +1379,11 @@ function sortedAdressen(c) {
 function vComplex(c) {
   const klaar = c.adressen.filter(a => a.klaar).length;
   let h = `<button class="sec" onclick="go({s:'map',c:'${c.id}'})">📁 Map op OneDrive: ${esc(mapVan(c))}</button>${voortgangBalk(klaar, c.adressen.length)}
-    <button class="sec" onclick="go({s:'nieuwAdres',c:'${c.id}'})">+ Adressen toevoegen</button>
+    <div style="display:flex;gap:8px;align-items:center;margin:8px 0">
+      <input id="eenAdres" placeholder="1 adres, bijv. ${esc(standaardStraat(c))} 13C of 13C" autocomplete="off" style="flex:1;margin:0" onkeydown="if(event.key==='Enter')eenAdresToevoegen('${c.id}')">
+      <button style="width:auto;margin:0" onclick="eenAdresToevoegen('${c.id}')">+ Toevoegen</button>
+    </div>
+    <button class="sec" onclick="go({s:'nieuwAdres',c:'${c.id}'})">+ Meerdere adressen toevoegen</button>
     <button class="sec" onclick="exportComplex('${c.id}')">⬇ Overzicht voor Excel (CSV)</button>
     <button class="sec" onclick="go({s:'pasjes'})">🪪 Bedrijfspasje tonen</button>`;
   const gepland = c.adressen.filter(a => a.afspraak).sort((x, y) => x.afspraak.start.localeCompare(y.afspraak.start));
