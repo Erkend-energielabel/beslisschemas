@@ -348,7 +348,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "12-11 22:45";
+const APP_VERSIE = "12-11 22:55";
 let SEL = new Set();
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
@@ -558,11 +558,15 @@ function samenAdres(lijst) {
   out.opmerkingWacht = lijst.some(a => a.opmerkingWacht);
   return out;
 }
-function samenComplex(lijst) {
+function samenComplex(lijst, graf = new Map()) {
   const out = { ...nieuwste(lijst), adressen: [] };
   const av = {};
   for (const c of lijst) for (const a of c.adressen || []) (av[a.id] ||= []).push(a);
-  out.adressen = Object.values(av).map(samenAdres);
+  out.adressen = Object.entries(av).map(([id, versies]) => {
+    const g = graf.get(id);   // verwijderd adres: alleen terug als het daarna nog is gewijzigd
+    const over = g ? versies.filter(a => (a._t || "") > g.t) : versies;
+    return over.length ? samenAdres(over) : null;
+  }).filter(Boolean);
   return out;
 }
 function samenvoegen(loc, rem) {
@@ -576,7 +580,7 @@ function samenvoegen(loc, rem) {
   for (const id in vers) {
     const g = graf.get(id);
     const over = g ? vers[id].filter(c => (c._t || "") > g.t) : vers[id];
-    if (over.length) complexen.push(samenComplex(over));
+    if (over.length) complexen.push(samenComplex(over, graf));
   }
   const pv = {};
   for (const p of [...(loc.pasjes || []), ...(rem.pasjes || [])]) (pv[p.id] ||= []).push(p);
@@ -1532,7 +1536,22 @@ function vAdres(c, a) {
     <div class="acties"><button class="klein sec" style="width:auto" onclick="opmerkingNetjes()">✨ Tekst netjes maken</button>
     <button class="sec" onclick="opmerkingToevoegen('${c.id}','${a.id}')">Opmerking opslaan</button></div>`;
   h += `<p class="klein-tekst">Foto's maken of kiezen: met de knop 📷 Foto's onderin. Foto's worden verkleind en automatisch naar OneDrive gestuurd.</p>`;
+  h += `<button class="klein gevaar" style="width:auto;margin-top:24px" onclick="adresWis('${c.id}','${a.id}')">🗑 Adres verwijderen</button>`;
   return h;
+}
+/* Adres uit de app halen. Kan pas als alle foto's van dit adres op OneDrive staan; de map en foto's op OneDrive blijven staan. */
+async function adresWis(cId, aId) {
+  const c = findC(cId), a = c && findA(c, aId);
+  if (!a) return;
+  const fs = (await fotosAll()).filter(f => f.adresId === aId);
+  const nietOp = fs.filter(f => !f.uploaded).length;
+  if (nietOp) return alert(`Bij dit adres staan nog ${nietOp} foto('s) die niet op OneDrive staan. Upload of verwijder die eerst.`);
+  if (!confirm(`${a.straat} ${nrLabel(a)} uit de lijst verwijderen?\n\nDe map en foto's op OneDrive blijven gewoon staan.${a.afspraak ? "\nDe afspraak in Outlook blijft ook staan." : ""}`)) return;
+  for (const f of fs) await fotoDel(f.id).catch(() => {});   // staan op OneDrive: alleen de kopie op dit toestel weg
+  st.verwijderd = [...(st.verwijderd || []), { id: aId, t: new Date().toISOString() }];   // ook op andere toestellen weg
+  c.adressen = c.adressen.filter(x => x.id !== aId);
+  bewaarState();
+  go({ s: "complex", c: cId });
 }
 
 function vMap(c) {
