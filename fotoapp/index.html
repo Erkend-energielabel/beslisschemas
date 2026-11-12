@@ -339,7 +339,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "12-11 13:30";
+const APP_VERSIE = "12-11 13:40";
 let SEL = new Set();
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
@@ -355,19 +355,14 @@ function terug() {
 
 /* Bestandsnaam: eerste 2 letters van de straat + huisnummer + tijd (bijv. ST12_1420.jpg). OneDrive hernoemt dubbelen zelf. */
 function bestandsnaam(straat, nr) {
-  /* Staat de volledige complexnaam ("EE26-158  Vorrinklaan, Dordrecht ...") als straat, dan alleen de straatnaam gebruiken */
-  const kort = String(straat).match(/^EE[\d-]+\s+([^,]+)/i);
-  const s = (kort ? kort[1] : String(straat)).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[\\\/:*?"<>|]/g, "").trim().replace(/\s+/g, "-");
+  /* Geen echte straatnaam (complexnaam, "010 FOTO'S" of een mapnaam met cijfers)? Dan alleen het huisnummer */
+  if (/^EE[\d-]/i.test(String(straat)) || /^\d{2,3}\s/.test(String(straat)) || /FOTO/i.test(String(straat))) return `${nr}`;
+  const s = String(straat).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[\\\/:*?"<>|]/g, "").trim().replace(/\s+/g, "-");
   return `${s}_${nr}`;
 }
 /* Eerste foto van een adres heet "Straat_12-1", de volgende "Straat_12-2", enz. */
 function volgendeNaam(c, a, extra = [], uitzondering = null) {
-  let straat = a.straat;
-  if (/^\d{2,3}\s/.test(straat) || /^EE[\d-]+\s/i.test(straat)) {   /* bv. "010 FOTO'S": straat uit de complexnaam halen */
-    const m = String(c.naam || "").match(/^EE[\d-]+\s+([^,]+)/i) || String(mapVan(c)).match(/EE[\d-]+\s+([^,\/]+)/i);
-    if (m) straat = m[1].trim();
-  }
-  const basis = bestandsnaam(straat, nrLabel(a));
+  const basis = bestandsnaam(a.straat, nrLabel(a));
   const bezet = new Set([...FOTOS.filter(f => f.complexId === c.id && f.adresId === a.id && f.id !== uitzondering).map(f => f.naam), ...extra]);
   let n = 1;
   while (bezet.has(`${basis}-${n}.jpg`)) n++;
