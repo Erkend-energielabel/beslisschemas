@@ -1707,6 +1707,7 @@ function selectBld(id,fit,first){
   renderAll(!!fit);if(fit)resetView();
   if(!fit&&!first){const b=selB();if(b&&map&&!map.getBounds().contains(rd2wgs(...centroid(b.ring))))map.panTo(rd2wgs(...centroid(b.ring)))}
   changed();
+  const cb=selB();if(!first&&cb&&cb.vbos&&cb.vbos.length>1)complexLabels(cb,true);
 }
 
 /* ===== Oriëntatie ===== */
@@ -1868,9 +1869,9 @@ function labelHtml(p,res){
     l.ag!=null&&`Ag ${fmt(l.ag,1)} m²`,l.energieindex!=null&&`EI ${fmt(l.energieindex,2)}`,l.berekening&&esc(l.berekening),l.certificaathouder&&esc(l.certificaathouder),l.ingetrokken&&'<b style="color:#c0392b">ingetrokken</b>'].filter(Boolean).join(' · ');
   return`${kop}<button class="actie licht bag-buurtknop" type="button" onclick="window.kiesTab&&kiesTab('buurt')">🏘️ Labels in de buurt</button><span class="bag-lklasse" style="background:${kc};color:${donker?'#1d2a22':'#fff'}">${esc(kl)}</span><span>${det}</span>`;
 }
-function complexLabels(b){
+function complexLabels(b,stil){
   const items=b.vbos.map(v=>{const p=v.p;return{adres:adrTxt(p),postcode:p.postcode||'',plaats:p.woonplaatsnaam||'',straat:p.openbare_ruimte||'',hnr:+p.huisnummer||0,toev:(p.huisletter||'')+(p.toevoeging||''),q:vboZoek(p),vbo:String(p.identificatie||'').replace('NL.IMBAG.Verblijfsobject.','')}});
-  if(window.BUURT&&BUURT.complex) BUURT.complex(items,'complex '+(b.adressen&&b.adressen[0]?b.adressen[0]:'pand')+(b.vbos.length>1?' e.o.':''));
+  if(window.BUURT&&BUURT.complex) BUURT.complex(items,'complex '+(b.adressen&&b.adressen[0]?b.adressen[0]:'pand')+(b.vbos.length>1?' e.o.':''),stil);
 }
 /* keuzelijst van alle woningen/verblijfsobjecten in het pand + bestaand energielabel */
 function renderVbo(b){
@@ -2865,9 +2866,9 @@ function bind(){
   try{const q=localStorage.getItem('ee_bz_q');if(q)$('bz-q').value=q}catch(e){}
 }
 bind();
-async function complex(items,naam){
-  if(!api()){status('Label-server niet ingesteld (zie ⚙️ bij Bestaand energielabel in de pand analyse).','err');return}
-  if(window.kiesTab)kiesTab('buurt');
+async function complex(items,naam,stil){
+  if(!api()){if(!stil)status('Label-server niet ingesteld (zie ⚙️ bij Bestaand energielabel in de pand analyse).','err');return}
+  if(window.kiesTab&&!stil)kiesTab('buurt');
   const tok=++S.tok;S.gebied=naam;S.filter=null;S.minHern=null;S.sel.clear();S.vol=[];
   const gezien=new Set();
   S.rij=items.filter(x=>{const k=x.vbo||x.adres;if(gezien.has(k))return false;gezien.add(k);return true})
