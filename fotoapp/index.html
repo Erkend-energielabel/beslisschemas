@@ -348,7 +348,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "12-11 23:00";
+const APP_VERSIE = "14-11 camera";
 let SEL = new Set();
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
@@ -446,7 +446,7 @@ async function graph(path, opts = {}, ui = false, poging = 0) {
   const timer = setTimeout(() => ctl.abort(), opts.body ? 60000 : 20000);
   let r;
   try {
-    r = await fetch("https://graph.microsoft.com/v1.0" + path, {
+    r = await fetch(path.startsWith("https://") ? path : "https://graph.microsoft.com/v1.0" + path, {
       ...opts,
       signal: ctl.signal,
       headers: { Authorization: "Bearer " + t, ...(opts.headers || {}) }
@@ -556,6 +556,9 @@ function samenAdres(lijst) {
   for (const a of lijst) for (const o of a.opmerkingen || []) opm.set(o.t + "|" + o.tekst, o);
   out.opmerkingen = [...opm.values()].sort((x, y) => x.t.localeCompare(y.t));
   out.opmerkingWacht = lijst.some(a => a.opmerkingWacht);
+  const bz = new Map();   // opname-tijdvakken: per start, de versie met een eindtijd wint
+  for (const a of lijst) for (const b of a.bezoeken || []) { const k = b.van + "|" + b.wie; if (!bz.has(k) || (b.tot && !bz.get(k).tot)) bz.set(k, b); }
+  out.bezoeken = [...bz.values()].sort((x, y) => x.van.localeCompare(y.van));
   return out;
 }
 function samenComplex(lijst, graf = new Map()) {
@@ -741,6 +744,166 @@ async function motorLoop(gen) {
     }
   }
 }
+/* ===== CAMERA-UPLOAD VIA ONEDRIVE =====
+   Werkwijze: tik bij een woning op "▶ Start opname", maak foto's met de gewone iPhone-camera, tik op "Woning gereed".
+   De OneDrive-app zet de foto's zelf (op de achtergrond, betrouwbaar) in Afbeeldingen/Camera-album.
+   Deze app VERPLAATST ze daarna binnen OneDrive naar de adresmap. Er gaat dus geen foto meer via deze app over je verbinding.
+   Veiligheid:
+   - Er wordt NOOIT iets verwijderd. Alleen verplaatst, en elke verplaatsing staat in een logboek.
+   - Alleen foto's met een opnametijd binnen jouw eigen tijdvak bij een adres (1 min ervoor tot 2 min erna).
+   - Foto's die nergens bij passen blijven gewoon in Camera-album staan.
+   - Per adres kun je alles terugzetten naar Camera-album. */
+const CAM_LOG_KEY = "fa_cam_log";
+let CAM_LOG = JSON.parse(localStorage.getItem(CAM_LOG_KEY) || "[]");   // [{id, naam, oudParent, oudNaam, cId, aId, t}]
+const camLogBewaar = () => localStorage.setItem(CAM_LOG_KEY, JSON.stringify(CAM_LOG.slice(-3000)));
+const ikBen = () => (accounts()[0]?.username || "").toLowerCase();
+const MARGE_VOOR = 60000, MARGE_NA = 120000, MAX_DUUR = 3 * 3600000, TERUG = 7 * 86400000;
+let CAM = { bezig: false, sinds: 0, fout: null, laatst: 0, zonder: 0 };
+
+function openBezoek() {   /* het tijdvak dat nu loopt op dit account, als dat er is */
+  const ik = ikBen();
+  for (const c of st.complexen) for (const a of c.adressen) for (const b of a.bezoeken || [])
+    if (!b.tot && b.wie === ik) return { c, a, b };
+  return null;
+}
+function startOpname(cId, aId) {
+  const c = findC(cId), a = findA(c, aId);
+  if (!a) return;
+  if (!accounts().length) return alert("Log eerst in bij Microsoft (rechtsboven).");
+  const o = openBezoek();
+  if (o) o.b.tot = new Date().toISOString();   // vorige woning sluiten
+  (a.bezoeken ||= []).push({ van: new Date().toISOString(), tot: null, wie: ikBen() });
+  bewaarState();
+  render();
+}
+function stopOpname() {
+  const o = openBezoek();
+  if (!o) return;
+  o.b.tot = new Date().toISOString();
+  bewaarState();
+  render();
+  setTimeout(() => cameraVerwerk(false), 1500);
+}
+function opnameBanner() {
+  const o = openBezoek();
+  if (!o) return "";
+  const van = new Date(o.b.van);
+  return `<div class="melding" style="border-color:#16a34a;background:#e8f7ec">📷 <b>Opname loopt: ${esc(o.a.straat)} ${nrLabel(o.a)}</b> sinds ${pad(van.getHours())}:${pad(van.getMinutes())}.
+    Maak foto's met de gewone camera. <button class="klein" style="width:auto;margin:4px 0 0" onclick="stopOpname()">■ Stop opname</button></div>`;
+}
+/* Opnametijd van een foto uit Camera-album, in UTC.
+   De OneDrive-app noemt iPhone-foto's "20261104_130116000_iOS.jpg": dat is de opnametijd in UTC (meest betrouwbaar). */
+function fotoTijd(item) {
+  const m = String(item.name).match(/^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
+  const uitNaam = m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]) : null;
+  const gemaakt = item.fileSystemInfo?.createdDateTime ? Date.parse(item.fileSystemInfo.createdDateTime) : null;
+  /* createdDateTime is een echte tijd met tijdzone: die heeft voorrang als hij in de buurt van de naam ligt */
+  if (gemaakt && (!uitNaam || Math.abs(gemaakt - uitNaam) <= 2 * 3600000)) return gemaakt;
+  return uitNaam;
+}
+let CAM_BASIS = null;   // "special/cameraroll" of, als dat niet bestaat, de map Afbeeldingen/Camera-album
+async function camBasis() {
+  if (CAM_BASIS) return CAM_BASIS;
+  try { await graph(`/me/drive/special/cameraroll?$select=id`, {}, false); CAM_BASIS = "/me/drive/special/cameraroll:/"; }
+  catch (e) { CAM_BASIS = "/me/drive/root:/Afbeeldingen/Camera-album/"; }
+  return CAM_BASIS;
+}
+async function cameraMapItems(jaarMaanden) {
+  const items = [];
+  const basis = await camBasis();
+  for (const [j, m] of jaarMaanden) {
+    let url = `${basis}${j}/${m}:/children?$select=id,name,file,size,fileSystemInfo,parentReference&$top=200`;
+    let paginas = 0;
+    while (url && paginas++ < 25) {
+      let r;
+      try { r = await graph(url, {}, false); }
+      catch (e) { if (String(e.message).startsWith("Graph 404")) break; throw e; }
+      items.push(...(r.value || []).filter(x => x.file && /\.(jpe?g|heic|heif)$/i.test(x.name)));   // geen .png: dat zijn schermafbeeldingen
+      url = r["@odata.nextLink"] || null;
+    }
+  }
+  return items;
+}
+async function cameraVerwerk(ui) {
+  if (CAM.bezig && Date.now() - CAM.sinds < 180000) { if (ui) alert("Camera-foto's worden al opgehaald."); return; }
+  if (!navigator.onLine || !accounts().length) { if (ui) alert("Geen internet of niet ingelogd."); return; }
+  const ik = ikBen(), nu = Date.now();
+  /* tijdvakken van de afgelopen 7 dagen, van dit account */
+  const vakken = [];
+  for (const c of st.complexen) for (const a of c.adressen) for (const b of a.bezoeken || []) {
+    if (b.wie !== ik) continue;
+    const van = Date.parse(b.van), tot = b.tot ? Date.parse(b.tot) : Math.min(nu, van + MAX_DUUR);
+    if (nu - van > TERUG) continue;
+    vakken.push({ c, a, van: van - MARGE_VOOR, tot: tot + MARGE_NA });
+  }
+  if (!vakken.length) { if (ui) alert("Er is nog geen opname gestart bij een adres. Tik bij een woning op ▶ Start opname."); return; }
+  CAM.bezig = true; CAM.sinds = nu; CAM.fout = null;
+  let verplaatst = 0, zonder = 0;
+  try {
+    const maanden = new Map();
+    for (const v of vakken) for (const t of [v.van, v.tot]) {
+      const d = new Date(t);   // Camera-album/JJJJ/MM gebruikt de lokale maand; neem beide buurmaanden mee rond de jaarwisseling
+      for (const dd of [d, new Date(t - 86400000), new Date(t + 86400000)]) maanden.set(`${dd.getFullYear()}/${pad(dd.getMonth() + 1)}`, [dd.getFullYear(), pad(dd.getMonth() + 1)]);
+    }
+    const items = await metLimiet(cameraMapItems([...maanden.values()]), 120000, "Camera-album lezen");
+    const doelNamen = {};   // adresmap -> bestaande namen
+    for (const it of items.sort((x, y) => (fotoTijd(x) || 0) - (fotoTijd(y) || 0))) {
+      const t = fotoTijd(it);
+      if (!t) continue;
+      const pas = vakken.filter(v => t >= v.van && t <= v.tot);
+      if (pas.length !== 1) { if (t >= Math.min(...vakken.map(v => v.van)) && !pas.length) zonder++; continue; }   // geen of twijfel: laten staan
+      const { c, a } = pas[0];
+      if (!ODMAP[c.id]) await laadMapNamen(c);
+      const doel = adresMapOD(c, a);
+      await zorgMap(doel, false);
+      if (!doelNamen[doel]) {
+        try {
+          const r = await graph(`/me/drive/root:/${doel.split("/").map(encodeURIComponent).join("/")}:/children?$select=name&$top=999`, {}, false);
+          doelNamen[doel] = new Set((r.value || []).map(x => x.name.toLowerCase()));
+        } catch (e) { doelNamen[doel] = new Set(); }
+      }
+      const ext = (it.name.match(/\.[^.]+$/) || [".jpg"])[0].toLowerCase();
+      const basis = bestandsnaam(a.straat, nrLabel(a));
+      let n = 1;
+      const zonderExt = new Set([...doelNamen[doel]].map(x => x.replace(/\.[^.]+$/, "")));
+      while (zonderExt.has(`${basis}-${n}`.toLowerCase())) n++;
+      const nieuweNaam = `${basis}-${n}${ext}`;
+      const log = { id: it.id, naam: nieuweNaam, oudParent: it.parentReference?.id, oudNaam: it.name, cId: c.id, aId: a.id, t: new Date().toISOString() };
+      const res = await graph(`/me/drive/items/${it.id}?@microsoft.graph.conflictBehavior=rename`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: nieuweNaam, parentReference: { path: "/drive/root:/" + doel } })
+      }, false);
+      log.naam = res.name;
+      doelNamen[doel].add(res.name.toLowerCase());
+      CAM_LOG.push(log); camLogBewaar();
+      verplaatst++;
+    }
+  } catch (e) { console.error("camera", e); CAM.fout = e.name === "AbortError" ? "verbinding te traag" : String(e.message || e).slice(0, 140); }
+  CAM.bezig = false; CAM.laatst = Date.now(); CAM.zonder = zonder;
+  if (verplaatst) for (const v of vakken) ODFOTO_TIJD[v.c.id] = 0;   // tellingen verversen
+  render();
+  if (ui) alert(CAM.fout ? "Ophalen gestopt: " + CAM.fout + "\n\nEr is niets kwijt: niet-verplaatste foto's staan nog in Camera-album." : `${verplaatst} foto('s) naar de adresmappen verplaatst.${zonder ? `\n${zonder} foto('s) vielen buiten een opname en staan nog in Camera-album.` : ""}`);
+}
+/* Alles van dit adres terugzetten naar waar het vandaan kwam (Camera-album) */
+async function cameraTerug(cId, aId) {
+  const lijst = CAM_LOG.filter(l => l.aId === aId && !l.terug);
+  if (!lijst.length) return;
+  if (!confirm(`${lijst.length} foto('s) van dit adres terugzetten naar Camera-album?`)) return;
+  let ok = 0, mis = 0;
+  for (const l of lijst) {
+    try {
+      await graph(`/me/drive/items/${l.id}?@microsoft.graph.conflictBehavior=rename`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: l.oudNaam, parentReference: { id: l.oudParent } })
+      }, true);
+      l.terug = new Date().toISOString(); ok++;
+    } catch (e) { console.error(e); mis++; }
+  }
+  camLogBewaar();
+  ODFOTO_TIJD[cId] = 0;
+  alert(`${ok} teruggezet${mis ? `, ${mis} lukte niet (die staan nog in de adresmap)` : ""}.`);
+  render();
+}
 let SYNC_FOUT = null;   // laatste uploadfout, zichtbaar in de balk onderaan
 /* Zet alle opmerkingen van een adres in een tekstbestand in de adresmap op OneDrive */
 async function uploadOpmerkingen(c, a, ui) {
@@ -790,6 +953,7 @@ async function sync(ui) {
   if (!accounts().length) { if (ui) login(); return; }
   motorStart(!!ui);
   overigSync(ui);
+  cameraVerwerk(false);
 }
 
 /* ===== ACTIES ===== */
@@ -893,6 +1057,8 @@ function klaarZet(cId, aId, aan) {
   if (!confirm(vraag)) { render(); return; }   // checkbox weer goedzetten
   a.klaar = aan;
   a.klaarOp = aan ? new Date().toISOString() : null;
+  const o = openBezoek();
+  if (aan && o && o.a.id === a.id) { o.b.tot = new Date().toISOString(); setTimeout(() => cameraVerwerk(false), 1500); }
   bewaarState();
   render();
 }
@@ -1472,6 +1638,16 @@ function vAdres(c, a) {
   const fs = FOTOS.filter(f => f.adresId === a.id).sort((x, y) => x.createdAt - y.createdAt);
   let h = `<div style="display:flex;align-items:center;gap:8px"><p class="klein-tekst" style="flex:1;margin:0">${esc(c.naam)}</p>
     <button style="width:auto;min-height:0;margin:0;padding:3px 8px;font-size:11px;background:none;color:#b91c1c;border:1px solid #e5b4b4;border-radius:6px" onclick="adresWis('${c.id}','${a.id}')" aria-label="Adres verwijderen">🗑 verwijder</button></div>
+    ${(() => {
+      const o = openBezoek();
+      const hier = o && o.a.id === a.id;
+      const uitCam = CAM_LOG.filter(l => l.aId === a.id && !l.terug).length;
+      return `<div style="margin:8px 0">${hier
+        ? `<button style="background:#dc2626" onclick="stopOpname()">■ Stop opname (foto's gaan naar deze woning)</button>`
+        : `<button onclick="startOpname('${c.id}','${a.id}')">▶ Start opname met gewone camera</button>`}
+        ${uitCam ? `<div class="klein-tekst">📥 ${uitCam} foto('s) uit Camera-album hierheen verplaatst · <a href="#" onclick="cameraTerug('${c.id}','${a.id}');return false">terugzetten</a></div>` : ""}
+        ${(a.bezoeken || []).length ? `<div class="klein-tekst">Opnames: ${(a.bezoeken || []).map(b => fmtLokaal(b.van).slice(-5) + "–" + (b.tot ? fmtLokaal(b.tot).slice(-5) : "nu")).join(", ")}</div>` : ""}</div>`;
+    })()}
     <div class="acties" style="margin:6px 0 10px"><span class="klein-tekst" style="flex:0 0 100%">Stoplicht (tik nogmaals om weg te halen):</span>
       ${["groen", "oranje", "rood"].map(k => `<button class="klein ${stoplicht(a) === k ? "" : "sec"}" style="width:auto;flex:1;${stoplicht(a) === k ? `background:${stoplichtKleur[k]}` : `color:${stoplichtKleur[k]};border-color:${stoplichtKleur[k]}`}" onclick="adresStoplicht('${c.id}','${a.id}','${stoplicht(a) === k ? "" : k}')">● ${k}</button>`).join("")}
     </div>
@@ -1762,6 +1938,7 @@ async function renderInhoud() {
 
   const wacht = FOTOS.filter(f => !f.uploaded).length;
   $("balk").innerHTML = `
+    ${opnameBanner()}
     <div class="acties">
       ${view.s !== "complexen" ? `<button class="klein sec" style="min-height:48px;font-size:17px" onclick="terug()">← Terug</button>` : ""}
       ${view.s === "adres" && c && a ? `<label class="knop" style="width:auto;margin:0;min-height:48px;font-size:17px;padding:10px 14px;cursor:pointer">📷 Foto's<input type="file" accept="image/*" multiple hidden onchange="fotosToevoegen(event,'${c.id}','${a.id}')"></label>
@@ -1772,6 +1949,8 @@ async function renderInhoud() {
         : `<button class="klein" onclick="login()">Inloggen</button>`}
     </div>
     ${foutAdressen()}
+    ${accounts().length ? `<div class="klein-tekst" style="text-align:center">${CAM.bezig ? "📥 Camera-foto's ophalen…" : CAM.fout ? `<span style="color:#b91c1c">📥 Camera-foto's: ${esc(CAM.fout)}</span>` : CAM.laatst ? `📥 Camera-album bekeken om ${fmtLokaal(new Date(CAM.laatst).toISOString()).slice(-5)}${CAM.zonder ? ` · ${CAM.zonder} foto('s) zonder adres blijven staan` : ""}` : ""}
+      <a href="#" onclick="cameraVerwerk(true);return false">Camera-foto's nu ophalen</a></div>` : ""}
     ${SYNC_FOUT ? `<div class="melding">Opslaan op OneDrive lukt niet: ${esc(SYNC_FOUT)}. Tik op "Nu uploaden". Je foto's blijven op dit toestel.</div>` : ""}
     ${("Notification" in window && Notification.permission === "default") ? `<button class="klein sec" onclick="meldingenAan()">🔔 Meldingen aanzetten</button>` : ""}
     ${navigator.onLine ? "" : `<div class="melding">Geen internet. Foto's blijven bewaard en worden later geüpload.</div>`}
@@ -1801,6 +1980,9 @@ async function renderInhoud() {
     if (MOTOR.actief) schermAan();
     if (navigator.onLine) motorStart(false);
   });
+  /* Camera-album: elke 2 minuten en bij terugkomen in de app kijken of er foto's bij een opname horen */
+  setInterval(() => { if (navigator.onLine && accounts().length) cameraVerwerk(false); }, 120000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && navigator.onLine && accounts().length) setTimeout(() => cameraVerwerk(false), 3000); });
   /* Klok: elke 20 s kijken of er een foto is waarvan de wachttijd voorbij is, en de status bijwerken */
   setInterval(() => {
     updateUploadStatus();
