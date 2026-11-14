@@ -348,7 +348,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "14-11 app-upload 1";
+const APP_VERSIE = "14-11 app-upload 2";
 let SEL = new Set();
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
@@ -974,7 +974,10 @@ async function sync(ui) {
 }
 
 /* ===== ACTIES ===== */
+let TOEVOEGEN_BEZIG = false;
 async function fotosToevoegen(ev, cId, aId) {
+  TOEVOEGEN_BEZIG = true;
+  try {
   const c = findC(cId), a = findA(c, aId);
   const files = [...ev.target.files];
   ev.target.value = "";
@@ -989,6 +992,7 @@ async function fotosToevoegen(ev, cId, aId) {
       alert(`Foto "${file.name}" kon niet worden verwerkt. Het origineel is niet veranderd.`);
     }
   }
+  } finally { TOEVOEGEN_BEZIG = false; }
   await render();
   sync(false);
 }
@@ -1992,6 +1996,22 @@ async function renderInhoud() {
     if (MOTOR.actief) schermAan();
     if (navigator.onLine) motorStart(false);
   });
+  /* Nieuwe versie op GitHub? Dan zelf herladen. Foto's staan al veilig op het toestel (IndexedDB). */
+  async function versieCheck() {
+    if (!navigator.onLine || TOEVOEGEN_BEZIG) return;
+    if (document.activeElement?.matches?.("input,textarea,select")) return;   // niet midden in typen
+    try {
+      const r = await fetch(location.pathname + "?versiecheck=" + Date.now(), { cache: "no-store" });
+      const m = (await r.text()).match(/const APP_VERSIE = "([^"]+)"/);
+      if (!m || m[1] === APP_VERSIE) return;
+      if (sessionStorage.getItem("fa_herlaad") === m[1]) return;   // al één keer geprobeerd: niet blijven herladen
+      sessionStorage.setItem("fa_herlaad", m[1]);
+      location.reload();
+    } catch (e) { /* geen verbinding: volgende keer */ }
+  }
+  setTimeout(versieCheck, 5000);
+  setInterval(versieCheck, 300000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) setTimeout(versieCheck, 2000); });
   /* Camera-album: elke 2 minuten en bij terugkomen in de app kijken of er foto's bij een opname horen */
   setInterval(() => { if (navigator.onLine && accounts().length) cameraVerwerk(false); }, 120000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden && navigator.onLine && accounts().length) setTimeout(() => cameraVerwerk(false), 3000); });
