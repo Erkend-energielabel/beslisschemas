@@ -111,8 +111,8 @@ details.afspraak[open] summary{border-bottom-left-radius:0;border-bottom-right-r
 const CFG = {
   clientId: "f5581792-ec4a-435c-83c8-e3a5c921e0b7",   // Azure app-registratie (SPA)
   map: "Complexen",                        // map op OneDrive
-  maxPx: 1600,                             // langste zijde na verkleinen
-  kwaliteit: 0.8                           // JPEG-kwaliteit
+  maxPx: 1280,                             // langste zijde na verkleinen (klein = snel uploaden)
+  kwaliteit: 0.7                           // JPEG-kwaliteit
 };
 const SCOPES = ["Files.ReadWrite", "Calendars.ReadWrite"];
 const KEY = "fotoapp_complexen_v1";
@@ -348,7 +348,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "14-11 camera 5";
+const APP_VERSIE = "14-11 app-upload 1";
 let SEL = new Set();
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
@@ -758,6 +758,7 @@ let CAM_LOG = JSON.parse(localStorage.getItem(CAM_LOG_KEY) || "[]");   // [{id, 
 const camLogBewaar = () => localStorage.setItem(CAM_LOG_KEY, JSON.stringify(CAM_LOG.slice(-3000)));
 const ikBen = () => (accounts()[0]?.username || "").toLowerCase();
 const MARGE_VOOR = 30000, MARGE_NA = 30000, MAX_DUUR = 3 * 3600000, TERUG = 7 * 86400000;
+const CAMERA_AAN = false;
 let CAM = { bezig: false, sinds: 0, fout: null, laatst: 0, zonder: 0, onduidelijk: [], alles: [] };
 
 function openBezoek() {   /* het tijdvak dat nu loopt op dit account, als dat er is */
@@ -824,6 +825,7 @@ async function cameraMapItems(jaarMaanden) {
   return items;
 }
 async function cameraVerwerk(ui) {
+  if (!CAMERA_AAN) return;   // camera-album-route staat uit: foto's gaan weer via de app
   if (CAM.bezig && Date.now() - CAM.sinds < 180000) { if (ui) alert("Camera-foto's worden al opgehaald."); return; }
   if (!navigator.onLine || !accounts().length) { if (ui) alert("Geen internet of niet ingelogd."); return; }
   const ik = ikBen(), nu = Date.now();
@@ -1659,7 +1661,7 @@ function vAdres(c, a) {
       const uitCam = CAM_LOG.filter(l => l.aId === a.id && !l.terug).length;
       return `<div style="margin:8px 0">${hier ? `<div class="klein-tekst" style="color:#16a34a"><b>● Opname loopt bij deze woning</b> — maak foto's met de gewone camera</div>` : ""}
         ${uitCam ? `<div class="klein-tekst">📥 ${uitCam} foto('s) uit Camera-album hierheen verplaatst · <a href="#" onclick="cameraTerug('${c.id}','${a.id}');return false">terugzetten</a></div>` : ""}
-        ${(a.bezoeken || []).length ? `<div class="klein-tekst">Opnames: ${(a.bezoeken || []).map(b => fmtLokaal(b.van).slice(-5) + "–" + (b.tot ? fmtLokaal(b.tot).slice(-5) : "nu")).join(", ")}</div>` : ""}</div>`;
+        ${CAMERA_AAN && (a.bezoeken || []).length ? `<div class="klein-tekst">Opnames: ${(a.bezoeken || []).map(b => fmtLokaal(b.van).slice(-5) + "–" + (b.tot ? fmtLokaal(b.tot).slice(-5) : "nu")).join(", ")}</div>` : ""}</div>`;
     })()}
     <div class="acties" style="margin:6px 0 10px"><span class="klein-tekst" style="flex:0 0 100%">Stoplicht (tik nogmaals om weg te halen):</span>
       ${["groen", "oranje", "rood"].map(k => `<button class="klein ${stoplicht(a) === k ? "" : "sec"}" style="width:auto;flex:1;${stoplicht(a) === k ? `background:${stoplichtKleur[k]}` : `color:${stoplichtKleur[k]};border-color:${stoplichtKleur[k]}`}" onclick="adresStoplicht('${c.id}','${a.id}','${stoplicht(a) === k ? "" : k}')">● ${k}</button>`).join("")}
@@ -1951,12 +1953,9 @@ async function renderInhoud() {
 
   const wacht = FOTOS.filter(f => !f.uploaded).length;
   $("balk").innerHTML = `
-    ${opnameBanner()}
     <div class="acties">
       ${view.s !== "complexen" ? `<button class="klein sec" style="min-height:48px;font-size:17px" onclick="terug()">← Terug</button>` : ""}
-      ${view.s === "adres" && c && a ? `${openBezoek()?.a.id === a.id
-          ? `<button class="knop" style="width:auto;margin:0;min-height:48px;font-size:17px;padding:10px 14px;background:#dc2626" onclick="stopOpname()">■ Stop opname</button>`
-          : `<button class="knop" style="width:auto;margin:0;min-height:48px;font-size:17px;padding:10px 14px" onclick="startOpname('${c.id}','${a.id}')">▶ Start opname</button>`}
+      ${view.s === "adres" && c && a ? `<label class="knop" style="width:auto;margin:0;min-height:48px;font-size:17px;padding:10px 14px;cursor:pointer">📷 Foto's<input type="file" accept="image/*" multiple hidden onchange="fotosToevoegen(event,'${c.id}','${a.id}')"></label>
         <button class="knop ${a.klaar ? "sec" : ""}" style="width:auto;margin:0;min-height:48px;font-size:17px;padding:10px 14px" onclick="klaarZet('${c.id}','${a.id}',${!a.klaar})">${a.klaar ? "↩ Niet klaar" : "✅ Woning gereed"}</button>` : ""}
       <span id="uploadStatus" class="klein-tekst" style="flex:0 0 100%;order:2;text-align:center;font-size:11px;line-height:1.3">${uploadTekst()} · versie ${APP_VERSIE}</span>
       ${ingelogd
@@ -1964,8 +1963,6 @@ async function renderInhoud() {
         : `<button class="klein" onclick="login()">Inloggen</button>`}
     </div>
     ${foutAdressen()}
-    ${accounts().length ? `<div class="klein-tekst" style="text-align:center">${CAM.bezig ? "📥 Camera-foto's ophalen…" : CAM.fout ? `<span style="color:#b91c1c">📥 Camera-foto's: ${esc(CAM.fout)}</span>` : CAM.laatst ? `📥 Camera-album bekeken om ${fmtLokaal(new Date(CAM.laatst).toISOString()).slice(-5)}${CAM.zonder ? `<div style="color:#b45309">⚠ ${CAM.zonder} foto('s) niet toegewezen (blijven in Camera-album):${esc(CAM.onduidelijk.join(", "))} <a href="#" onclick="camVerberg();return false">verbergen</a></div>` : ""}` : ""}
-      <a href="#" onclick="cameraVerwerk(true);return false">Camera-foto's nu ophalen</a></div>` : ""}
     ${SYNC_FOUT ? `<div class="melding">Opslaan op OneDrive lukt niet: ${esc(SYNC_FOUT)}. Tik op "Nu uploaden". Je foto's blijven op dit toestel.</div>` : ""}
     ${("Notification" in window && Notification.permission === "default") ? `<button class="klein sec" onclick="meldingenAan()">🔔 Meldingen aanzetten</button>` : ""}
     ${navigator.onLine ? "" : `<div class="melding">Geen internet. Foto's blijven bewaard en worden later geüpload.</div>`}
