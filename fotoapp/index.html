@@ -348,7 +348,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "14-11 camera 3";
+const APP_VERSIE = "14-11 camera 4";
 let SEL = new Set();
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
@@ -796,10 +796,9 @@ function opnameBanner() {
 function fotoTijd(item) {
   const m = String(item.name).match(/^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
   const uitNaam = m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]) : null;
-  const gemaakt = item.fileSystemInfo?.createdDateTime ? Date.parse(item.fileSystemInfo.createdDateTime) : null;
-  /* createdDateTime is een echte tijd met tijdzone: die heeft voorrang als hij in de buurt van de naam ligt */
-  if (gemaakt && (!uitNaam || Math.abs(gemaakt - uitNaam) <= 2 * 3600000)) return gemaakt;
-  return uitNaam;
+  /* De naam is de opnametijd. createdDateTime is het moment dat OneDrive de foto kreeg: dat kan later liggen, dus alleen als reserve. */
+  if (uitNaam) return uitNaam;
+  return item.fileSystemInfo?.createdDateTime ? Date.parse(item.fileSystemInfo.createdDateTime) : null;
 }
 let CAM_BASIS = null;   // "special/cameraroll" of, als dat niet bestaat, de map Afbeeldingen/Camera-album
 async function camBasis() {
@@ -856,7 +855,7 @@ async function cameraVerwerk(ui) {
       let pas = vakken.filter(v => t >= v.van0 && t <= v.tot0);
       if (!pas.length) pas = vakken.filter(v => t >= v.van && t <= v.tot);
       if (pas.length !== 1) {   // niet duidelijk bij welke woning: laten staan en melden
-        if (t >= vanAlles && t <= totAlles) onduidelijk.push(`${it.name} (${fmtLokaal(new Date(t).toISOString()).slice(-5)})`);
+        if (t >= vanAlles && t <= totAlles) onduidelijk.push(`${it.name} (${fmtLokaal(new Date(t).toISOString()).slice(-5)}) ${pas.length ? "bij meer woningen" : "buiten een opname"}`);
         continue;
       }
       const { c, a } = pas[0];
@@ -889,7 +888,7 @@ async function cameraVerwerk(ui) {
   CAM.bezig = false; CAM.laatst = Date.now(); CAM.zonder = onduidelijk.length; CAM.onduidelijk = onduidelijk.slice(0, 10);
   if (verplaatst) for (const v of vakken) ODFOTO_TIJD[v.c.id] = 0;   // tellingen verversen
   render();
-  const melding = onduidelijk.length ? `\n\n⚠ Niet duidelijk bij welk adres deze foto's horen (blijven in Camera-album):\n${CAM.onduidelijk.join("\n")}${onduidelijk.length > 10 ? `\n… en ${onduidelijk.length - 10} meer` : ""}` : "";
+  const melding = onduidelijk.length ? `\n\n⚠ Niet toegewezen, blijven in Camera-album:\n${CAM.onduidelijk.join("\n")}${onduidelijk.length > 10 ? `\n… en ${onduidelijk.length - 10} meer` : ""}` : "";
   if (ui) alert(CAM.fout ? "Ophalen gestopt: " + CAM.fout + "\n\nEr is niets kwijt: niet-verplaatste foto's staan nog in Camera-album." : `${verplaatst} foto('s) naar de adresmappen verplaatst.${melding}`);
 }
 /* Alles van dit adres terugzetten naar waar het vandaan kwam (Camera-album) */
@@ -1957,7 +1956,7 @@ async function renderInhoud() {
         : `<button class="klein" onclick="login()">Inloggen</button>`}
     </div>
     ${foutAdressen()}
-    ${accounts().length ? `<div class="klein-tekst" style="text-align:center">${CAM.bezig ? "📥 Camera-foto's ophalen…" : CAM.fout ? `<span style="color:#b91c1c">📥 Camera-foto's: ${esc(CAM.fout)}</span>` : CAM.laatst ? `📥 Camera-album bekeken om ${fmtLokaal(new Date(CAM.laatst).toISOString()).slice(-5)}${CAM.zonder ? `<div style="color:#b45309">⚠ ${CAM.zonder} foto('s) niet duidelijk bij welk adres (blijven in Camera-album): ${esc(CAM.onduidelijk.join(", "))}</div>` : ""}` : ""}
+    ${accounts().length ? `<div class="klein-tekst" style="text-align:center">${CAM.bezig ? "📥 Camera-foto's ophalen…" : CAM.fout ? `<span style="color:#b91c1c">📥 Camera-foto's: ${esc(CAM.fout)}</span>` : CAM.laatst ? `📥 Camera-album bekeken om ${fmtLokaal(new Date(CAM.laatst).toISOString()).slice(-5)}${CAM.zonder ? `<div style="color:#b45309">⚠ ${CAM.zonder} foto('s) niet toegewezen (blijven in Camera-album):${esc(CAM.onduidelijk.join(", "))}</div>` : ""}` : ""}
       <a href="#" onclick="cameraVerwerk(true);return false">Camera-foto's nu ophalen</a></div>` : ""}
     ${SYNC_FOUT ? `<div class="melding">Opslaan op OneDrive lukt niet: ${esc(SYNC_FOUT)}. Tik op "Nu uploaden". Je foto's blijven op dit toestel.</div>` : ""}
     ${("Notification" in window && Notification.permission === "default") ? `<button class="klein sec" onclick="meldingenAan()">🔔 Meldingen aanzetten</button>` : ""}
