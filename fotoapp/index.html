@@ -348,7 +348,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "14-11 app-upload 2";
+const APP_VERSIE = "14-11 app-upload 3";
 let SEL = new Set();
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
@@ -424,7 +424,37 @@ async function comprimeer(file) {
   c.height = Math.round(bmp.height * schaal);
   c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
   if (bmp.close) bmp.close();
-  return new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error("verkleinen mislukt")), "image/jpeg", CFG.kwaliteit));
+  const naarBlob = (cv, q) => new Promise((res, rej) => cv.toBlob(b => b ? res(b) : rej(new Error("verkleinen mislukt")), "image/jpeg", q));
+  try { return await naarBlob(c, CFG.kwaliteit); }
+  finally { c.width = c.height = 0; }   /* iPhone: canvasgeheugen direct vrijgeven, anders loopt het vol */
+}
+/* Foto voor de opslag: de foto zelf en een mini-voorbeeld, allebei als ArrayBuffer.
+   Losse Blobs in de opslag van een iPhone kunnen onleesbaar worden (het "?"-plaatje); ArrayBuffers niet. */
+async function maakFoto(file) {
+  const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
+  const maak = async (maxPx, q) => {
+    const schaal = Math.min(1, maxPx / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(bmp.width * schaal); c.height = Math.round(bmp.height * schaal);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    try {
+      const b = await new Promise((res, rej) => c.toBlob(x => x ? res(x) : rej(new Error("verkleinen mislukt")), "image/jpeg", q));
+      return await b.arrayBuffer();
+    } finally { c.width = c.height = 0; }
+  };
+  try {
+    const data = await maak(CFG.maxPx, CFG.kwaliteit);
+    const duim = await maak(200, 0.6);
+    if (!data.byteLength) throw new Error("lege foto");
+    return { data, duim, grootte: data.byteLength };
+  } finally { if (bmp.close) bmp.close(); }
+}
+/* Bytes van een foto: nieuw formaat (data) of oud formaat (blob, met time-out want die kan vastzitten) */
+const fotoGrootte = f => f.grootte || f.data?.byteLength || f.blob?.size || 0;
+async function fotoBytes(f) {
+  if (f.data) return f.data;
+  if (!f.blob) throw new Error("geen foto-gegevens");
+  return await metLimiet(f.blob.arrayBuffer(), 15000, "Foto lezen");
 }
 
 /* ===== MICROSOFT / ONEDRIVE ===== */
@@ -485,6 +515,7 @@ async function zorgMap(pad, ui) {
 }
 
 async function uploadFoto(f, c, ui) {
+  const bytes = await fotoBytes(f);   /* eerst lezen: lukt dat niet, dan is de foto op dit toestel kapot */
   const a = findA(c, f.adresId);
   if (!ODMAP[c.id] && accounts().length) await laadMapNamen(c);
   const pad = a ? adresMapOD(c, a) : mapVan(c);
@@ -496,17 +527,20 @@ async function uploadFoto(f, c, ui) {
   if (f.pogingen > 1) {   /* eerdere poging kan wel gelukt zijn zonder dat we het hebben gehoord */
     try {
       const bestaand = await graph(`/me/drive/root:/${pathEnc}`, {}, ui);
-      if (bestaand && bestaand.size === f.blob.size) {
+      if (bestaand && bestaand.size === fotoGrootte(f)) {
         f.uploaded = true; f.onedriveId = bestaand.id; f.naam = bestaand.name;
+        f.grootte = fotoGrootte(f); delete f.data; delete f.blob;
         await fotoPut(f);
         return;
       }
     } catch (e) { /* bestaat nog niet: gewoon uploaden */ }
   }
   const item = await graph(`/me/drive/root:/${pathEnc}:/content?@microsoft.graph.conflictBehavior=rename`,
-    { method: "PUT", body: f.blob, headers: { "Content-Type": "image/jpeg" } }, ui);
-  if (item.size !== f.blob.size) throw new Error("grootte klopt niet na upload");
+    { method: "PUT", body: bytes, headers: { "Content-Type": "image/jpeg" } }, ui);
+  if (item.size !== bytes.byteLength) throw new Error("grootte klopt niet na upload");
   f.uploaded = true;
+  f.grootte = bytes.byteLength;
+  delete f.data; delete f.blob;   /* staat veilig op OneDrive: grote kopie hoeft niet meer op het toestel */
   f.onedriveId = item.id;
   f.naam = item.name;
   await fotoPut(f);
@@ -706,10 +740,12 @@ async function motorLoop(gen) {
       if (!f) break;   /* niets dat nu mag: de klok (elke 20 s) start de motor weer als een wachttijd voorbij is */
       const c = findC(f.complexId);
       if (!c) { f.volgende = NOOIT; f.laatstePoging = Date.now(); f.fout = "Complex niet meer in de app"; await fotoPut(f); continue; }
-      if (!f.blob || !f.blob.size) { f.kapot = true; f.fout = "Foto is beschadigd op dit toestel en kan niet worden geüpload. Verwijder hem."; await fotoPut(f); continue; }
+      if (!fotoGrootte(f)) { f.kapot = true; f.fout = "Foto is beschadigd op dit toestel en kan niet worden geüpload. Verwijder hem."; await fotoPut(f); continue; }
       MOTOR.naam = f.naam;
       updateUploadStatus();
       try {
+        try { await fotoBytes(f); }
+        catch (e) { f.kapot = true; f.fout = "Foto is beschadigd op dit toestel (onleesbaar) en wordt overgeslagen. Verwijder hem."; await fotoPut(f); continue; }
         await metLimiet(uploadFoto(f, c, false), 90000, "Upload");
         f.fout = null; f.volgende = 0;
         MOTOR.ok++; INLOG_NODIG = false;
@@ -984,10 +1020,10 @@ async function fotosToevoegen(ev, cId, aId) {
   const deze = [];
   for (const file of files) {
     try {
-      const blob = await comprimeer(file);
+      const { data, duim, grootte } = await maakFoto(file);
       const naam = volgendeNaam(c, a, deze);
       deze.push(naam);
-      await fotoPut({ id: uid(), complexId: c.id, adresId: a.id, naam, blob, uploaded: false, createdAt: Date.now() });
+      await fotoPut({ id: uid(), complexId: c.id, adresId: a.id, naam, data, duim, grootte, uploaded: false, createdAt: Date.now() });
     } catch (e) {
       alert(`Foto "${file.name}" kon niet worden verwerkt. Het origineel is niet veranderd.`);
     }
@@ -1012,7 +1048,7 @@ async function fotoWis(id) {
   if (!navigator.onLine) return alert("Geen internet. Ik kan niet controleren of de foto op OneDrive staat, dus er is niets verwijderd.");
   let item = null;
   try { item = await graph(`/me/drive/items/${f.onedriveId}`, {}, true); } catch (e) { item = null; }
-  if (!item || item.size !== f.blob.size) return alert("Kan niet controleren dat de foto op OneDrive staat. Er is niets verwijderd.");
+  if (!item || item.size !== fotoGrootte(f)) return alert("Kan niet controleren dat de foto op OneDrive staat. Er is niets verwijderd.");
   if (!confirm(`Foto ${f.naam} uit de app verwijderen?\n\nDe kopie op OneDrive blijft staan.`)) return;
   if (!confirm("Weet je het zeker? Dit kan NIET ongedaan worden gemaakt.")) return;
   await fotoDel(id);
@@ -1692,10 +1728,11 @@ function vAdres(c, a) {
       </div></div>`;
   }
   for (const f of fs) {
-    const u = URL.createObjectURL(f.blob); URLS.push(u);
+    const bron = f.duim ? new Blob([f.duim], { type: "image/jpeg" }) : (f.data ? new Blob([f.data], { type: "image/jpeg" }) : f.blob);
+    const u = bron ? URL.createObjectURL(bron) : ""; if (u) URLS.push(u);
     h += `<div class="rij">
       <input type="checkbox" data-foto="${f.id}" ${SEL.has(f.id) ? "checked" : ""} aria-label="selecteer foto" onchange="selZet('${f.id}',this.checked)">
-      <img src="${u}" alt="">
+      ${u ? `<img src="${u}" alt="">` : `<div style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;font-size:26px;background:#eef2ef;border-radius:8px">☁️</div>`}
       <div class="info"><div>${esc(f.naam)}</div>
         <div class="klein-tekst">${f.uploaded ? "✓ Staat op OneDrive" : "⏳ Nog niet op OneDrive"}${!f.uploaded && f.pogingen ? ` · ${f.pogingen}× geprobeerd` : ""}</div>
         ${!f.uploaded && f.fout ? `<div class="klein-tekst" style="color:#b91c1c">⚠️ ${esc(f.fout)}</div>` : ""}</div>
@@ -1996,6 +2033,30 @@ async function renderInhoud() {
     if (MOTOR.actief) schermAan();
     if (navigator.onLine) motorStart(false);
   });
+  /* Oude foto's (als Blob opgeslagen) eenmalig omzetten, één voor één, zodat het geheugen niet volloopt:
+     al op OneDrive -> alleen mini-voorbeeld bewaren; nog niet op OneDrive -> omzetten naar ArrayBuffer of als kapot markeren. */
+  setTimeout(async () => {
+    let ids;
+    try { ids = (await fotosAll()).filter(f => f.blob).map(f => f.id); } catch (e) { return; }
+    for (const id of ids) {
+      try {
+        const f = (await fotosAll()).find(x => x.id === id);
+        if (!f || !f.blob) continue;
+        if (f.uploaded) {
+          try { const m = await metLimiet(maakFoto(f.blob), 15000, "voorbeeld"); f.duim = m.duim; } catch (e) { /* geen voorbeeld: wolkje */ }
+          f.grootte = f.blob.size; delete f.blob;
+        } else {
+          try { f.data = await fotoBytes(f); f.grootte = f.data.byteLength; delete f.blob; }
+          catch (e) { f.kapot = true; f.fout = "Foto is beschadigd op dit toestel (onleesbaar) en wordt overgeslagen. Verwijder hem."; }
+        }
+        const nu = (await fotosAll()).find(x => x.id === id);
+        if (!nu || nu.uploaded !== f.uploaded || !nu.blob) continue;   /* intussen door de upload veranderd: niet overschrijven */
+        await fotoPut(f);
+      } catch (e) { console.warn("omzetten", e); }
+      await new Promise(r => setTimeout(r, 200));
+    }
+    if (ids.length) render();
+  }, 8000);
   /* Nieuwe versie op GitHub? Dan zelf herladen. Foto's staan al veilig op het toestel (IndexedDB). */
   async function versieCheck() {
     if (!navigator.onLine || TOEVOEGEN_BEZIG) return;
