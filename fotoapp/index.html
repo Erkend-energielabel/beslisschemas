@@ -348,7 +348,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "14-11 camera 2";
+const APP_VERSIE = "14-11 camera 3";
 let SEL = new Set();
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
@@ -757,8 +757,8 @@ const CAM_LOG_KEY = "fa_cam_log";
 let CAM_LOG = JSON.parse(localStorage.getItem(CAM_LOG_KEY) || "[]");   // [{id, naam, oudParent, oudNaam, cId, aId, t}]
 const camLogBewaar = () => localStorage.setItem(CAM_LOG_KEY, JSON.stringify(CAM_LOG.slice(-3000)));
 const ikBen = () => (accounts()[0]?.username || "").toLowerCase();
-const MARGE_VOOR = 30000, MARGE_NA = 60000, MAX_DUUR = 3 * 3600000, TERUG = 7 * 86400000;
-let CAM = { bezig: false, sinds: 0, fout: null, laatst: 0, zonder: 0 };
+const MARGE_VOOR = 30000, MARGE_NA = 30000, MAX_DUUR = 3 * 3600000, TERUG = 7 * 86400000;
+let CAM = { bezig: false, sinds: 0, fout: null, laatst: 0, zonder: 0, onduidelijk: [] };
 
 function openBezoek() {   /* het tijdvak dat nu loopt op dit account, als dat er is */
   const ik = ikBen();
@@ -838,7 +838,9 @@ async function cameraVerwerk(ui) {
   }
   if (!vakken.length) { if (ui) alert("Er is nog geen opname gestart bij een adres. Tik bij een woning op ▶ Start opname."); return; }
   CAM.bezig = true; CAM.sinds = nu; CAM.fout = null;
-  let verplaatst = 0, zonder = 0;
+  let verplaatst = 0;
+  const onduidelijk = [];   /* foto's binnen het tijdvak van de woningen, maar niet duidelijk van één woning */
+  const vanAlles = Math.min(...vakken.map(v => v.van)), totAlles = Math.max(...vakken.map(v => v.tot));
   try {
     const maanden = new Map();
     for (const v of vakken) for (const t of [v.van, v.tot]) {
@@ -850,10 +852,13 @@ async function cameraVerwerk(ui) {
     for (const it of items.sort((x, y) => (fotoTijd(x) || 0) - (fotoTijd(y) || 0))) {
       const t = fotoTijd(it);
       if (!t) continue;
-      /* eerst precies binnen een opname; alleen als dat niets oplevert de kleine marge (30 s ervoor, 1 min erna) */
+      /* eerst precies binnen een opname; alleen als dat niets oplevert de kleine marge (30 s ervoor, 30 s erna) */
       let pas = vakken.filter(v => t >= v.van0 && t <= v.tot0);
       if (!pas.length) pas = vakken.filter(v => t >= v.van && t <= v.tot);
-      if (pas.length !== 1) { if (t >= Math.min(...vakken.map(v => v.van)) && !pas.length) zonder++; continue; }   // geen of twijfel: laten staan
+      if (pas.length !== 1) {   // niet duidelijk bij welke woning: laten staan en melden
+        if (t >= vanAlles && t <= totAlles) onduidelijk.push(`${it.name} (${fmtLokaal(new Date(t).toISOString()).slice(-5)})`);
+        continue;
+      }
       const { c, a } = pas[0];
       if (!ODMAP[c.id]) await laadMapNamen(c);
       const doel = adresMapOD(c, a);
@@ -881,10 +886,11 @@ async function cameraVerwerk(ui) {
       verplaatst++;
     }
   } catch (e) { console.error("camera", e); CAM.fout = e.name === "AbortError" ? "verbinding te traag" : String(e.message || e).slice(0, 140); }
-  CAM.bezig = false; CAM.laatst = Date.now(); CAM.zonder = zonder;
+  CAM.bezig = false; CAM.laatst = Date.now(); CAM.zonder = onduidelijk.length; CAM.onduidelijk = onduidelijk.slice(0, 10);
   if (verplaatst) for (const v of vakken) ODFOTO_TIJD[v.c.id] = 0;   // tellingen verversen
   render();
-  if (ui) alert(CAM.fout ? "Ophalen gestopt: " + CAM.fout + "\n\nEr is niets kwijt: niet-verplaatste foto's staan nog in Camera-album." : `${verplaatst} foto('s) naar de adresmappen verplaatst.${zonder ? `\n${zonder} foto('s) vielen buiten een opname en staan nog in Camera-album.` : ""}`);
+  const melding = onduidelijk.length ? `\n\n⚠ Niet duidelijk bij welk adres deze foto's horen (blijven in Camera-album):\n${CAM.onduidelijk.join("\n")}${onduidelijk.length > 10 ? `\n… en ${onduidelijk.length - 10} meer` : ""}` : "";
+  if (ui) alert(CAM.fout ? "Ophalen gestopt: " + CAM.fout + "\n\nEr is niets kwijt: niet-verplaatste foto's staan nog in Camera-album." : `${verplaatst} foto('s) naar de adresmappen verplaatst.${melding}`);
 }
 /* Alles van dit adres terugzetten naar waar het vandaan kwam (Camera-album) */
 async function cameraTerug(cId, aId) {
@@ -1951,7 +1957,7 @@ async function renderInhoud() {
         : `<button class="klein" onclick="login()">Inloggen</button>`}
     </div>
     ${foutAdressen()}
-    ${accounts().length ? `<div class="klein-tekst" style="text-align:center">${CAM.bezig ? "📥 Camera-foto's ophalen…" : CAM.fout ? `<span style="color:#b91c1c">📥 Camera-foto's: ${esc(CAM.fout)}</span>` : CAM.laatst ? `📥 Camera-album bekeken om ${fmtLokaal(new Date(CAM.laatst).toISOString()).slice(-5)}${CAM.zonder ? ` · ${CAM.zonder} foto('s) zonder adres blijven staan` : ""}` : ""}
+    ${accounts().length ? `<div class="klein-tekst" style="text-align:center">${CAM.bezig ? "📥 Camera-foto's ophalen…" : CAM.fout ? `<span style="color:#b91c1c">📥 Camera-foto's: ${esc(CAM.fout)}</span>` : CAM.laatst ? `📥 Camera-album bekeken om ${fmtLokaal(new Date(CAM.laatst).toISOString()).slice(-5)}${CAM.zonder ? `<div style="color:#b45309">⚠ ${CAM.zonder} foto('s) niet duidelijk bij welk adres (blijven in Camera-album): ${esc(CAM.onduidelijk.join(", "))}</div>` : ""}` : ""}
       <a href="#" onclick="cameraVerwerk(true);return false">Camera-foto's nu ophalen</a></div>` : ""}
     ${SYNC_FOUT ? `<div class="melding">Opslaan op OneDrive lukt niet: ${esc(SYNC_FOUT)}. Tik op "Nu uploaden". Je foto's blijven op dit toestel.</div>` : ""}
     ${("Notification" in window && Notification.permission === "default") ? `<button class="klein sec" onclick="meldingenAan()">🔔 Meldingen aanzetten</button>` : ""}
