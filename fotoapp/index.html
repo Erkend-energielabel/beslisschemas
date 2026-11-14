@@ -348,7 +348,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "14-11 camera";
+const APP_VERSIE = "14-11 camera 2";
 let SEL = new Set();
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
@@ -750,14 +750,14 @@ async function motorLoop(gen) {
    Deze app VERPLAATST ze daarna binnen OneDrive naar de adresmap. Er gaat dus geen foto meer via deze app over je verbinding.
    Veiligheid:
    - Er wordt NOOIT iets verwijderd. Alleen verplaatst, en elke verplaatsing staat in een logboek.
-   - Alleen foto's met een opnametijd binnen jouw eigen tijdvak bij een adres (1 min ervoor tot 2 min erna).
+   - Alleen foto's met een opnametijd binnen jouw eigen tijdvak bij een adres (zo nodig 30 s ervoor tot 1 min erna).
    - Foto's die nergens bij passen blijven gewoon in Camera-album staan.
    - Per adres kun je alles terugzetten naar Camera-album. */
 const CAM_LOG_KEY = "fa_cam_log";
 let CAM_LOG = JSON.parse(localStorage.getItem(CAM_LOG_KEY) || "[]");   // [{id, naam, oudParent, oudNaam, cId, aId, t}]
 const camLogBewaar = () => localStorage.setItem(CAM_LOG_KEY, JSON.stringify(CAM_LOG.slice(-3000)));
 const ikBen = () => (accounts()[0]?.username || "").toLowerCase();
-const MARGE_VOOR = 60000, MARGE_NA = 120000, MAX_DUUR = 3 * 3600000, TERUG = 7 * 86400000;
+const MARGE_VOOR = 30000, MARGE_NA = 60000, MAX_DUUR = 3 * 3600000, TERUG = 7 * 86400000;
 let CAM = { bezig: false, sinds: 0, fout: null, laatst: 0, zonder: 0 };
 
 function openBezoek() {   /* het tijdvak dat nu loopt op dit account, als dat er is */
@@ -834,7 +834,7 @@ async function cameraVerwerk(ui) {
     if (b.wie !== ik) continue;
     const van = Date.parse(b.van), tot = b.tot ? Date.parse(b.tot) : Math.min(nu, van + MAX_DUUR);
     if (nu - van > TERUG) continue;
-    vakken.push({ c, a, van: van - MARGE_VOOR, tot: tot + MARGE_NA });
+    vakken.push({ c, a, van0: van, tot0: tot, van: van - MARGE_VOOR, tot: tot + MARGE_NA });
   }
   if (!vakken.length) { if (ui) alert("Er is nog geen opname gestart bij een adres. Tik bij een woning op ▶ Start opname."); return; }
   CAM.bezig = true; CAM.sinds = nu; CAM.fout = null;
@@ -850,7 +850,9 @@ async function cameraVerwerk(ui) {
     for (const it of items.sort((x, y) => (fotoTijd(x) || 0) - (fotoTijd(y) || 0))) {
       const t = fotoTijd(it);
       if (!t) continue;
-      const pas = vakken.filter(v => t >= v.van && t <= v.tot);
+      /* eerst precies binnen een opname; alleen als dat niets oplevert de kleine marge (30 s ervoor, 1 min erna) */
+      let pas = vakken.filter(v => t >= v.van0 && t <= v.tot0);
+      if (!pas.length) pas = vakken.filter(v => t >= v.van && t <= v.tot);
       if (pas.length !== 1) { if (t >= Math.min(...vakken.map(v => v.van)) && !pas.length) zonder++; continue; }   // geen of twijfel: laten staan
       const { c, a } = pas[0];
       if (!ODMAP[c.id]) await laadMapNamen(c);
@@ -1642,9 +1644,7 @@ function vAdres(c, a) {
       const o = openBezoek();
       const hier = o && o.a.id === a.id;
       const uitCam = CAM_LOG.filter(l => l.aId === a.id && !l.terug).length;
-      return `<div style="margin:8px 0">${hier
-        ? `<button style="background:#dc2626" onclick="stopOpname()">■ Stop opname (foto's gaan naar deze woning)</button>`
-        : `<button onclick="startOpname('${c.id}','${a.id}')">▶ Start opname met gewone camera</button>`}
+      return `<div style="margin:8px 0">${hier ? `<div class="klein-tekst" style="color:#16a34a"><b>● Opname loopt bij deze woning</b> — maak foto's met de gewone camera</div>` : ""}
         ${uitCam ? `<div class="klein-tekst">📥 ${uitCam} foto('s) uit Camera-album hierheen verplaatst · <a href="#" onclick="cameraTerug('${c.id}','${a.id}');return false">terugzetten</a></div>` : ""}
         ${(a.bezoeken || []).length ? `<div class="klein-tekst">Opnames: ${(a.bezoeken || []).map(b => fmtLokaal(b.van).slice(-5) + "–" + (b.tot ? fmtLokaal(b.tot).slice(-5) : "nu")).join(", ")}</div>` : ""}</div>`;
     })()}
@@ -1941,7 +1941,9 @@ async function renderInhoud() {
     ${opnameBanner()}
     <div class="acties">
       ${view.s !== "complexen" ? `<button class="klein sec" style="min-height:48px;font-size:17px" onclick="terug()">← Terug</button>` : ""}
-      ${view.s === "adres" && c && a ? `<label class="knop" style="width:auto;margin:0;min-height:48px;font-size:17px;padding:10px 14px;cursor:pointer">📷 Foto's<input type="file" accept="image/*" multiple hidden onchange="fotosToevoegen(event,'${c.id}','${a.id}')"></label>
+      ${view.s === "adres" && c && a ? `${openBezoek()?.a.id === a.id
+          ? `<button class="knop" style="width:auto;margin:0;min-height:48px;font-size:17px;padding:10px 14px;background:#dc2626" onclick="stopOpname()">■ Stop opname</button>`
+          : `<button class="knop" style="width:auto;margin:0;min-height:48px;font-size:17px;padding:10px 14px" onclick="startOpname('${c.id}','${a.id}')">▶ Start opname</button>`}
         <button class="knop ${a.klaar ? "sec" : ""}" style="width:auto;margin:0;min-height:48px;font-size:17px;padding:10px 14px" onclick="klaarZet('${c.id}','${a.id}',${!a.klaar})">${a.klaar ? "↩ Niet klaar" : "✅ Woning gereed"}</button>` : ""}
       <span id="uploadStatus" class="klein-tekst" style="flex:0 0 100%;order:2;text-align:center;font-size:11px;line-height:1.3">${uploadTekst()} · versie ${APP_VERSIE}</span>
       ${ingelogd
