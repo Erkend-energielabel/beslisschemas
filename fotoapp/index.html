@@ -350,7 +350,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "15-11 verbinding";
+const APP_VERSIE = "15-11 adres verwijderen";
 let SEL = new Set();
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
@@ -1715,7 +1715,8 @@ function vComplex(c) {
         <strong>${stoplicht(a) ? `<span style="color:${stoplichtKleur[stoplicht(a)]}" title="${stoplicht(a)}">●</span> ` : ""}${a.straat === standaardStraat(c) ? nrLabel(a) : esc(a.straat) + " " + nrLabel(a)}</strong>
         <div class="klein-tekst">${a.klaar && a.klaarOp ? "✓ afgevinkt " + fmtLokaal(a.klaarOp) + " · " : ""}${fs.length} foto's${wacht ? ` · ${wacht} nog niet op OneDrive` : ""}${(ODMAP[c.id] || []).includes(mapVoorAdres(c, a)) ? " · 📁 map op OneDrive" + ((ODFOTO[c.id] || {})[mapVoorAdres(c, a)] ? " · 📷 " + ODFOTO[c.id][mapVoorAdres(c, a)] + " op OneDrive" : "") : ""}${opODn === 0 ? ` · <span style="color:var(--r);font-weight:700">⚠ geen foto's op OneDrive</span>` : ""}${a.afspraak ? " · 📅 " + fmt(a.afspraak.start) : ""}${a.opmerkingen.length ? " · 💬 " + a.opmerkingen.length : ""}</div>
       </div>
-      <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;margin:0 0 0 6px;font-size:12px;line-height:1.2;border-radius:6px" onclick="toevVoegToe('${c.id}','${a.id}')">+ toev.</button></div>`;
+      <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;margin:0 0 0 6px;font-size:12px;line-height:1.2;border-radius:6px" onclick="toevVoegToe('${c.id}','${a.id}')">+ toev.</button>
+      <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;margin:0 0 0 4px;font-size:12px;line-height:1.2;border-radius:6px;color:#b91c1c;border-color:#e5b4b4" onclick="adresWis('${c.id}','${a.id}')" aria-label="Adres verwijderen" title="Adres verwijderen">🗑</button></div>`;
   }
   const SPECIAAL = ["algemeen", "ketelruimte"];
   const isSpeciaal = n => SPECIAAL.includes(String(n).trim().toLowerCase());
@@ -1827,6 +1828,7 @@ function vAdres(c, a) {
     <div class="acties"><button class="klein sec" style="width:auto" onclick="opmerkingNetjes()">✨ Tekst netjes maken</button>
     <button class="sec" onclick="opmerkingToevoegen('${c.id}','${a.id}')">Opmerking opslaan</button></div>`;
   h += `<p class="klein-tekst">Foto's maken of kiezen: met de knop 📷 Foto's onderin. Foto's worden verkleind en automatisch naar OneDrive gestuurd.</p>`;
+  h += `<button class="sec" style="margin-top:22px;color:#b91c1c;border-color:#e5b4b4" onclick="adresWis('${c.id}','${a.id}')">🗑 Adres verwijderen</button>`;
   return h;
 }
 /* Adres uit de app halen. Kan pas als alle foto's van dit adres op OneDrive staan; de map en foto's op OneDrive blijven staan. */
@@ -1841,7 +1843,8 @@ async function adresWis(cId, aId) {
   st.verwijderd = [...(st.verwijderd || []), { id: aId, t: new Date().toISOString() }];   // ook op andere toestellen weg
   c.adressen = c.adressen.filter(x => x.id !== aId);
   bewaarState();
-  go({ s: "complex", c: cId });
+  if (view.s === "complex" && view.c === cId) render();   /* vanuit de lijst: op dezelfde plek blijven */
+  else go({ s: "complex", c: cId });
 }
 
 function vMap(c) {
