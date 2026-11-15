@@ -348,7 +348,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "14-11 app-upload 3";
+const APP_VERSIE = "15-11 foto-check";
 let SEL = new Set();
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
@@ -1572,12 +1572,41 @@ function complexKlaarZet(cId, aan) {
     render();
   })();
 }
+/* ===== Foto's op OneDrive per complex (overzicht) ===== */
+function odFotoStand(c) {
+  if (!ODFOTO[c.id]) return null;
+  const met = c.adressen.filter(a => ((ODFOTO[c.id] || {})[mapVoorAdres(c, a)] || 0) > 0).length;
+  return { met, zonder: c.adressen.length - met };
+}
+function odFotoRegel(c) {
+  const s = odFotoStand(c);
+  if (!s) return accounts().length ? `<div class="klein-tekst" style="margin-top:4px">☁ Foto's op OneDrive worden gecontroleerd…</div>` : "";
+  return `<div class="klein-tekst" style="margin-top:4px">☁ <b>${s.met}</b> van ${c.adressen.length} adressen hebben foto's op OneDrive${s.zonder ? ` · <span style="color:var(--r);font-weight:700">${s.zonder} zonder foto's</span>` : " ✓"}</div>`;
+}
+let OVERZICHT_BEZIG = false;
+async function laadOverzichtFotos() {
+  if (OVERZICHT_BEZIG || !accounts().length || !navigator.onLine) return;
+  OVERZICHT_BEZIG = true;
+  let geladen = false;
+  try {
+    for (const c of st.complexen.filter(x => !x.gearchiveerd)) {
+      if (view.s !== "complexen") break;   /* alleen zolang het overzicht open staat */
+      if (ODFOTO[c.id] && ODFOTO_TIJD[c.id] && Date.now() - ODFOTO_TIJD[c.id] < 5 * 60000) continue;
+      await laadAdresMappen(c.id);
+      if (!ODFOTO_TIJD[c.id] || Date.now() - ODFOTO_TIJD[c.id] > 5 * 60000) ODFOTO_TIJD[c.id] = Date.now();   /* ook bij een fout: pas over 5 min opnieuw */
+      if (!ODFOTO[c.id]) ODFOTO[c.id] = {};   /* map bestaat (nog) niet: telt als 0 foto's */
+      geladen = true;
+    }
+  } finally { OVERZICHT_BEZIG = false; }
+  if (geladen && view.s === "complexen") render();
+}
 function complexKaart(c, arch) {
   const klaar = c.adressen.filter(a => a.klaar).length;
   return `<div class="kaart" style="position:relative" onclick="go({s:'complex',c:'${c.id}'})">
     <strong>${esc(c.naam)}</strong>
     <div class="klein-tekst">${c.adressen.length} adressen · ${klaar} klaar</div>
     ${voortgangBalk(klaar, c.adressen.length)}
+    ${odFotoRegel(c)}
     <div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-top:6px">
       <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;font-size:11px;line-height:1.2;border-radius:6px" onclick="event.stopPropagation();complexKlaarZet('${c.id}',${!arch})">🗄️ ${arch ? "Terugzetten" : "Archiveren"}</button>
       <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;font-size:11px;line-height:1.2;border-radius:6px" onclick="event.stopPropagation();complexWis('${c.id}')">🗑 Verwijder</button>
@@ -1646,16 +1675,21 @@ function vComplex(c) {
   if (vandaagL.length) h += `<div class="klein-tekst" style="margin-top:8px"><b>Vandaag</b></div>` + vandaagL.map(regel).join("");
   if (latenL.length) h += `<div class="klein-tekst" style="margin-top:8px"><b>Komende dagen</b></div>` + latenL.map(regel).join("");
   if (eerder.length) h += `<details style="margin-top:8px"><summary class="klein-tekst">Eerder (${eerder.length})</summary>${eerder.map(regel).join("")}</details>`;
+  const odStand = odFotoStand(c);
   h += `<h2>Adressen</h2>`;
+  if (odStand) h += `<div class="acties" style="margin:-2px 0 6px"><span class="klein-tekst" style="flex:1">☁ ${odStand.met} met foto's op OneDrive${odStand.zonder ? ` · <b style="color:var(--r)">${odStand.zonder} zonder</b>` : ""}</span>
+    <button class="klein ${view.zonder ? "" : "sec"}" style="width:auto;min-height:0;padding:4px 10px;font-size:14px;margin:0" onclick="view.zonder=!view.zonder;render()">${view.zonder ? "✓ " : ""}Alleen zonder foto's</button></div>`;
   if (!c.adressen.length) h += `<p class="klein-tekst">Nog geen adressen. Voeg huisnummers toe met de knop hierboven.</p>`;
   for (const a of sortedAdressen(c)) {
     const fs = FOTOS.filter(f => f.adresId === a.id);
     const wacht = fs.filter(f => !f.uploaded).length;
+    const opODn = ODFOTO[c.id] ? ((ODFOTO[c.id] || {})[mapVoorAdres(c, a)] || 0) : null;
+    if (view.zonder && opODn) continue;
     h += `<div class="rij ${a.klaar ? "klaar" : ""}">
       <input type="checkbox" ${a.klaar ? "checked" : ""} aria-label="klaar" onchange="klaarZet('${c.id}','${a.id}',this.checked)">
       <div class="info" onclick="go({s:'adres',c:'${c.id}',a:'${a.id}'})">
         <strong>${stoplicht(a) ? `<span style="color:${stoplichtKleur[stoplicht(a)]}" title="${stoplicht(a)}">●</span> ` : ""}${a.straat === standaardStraat(c) ? nrLabel(a) : esc(a.straat) + " " + nrLabel(a)}</strong>
-        <div class="klein-tekst">${a.klaar && a.klaarOp ? "✓ afgevinkt " + fmtLokaal(a.klaarOp) + " · " : ""}${fs.length} foto's${wacht ? ` · ${wacht} nog niet op OneDrive` : ""}${(ODMAP[c.id] || []).includes(mapVoorAdres(c, a)) ? " · 📁 map op OneDrive" + ((ODFOTO[c.id] || {})[mapVoorAdres(c, a)] ? " · 📷 " + ODFOTO[c.id][mapVoorAdres(c, a)] + " op OneDrive" : "") : ""}${a.afspraak ? " · 📅 " + fmt(a.afspraak.start) : ""}${a.opmerkingen.length ? " · 💬 " + a.opmerkingen.length : ""}</div>
+        <div class="klein-tekst">${a.klaar && a.klaarOp ? "✓ afgevinkt " + fmtLokaal(a.klaarOp) + " · " : ""}${fs.length} foto's${wacht ? ` · ${wacht} nog niet op OneDrive` : ""}${(ODMAP[c.id] || []).includes(mapVoorAdres(c, a)) ? " · 📁 map op OneDrive" + ((ODFOTO[c.id] || {})[mapVoorAdres(c, a)] ? " · 📷 " + ODFOTO[c.id][mapVoorAdres(c, a)] + " op OneDrive" : "") : ""}${opODn === 0 ? ` · <span style="color:var(--r);font-weight:700">⚠ geen foto's op OneDrive</span>` : ""}${a.afspraak ? " · 📅 " + fmt(a.afspraak.start) : ""}${a.opmerkingen.length ? " · 💬 " + a.opmerkingen.length : ""}</div>
       </div>
       <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;margin:0 0 0 6px;font-size:12px;line-height:1.2;border-radius:6px" onclick="toevVoegToe('${c.id}','${a.id}')">+ toev.</button></div>`;
   }
@@ -1961,7 +1995,7 @@ async function renderInhoud() {
   if (view.c) c = findC(view.c);
   if (view.a && c) a = findA(c, view.a);
 
-  if (view.s === "complexen") inhoud = vComplexen();
+  if (view.s === "complexen") { inhoud = vComplexen(); setTimeout(laadOverzichtFotos, 300); }
   else if (view.s === "complex" && c) { titel = c.naam; inhoud = vComplex(c); laadAdresMappen(c.id); }
   else if (view.s === "adres" && c && a) { titel = `${a.straat} ${nrLabel(a)}`; inhoud = vAdres(c, a); }
   else if (view.s === "nieuwComplex") { titel = "Nieuw complex"; inhoud = vNieuwComplex(); }
