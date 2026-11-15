@@ -350,7 +350,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "15-11 foto wissen";
+const APP_VERSIE = "15-11 delen";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -1049,6 +1049,43 @@ async function fotosToevoegen(ev, cId, aId) {
   } finally { TOEVOEGEN_BEZIG = false; }
   await render();
   sync(false);
+}
+
+/* Foto delen via het deelmenu van de telefoon (op iPhone staat daar AirDrop tussen). Pakt de foto van het toestel,
+   of van OneDrive als die hier al is weggehaald. */
+async function fotoDeel(id) {
+  const f = FOTOS.find(x => x.id === id);
+  if (!f) return;
+  if (!navigator.canShare) return alert("Delen wordt op dit toestel niet ondersteund. Open de app in Safari op je iPhone.");
+  try {
+    let bytes;
+    if (f.data || f.blob) {
+      bytes = await fotoBytes(f);
+    } else {
+      if (!f.uploaded) return alert("Deze foto is niet meer op dit toestel en nog niet op OneDrive.");
+      let odId = f.onedriveId;
+      if (!odId) {
+        const c = findC(f.complexId), a = c && findA(c, f.adresId);
+        if (!c) return alert("Deze foto hoort bij een complex dat niet meer in de app staat.");
+        const pad = a ? adresMapOD(c, a) : mapVan(c);
+        const pathEnc = [...pad.split("/"), f.naam].map(encodeURIComponent).join("/");
+        const item = await graph(`/me/drive/root:/${pathEnc}`, {}, true);
+        odId = item && item.id;
+        if (odId) { f.onedriveId = odId; await fotoPut(f); }
+      }
+      if (!odId) return alert("Deze foto is op OneDrive niet gevonden.");
+      const t = await token(true);
+      const r = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${odId}/content`, { headers: { Authorization: "Bearer " + t } });
+      if (!r.ok) throw new Error("OneDrive gaf " + r.status);
+      bytes = await r.arrayBuffer();
+    }
+    const file = new File([bytes], f.naam || "foto.jpg", { type: "image/jpeg" });
+    if (!navigator.canShare({ files: [file] })) return alert("Deze foto kan op dit toestel niet worden gedeeld.");
+    await navigator.share({ files: [file], title: f.naam });
+  } catch (e) {
+    if (e && e.name === "AbortError") return;   /* gewoon weggetikt */
+    alert("Delen lukt niet: " + (e && e.message ? e.message : e));
+  }
 }
 
 /* Foto die nog niet op OneDrive staat en vastloopt: alleen door jou zelf te verwijderen, na twee bevestigingen */
@@ -1811,6 +1848,7 @@ function vAdres(c, a) {
       <div class="info"><div>${esc(f.naam)}</div>
         <div class="klein-tekst">${f.uploaded ? WOLK : "⏳ Nog niet op OneDrive"}${!f.uploaded && f.pogingen ? ` · ${f.pogingen}× geprobeerd` : ""}</div>
         ${!f.uploaded && f.fout ? `<div class="klein-tekst" style="color:#b91c1c">⚠️ ${esc(f.fout)}</div>` : ""}</div>
+      <button class="klein sec" onclick="fotoDeel('${f.id}')" aria-label="Deel foto (AirDrop)" title="Deel / AirDrop">📤</button>
       ${f.uploaded
         ? `<button class="klein gevaar" onclick="fotoWis('${f.id}')">Wis</button>`
         : `<button class="klein gevaar" onclick="fotoWisNogNiet('${f.id}')">Verwijder</button>`}
