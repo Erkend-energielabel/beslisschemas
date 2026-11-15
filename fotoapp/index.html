@@ -350,7 +350,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "15-11 wolkje 3";
+const APP_VERSIE = "15-11 foto wissen";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -1065,7 +1065,20 @@ async function fotoWis(id) {
   if (!f || !f.uploaded) return alert("Deze foto staat nog niet op OneDrive en wordt dus niet verwijderd.");
   if (!navigator.onLine) return alert("Geen internet. Ik kan niet controleren of de foto op OneDrive staat, dus er is niets verwijderd.");
   let item = null;
-  try { item = await graph(`/me/drive/items/${f.onedriveId}`, {}, true); } catch (e) { item = null; }
+  try {
+    if (f.onedriveId) {
+      item = await graph(`/me/drive/items/${f.onedriveId}`, {}, true);
+    } else {
+      /* Foto's die eerder zijn geüpload hebben geen OneDrive-id opgeslagen: zoek de kopie op via de mapnaam */
+      const c = findC(f.complexId), a = c && findA(c, f.adresId);
+      if (c) {
+        const pad = a ? adresMapOD(c, a) : mapVan(c);
+        const pathEnc = [...pad.split("/"), f.naam].map(encodeURIComponent).join("/");
+        item = await graph(`/me/drive/root:/${pathEnc}`, {}, true);
+        if (item) { f.onedriveId = item.id; await fotoPut(f); }
+      }
+    }
+  } catch (e) { item = null; }
   if (!item || item.size !== fotoGrootte(f)) return alert("Kan niet controleren dat de foto op OneDrive staat. Er is niets verwijderd.");
   if (!confirm(`Foto ${f.naam} uit de app verwijderen?\n\nDe kopie op OneDrive blijft staan.`)) return;
   if (!confirm("Weet je het zeker? Dit kan NIET ongedaan worden gemaakt.")) return;
