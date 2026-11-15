@@ -350,7 +350,8 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "15-11 wolkje";
+const APP_VERSIE = "15-11 wolkje 2";
+const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 let SEL = new Set();
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
@@ -705,12 +706,12 @@ const magNu = (f, nu) => !f.volgende || f.volgende <= nu || (MOTOR.forceerVan &&
 function uploadTekst() {
   const wacht = FOTOS.filter(f => !f.uploaded && !f.kapot);
   const opOD = FOTOS.filter(f => f.uploaded).length;
-  if (MOTOR.actief) return `⏫ Bezig met uploaden${MOTOR.naam ? ": " + MOTOR.naam : ""} · nog ${wacht.length} · ${MOTOR.ok} gelukt`;
-  if (!wacht.length) return `✓ Alles staat op OneDrive (${opOD})`;
+  if (MOTOR.actief) return `⏫ Bezig met uploaden${MOTOR.naam ? ": " + esc(MOTOR.naam) : ""} · nog ${wacht.length} · ${MOTOR.ok} gelukt`;
+  if (!wacht.length) return `${WOLKK} Alles staat erop (${opOD})`;
   const gestopt = wacht.filter(f => (f.volgende || 0) >= NOOIT).length;
   const eerst = Math.min(...wacht.map(f => f.volgende || 0));
   const over = Math.max(0, Math.round((eerst - Date.now()) / 1000));
-  return `${wacht.length} foto's wachten op OneDrive${gestopt ? ` (${gestopt} gestopt na 5 pogingen)` : ""}${eerst < NOOIT && over > 0 ? ` · volgende poging over ${over < 60 ? over + " s" : Math.ceil(over / 60) + " min"}` : ""} · ${opOD} op OneDrive`;
+  return `${wacht.length} foto's wachten op OneDrive${gestopt ? ` (${gestopt} gestopt na 5 pogingen)` : ""}${eerst < NOOIT && over > 0 ? ` · volgende poging over ${over < 60 ? over + " s" : Math.ceil(over / 60) + " min"}` : ""} · ${WOLKK} ${opOD}`;
 }
 /* Melding met de adressen waar foto's met een fout in zitten; tik om naar dat adres te gaan */
 function foutAdressen() {
@@ -731,7 +732,7 @@ function foutAdressen() {
 }
 function updateUploadStatus() {
   const el = $("uploadStatus");
-  if (el) el.textContent = uploadTekst() + " · versie " + APP_VERSIE;
+  if (el) el.innerHTML = uploadTekst() + " · versie " + esc(APP_VERSIE);
 }
 function motorStart(handmatig) {
   if (handmatig) MOTOR.forceerVan = Date.now();   /* "Nu uploaden": alle wachtende foto's nu één keer proberen */
@@ -1603,9 +1604,9 @@ function odFotoStand(c) {
 }
 function odFotoRegel(c) {
   const s = odFotoStand(c);
-  if (!s) return accounts().length ? `<div class="klein-tekst" style="margin-top:4px">☁ Foto's op OneDrive worden gecontroleerd…</div>` : "";
+  if (!s) return accounts().length ? `<div class="klein-tekst" style="margin-top:4px">${WOLKK} Foto's worden gecontroleerd…</div>` : "";
   if (s.weg) return `<div class="klein-tekst" style="margin-top:4px;color:var(--r);font-weight:700">⚠ Map niet gevonden op OneDrive (hernoemd of verplaatst?). Open het complex en kies de map opnieuw.</div>`;
-  return `<div class="klein-tekst" style="margin-top:4px">☁ <b>${s.met}</b> van ${c.adressen.length} adressen hebben foto's op OneDrive${s.zonder ? ` · <span style="color:var(--r);font-weight:700">${s.zonder} zonder foto's</span>` : " ✓"}</div>`;
+  return `<div class="klein-tekst" style="margin-top:4px">${WOLKK} <b>${s.met}</b> van ${c.adressen.length} adressen hebben foto's${s.zonder ? ` · <span style="color:var(--r);font-weight:700">${s.zonder} zonder foto's</span>` : " ✓"}</div>`;
 }
 let OVERZICHT_BEZIG = false;
 async function laadOverzichtFotos() {
@@ -1702,7 +1703,7 @@ function vComplex(c) {
   const odStand = odFotoStand(c);
   h += `<h2>Adressen</h2>`;
   if (odStand && odStand.weg) h += `<div class="melding"><b>⚠ Map niet gevonden op OneDrive:</b><br>${esc(mapVan(c))}<br>Is de map hernoemd of verplaatst? Tik hierboven op <b>📁 Map op OneDrive</b> en kies de juiste map. Tot die tijd kan de app niet zien welke foto's er staan.</div>`;
-  else if (odStand) h += `<div class="acties" style="margin:-2px 0 6px"><span class="klein-tekst" style="flex:1">☁ ${odStand.met} met foto's op OneDrive${odStand.zonder ? ` · <b style="color:var(--r)">${odStand.zonder} zonder</b>` : ""}</span>
+  else if (odStand) h += `<div class="acties" style="margin:-2px 0 6px"><span class="klein-tekst" style="flex:1">${WOLKK} ${odStand.met} met foto's${odStand.zonder ? ` · <b style="color:var(--r)">${odStand.zonder} zonder</b>` : ""}</span>
     <button class="klein ${view.zonder ? "" : "sec"}" style="width:auto;min-height:0;padding:4px 10px;font-size:14px;margin:0" onclick="view.zonder=!view.zonder;render()">${view.zonder ? "✓ " : ""}Alleen zonder foto's</button></div>`;
   if (!c.adressen.length) h += `<p class="klein-tekst">Nog geen adressen. Voeg huisnummers toe met de knop hierboven.</p>`;
   for (const a of sortedAdressen(c)) {
@@ -1714,7 +1715,7 @@ function vComplex(c) {
       <input type="checkbox" ${a.klaar ? "checked" : ""} aria-label="klaar" onchange="klaarZet('${c.id}','${a.id}',this.checked)">
       <div class="info" onclick="go({s:'adres',c:'${c.id}',a:'${a.id}'})">
         <strong>${stoplicht(a) ? `<span style="color:${stoplichtKleur[stoplicht(a)]}" title="${stoplicht(a)}">●</span> ` : ""}${a.straat === standaardStraat(c) ? nrLabel(a) : esc(a.straat) + " " + nrLabel(a)}</strong>
-        <div class="klein-tekst">${a.klaar && a.klaarOp ? "✓ afgevinkt " + fmtLokaal(a.klaarOp) + " · " : ""}${fs.length} foto's${wacht ? ` · ${wacht} nog niet op OneDrive` : ""}${(ODMAP[c.id] || []).includes(mapVoorAdres(c, a)) ? " · 📁 map op OneDrive" + ((ODFOTO[c.id] || {})[mapVoorAdres(c, a)] ? " · 📷 " + ODFOTO[c.id][mapVoorAdres(c, a)] + " op OneDrive" : "") : ""}${opODn === 0 ? ` · <span style="color:var(--r);font-weight:700">⚠ geen foto's op OneDrive</span>` : ""}${a.afspraak ? " · 📅 " + fmt(a.afspraak.start) : ""}${a.opmerkingen.length ? " · 💬 " + a.opmerkingen.length : ""}</div>
+        <div class="klein-tekst">${a.klaar && a.klaarOp ? "✓ afgevinkt " + fmtLokaal(a.klaarOp) + " · " : ""}<span title="foto's op dit toestel">📱 ${fs.length}</span>${wacht ? ` · ${wacht} nog niet op OneDrive` : ""}${(ODMAP[c.id] || []).includes(mapVoorAdres(c, a)) ? ((ODFOTO[c.id] || {})[mapVoorAdres(c, a)] ? " · " + WOLKK + " " + ODFOTO[c.id][mapVoorAdres(c, a)] + " foto's" : " · 📁 lege map") : ""}${opODn === 0 ? ` · <span style="color:var(--r);font-weight:700">⚠ geen foto's</span> ${WOLKK}` : ""}${a.afspraak ? " · 📅 " + fmt(a.afspraak.start) : ""}${a.opmerkingen.length ? " · 💬 " + a.opmerkingen.length : ""}</div>
       </div>
       <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;margin:0 0 0 6px;font-size:12px;line-height:1.2;border-radius:6px" onclick="toevVoegToe('${c.id}','${a.id}')">+ toev.</button>
       <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;margin:0 0 0 4px;font-size:12px;line-height:1.2;border-radius:6px;color:#b91c1c;border-color:#e5b4b4" onclick="adresWis('${c.id}','${a.id}')" aria-label="Adres verwijderen" title="Adres verwijderen">🗑</button></div>`;
