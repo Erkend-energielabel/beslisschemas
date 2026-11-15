@@ -350,7 +350,8 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "15-11 adres verwijderen";
+const APP_VERSIE = "15-11 wolkje";
+const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 let SEL = new Set();
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
@@ -1744,7 +1745,7 @@ function vComplex(c) {
   for (const d of dcs) {
     h += `<div class="rij"><div class="info" style="cursor:pointer" onclick="docOpen('${d.id}')">
       <strong>${esc(d.naam)}</strong>
-      <div class="klein-tekst">${d.uploaded ? "✓ Staat op OneDrive" : "⏳ Nog niet op OneDrive"}</div></div>
+      <div class="klein-tekst">${d.uploaded ? WOLK : "⏳ Nog niet op OneDrive"}</div></div>
       ${d.uploaded ? `<button class="klein sec" style="width:auto" onclick="docWis('${d.id}')">Wis</button>` : ""}</div>`;
   }
   return h;
@@ -1793,7 +1794,7 @@ function vAdres(c, a) {
       <input type="checkbox" data-foto="${f.id}" ${SEL.has(f.id) ? "checked" : ""} aria-label="selecteer foto" onchange="selZet('${f.id}',this.checked)">
       ${u ? `<img src="${u}" alt="">` : `<div style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;font-size:26px;background:#eef2ef;border-radius:8px">☁️</div>`}
       <div class="info"><div>${esc(f.naam)}</div>
-        <div class="klein-tekst">${f.uploaded ? "✓ Staat op OneDrive" : "⏳ Nog niet op OneDrive"}${!f.uploaded && f.pogingen ? ` · ${f.pogingen}× geprobeerd` : ""}</div>
+        <div class="klein-tekst">${f.uploaded ? WOLK : "⏳ Nog niet op OneDrive"}${!f.uploaded && f.pogingen ? ` · ${f.pogingen}× geprobeerd` : ""}</div>
         ${!f.uploaded && f.fout ? `<div class="klein-tekst" style="color:#b91c1c">⚠️ ${esc(f.fout)}</div>` : ""}</div>
       ${f.uploaded
         ? `<button class="klein gevaar" onclick="fotoWis('${f.id}')">Wis</button>`
