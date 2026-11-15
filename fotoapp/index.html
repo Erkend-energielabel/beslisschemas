@@ -22,6 +22,7 @@ header h1{font-size:19px;margin:0;flex:1;overflow:hidden;text-overflow:ellipsis;
 .logo{background:#fff;border-radius:10px;padding:5px 8px;display:flex;align-items:center;flex:0 0 auto;order:2}
 header h1{order:1}
 .logo img{height:28px;width:auto;display:block}
+.odbalk{display:flex;align-items:center;gap:8px;padding:6px 12px;font-size:14px;font-weight:600;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:58px;z-index:4}.odbalk .tx{flex:1;min-width:0}.odbalk button{width:auto;min-height:36px;margin:0;padding:4px 12px;font-size:14px;flex:0 0 auto}
 .infobalk{background:var(--dark);color:#e3efe6;font-size:12px;letter-spacing:2px;font-weight:700;text-transform:uppercase;padding:7px 14px;border-bottom:3px solid var(--acc)}
 input[type=checkbox]{accent-color:var(--acc)}
 main{padding:12px}
@@ -103,6 +104,7 @@ details.afspraak[open] summary{border-bottom-left-radius:0;border-bottom-right-r
   <button class="hdr" id="inlogStatus" onclick="login()" style="font-size:12px;padding:4px 8px;white-space:nowrap">…</button>
 </header>
 <div class="infobalk">Erkend-Energielabel.nl · Foto-opname</div>
+<div id="odbalk" class="odbalk"></div>
 <main id="app"></main>
 <div class="balk" id="balk"></div>
 
@@ -348,7 +350,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "15-11 foto-check 2";
+const APP_VERSIE = "15-11 verbinding";
 let SEL = new Set();
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
@@ -469,8 +471,18 @@ async function token(ui) {
     await pca.acquireTokenRedirect({ scopes: SCOPES });
   }
 }
+/* Verbinding met OneDrive bijhouden: laatste geslaagde contact en wat er misging */
+let OD_CONTACT = 0, OD_STATUS = "onbekend";   // "ok" | "inlog" | "weg" | "onbekend"
+function odGelukt() { const was = OD_STATUS; OD_CONTACT = Date.now(); OD_STATUS = "ok"; INLOG_NODIG = false; if (was !== "ok") toonInlogStatus(); else toonOdBalk(); }
+function odMislukt(e) {
+  const t = String((e && (e.errorCode || "")) || "") + " " + String((e && e.message) || e || "");
+  OD_STATUS = (e && e.name === "InteractionRequiredAuthError") || /interaction_required|login_required|consent_required|niet ingelogd|Microsoft-inlog|Graph 401/i.test(t) ? "inlog" : "weg";
+  if (OD_STATUS === "inlog") INLOG_NODIG = true;
+  toonInlogStatus();
+}
 async function graph(path, opts = {}, ui = false, poging = 0) {
-  const t = await token(ui);
+  let t;
+  try { t = await token(ui); } catch (e) { odMislukt(e); throw e; }
   /* Een verzoek dat op een wankel mobiel netwerk blijft hangen, breekt na een tijd af, zodat het uploaden doorgaat */
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), opts.body ? 60000 : 20000);
@@ -481,7 +493,10 @@ async function graph(path, opts = {}, ui = false, poging = 0) {
       signal: ctl.signal,
       headers: { Authorization: "Bearer " + t, ...(opts.headers || {}) }
     });
-  } finally { clearTimeout(timer); }
+  } catch (e) { odMislukt(e); throw e; }
+  finally { clearTimeout(timer); }
+  if (r.status === 401) odMislukt(new Error("Graph 401"));
+  else if (r.status < 500) odGelukt();
   /* OneDrive vraagt soms even te wachten (429 / 503): dan wachten en opnieuw proberen, tot 4 keer */
   if ([429, 500, 502, 503, 504].includes(r.status) && poging < 4) {   /* OneDrive heeft het even druk of hapert: wachten en opnieuw */
     const na = parseInt(r.headers.get("Retry-After") || "0", 10) || (5 * (poging + 1));
@@ -1965,6 +1980,7 @@ async function render() {
 }
 /* Laat zien of je bent ingelogd bij Microsoft. Tik erop om opnieuw in te loggen als dat niet zo is. */
 function toonInlogStatus() {
+  toonOdBalk();
   const b = $("inlogStatus");
   if (!b) return;
   const acc = accounts()[0];
@@ -1978,6 +1994,48 @@ function toonInlogStatus() {
     b.title = "Tik om in te loggen";
   }
 }
+function toonOdBalk() {
+  const el = $("odbalk");
+  if (!el) return;
+  const acc = accounts()[0];
+  const tijd = OD_CONTACT ? hhmm(new Date(OD_CONTACT)) : "";
+  let kleur, tekst;
+  if (!acc || INLOG_NODIG || OD_STATUS === "inlog") { kleur = "#dc2626"; tekst = "Niet verbonden met OneDrive – opnieuw inloggen nodig"; }
+  else if (!navigator.onLine) { kleur = "#d97706"; tekst = "Geen internet – foto's wachten veilig op dit toestel"; }
+  else if (OD_STATUS === "weg") { kleur = "#d97706"; tekst = "OneDrive niet bereikbaar" + (tijd ? ` (laatste contact ${tijd})` : ""); }
+  else if (OD_STATUS === "ok") { kleur = "#16a34a"; tekst = `Verbonden met OneDrive · laatste contact ${tijd}`; }
+  else { kleur = "#6b7280"; tekst = "Verbinding met OneDrive wordt gecontroleerd…"; }
+  el.innerHTML = `<span style="color:${kleur};font-size:18px;line-height:1">●</span><span class="tx" style="color:${kleur}">${esc(tekst)}</span>
+    <button class="${OD_STATUS === "ok" && acc && !INLOG_NODIG ? "sec" : ""}" onclick="opnieuwVerbinden()">🔄 Opnieuw verbinden</button>`;
+}
+/* Snelle controle: is OneDrive nu echt bereikbaar? (1 klein verzoek) */
+let OD_PING_BEZIG = false;
+async function odPing() {
+  if (OD_PING_BEZIG || !accounts().length || !navigator.onLine) { toonOdBalk(); return OD_STATUS === "ok"; }
+  OD_PING_BEZIG = true;
+  try { await graph("/me/drive?$select=id", {}, false); return true; }
+  catch (e) { return false; }
+  finally { OD_PING_BEZIG = false; toonOdBalk(); }
+}
+/* Losse knop: eerst stil opnieuw verbinden; lukt dat niet, dan opnieuw inloggen bij Microsoft */
+async function opnieuwVerbinden() {
+  if (!pca) return alert("Microsoft-inlog kon niet laden. Controleer je internetverbinding en herlaad de app.");
+  if (!navigator.onLine) return alert("Geen internet. Je foto's blijven veilig op dit toestel en gaan mee zodra er weer verbinding is.");
+  const el = $("odbalk"); if (el) el.querySelector(".tx").textContent = "Verbinden…";
+  if (accounts().length && await odPing()) {
+    if (typeof motorStart === "function") motorStart(true);
+    render();
+    return;
+  }
+  if (accounts().length && OD_STATUS === "weg") { toonOdBalk(); return alert("OneDrive is nu niet bereikbaar (netwerk). Je foto's blijven veilig op dit toestel. Probeer het zo nog eens."); }
+  try { await pca.loginRedirect({ scopes: SCOPES, prompt: "select_account" }); }
+  catch (e) { console.error(e); alert("Opnieuw inloggen lukte niet: " + (e.message || e)); }
+}
+setInterval(() => { if (document.visibilityState === "visible" && Date.now() - OD_CONTACT > 120000) odPing(); }, 30000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") odPing(); });
+window.addEventListener("online", () => toonOdBalk());
+window.addEventListener("offline", () => toonOdBalk());
+setTimeout(odPing, 1500);
 async function renderInhoud() {
   toonInlogStatus();
   try {
