@@ -251,9 +251,9 @@ const sorteer = c => c.adressen.sort((a, b) => (a.klaar - b.klaar) || a.straat.l
 const fmt = iso => iso ? iso.replace("T", " ").slice(0, 16) : "";
 /* Mapnaam per adres op OneDrive, bijv. "Stationsweg 12A" */
 const mapNaam = a => `${a.straat} ${nrLabel(a)}`.replace(/[\\\/:*?"<>|]/g, "").trim();
-const adresMap = (c, a) => mapVan(c) + "/" + mapNaam(a);
+const adresMap = (c, a) => c.los ? mapVan(c) : mapVan(c) + "/" + mapNaam(a);
 /* Gebruikt de map die al bestaat (bv. alleen het huisnummer) en maakt alleen een nieuwe aan als er echt geen is */
-const adresMapOD = (c, a) => mapVan(c) + "/" + mapVoorAdres(c, a);
+const adresMapOD = (c, a) => c.los ? mapVan(c) : mapVan(c) + "/" + mapVoorAdres(c, a);
 const ZEKER = new Set();          // mappen die in deze sessie al bestaan
 let ODMAP = {};                   // complex-id -> namen van mappen die op OneDrive staan
 /* Mapnaam als "Straat 12A". Alleen een huisnummer ("12A") geldt voor de standaardstraat van het complex. */
@@ -264,8 +264,15 @@ function parseerMap(n, standaard) {
   if (z && standaard) return { straat: standaard, nr: parseInt(z[1], 10), toev: z[2].toUpperCase() };
   return null;
 }
+/* Losse woning: adres uit de mapnaam halen, bijv. "EE26-201 Dorpstraat 12a, Dordrecht" -> Dorpstraat 12 A */
+function adresUitNaam(naam) {
+  const n = String(naam).replace(/^EE\S*\s+/i, "").split(",")[0].trim();
+  const m = n.match(/^(.*?[A-Za-zÀ-ÿ].*?)\s+(\d+)\s*([A-Za-z]{0,2})\b/);
+  return m ? { straat: m[1].trim(), nr: parseInt(m[2], 10), toev: m[3].toUpperCase() } : null;
+}
 /* Leesbaar adres, ook als de "straat" eigenlijk de complexnaam is (bijv. "EE26-158 Vorrinklaan, Dordrecht ...") */
 function adresTitel(c, a) {
+  if (c.los && !a.nr) return c.naam;
   let st = String(a.straat || "");
   if (/^EE[\d-]/i.test(st) || /^\d{2,3}\s/.test(st) || /FOTO/i.test(st)) {
     const m = String(c.naam || st).replace(/^EE\S*\s+/i, "").split(",")[0].replace(/\s+\d.*$/, "").trim();
@@ -367,7 +374,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "16-11 6 rondes";
+const APP_VERSIE = "16-11 losse woning";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -375,13 +382,14 @@ let SEL = new Set();
 let NAAR_ADRES = null;   /* na terug: naar deze woning in de lijst scrollen */
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
-  if (view.s === "adres") { NAAR_ADRES = view.a; go({ s: "complex", c: view.c }); }
+  if (view.s === "adres" && findC(view.c)?.los) go({ s: "complexen" });
+  else if (view.s === "adres") { NAAR_ADRES = view.a; go({ s: "complex", c: view.c }); }
   else if (view.s === "complex") go({ s: "complexen" });
   else if (view.s === "nieuwAdres") go({ s: "complex", c: view.c });
   else if (view.s === "map") go({ s: "complex", c: view.c });
   else if (view.s === "pas") go({ s: "pasjes" });
   else if (view.s === "doc") go({ s: "complex", c: view.c });
-  else if (view.s === "nieuwMap") go({ s: "nieuwComplex", pad: view.pad });
+  else if (view.s === "nieuwMap") go({ s: "nieuwComplex", pad: view.pad, los: view.los });
   else go({ s: "complexen" });
 }
 
@@ -394,7 +402,9 @@ function bestandsnaam(straat, nr) {
 }
 /* Eerste foto van een adres heet "Straat_12-1", de volgende "Straat_12-2", enz. */
 function volgendeNaam(c, a, extra = [], uitzondering = null) {
-  const basis = bestandsnaam(a.straat, nrLabel(a));
+  const basis = c.los && !a.nr
+    ? String(c.naam).replace(/^EE\S*\s+/i, "").split(",")[0].normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[\\\/:*?"<>|]/g, "").trim().replace(/\s+/g, "-") || "foto"
+    : bestandsnaam(a.straat, nrLabel(a));
   const bezet = new Set([...FOTOS.filter(f => f.complexId === c.id && f.adresId === a.id && f.id !== uitzondering).map(f => f.naam), ...extra]);
   let n = 1;
   while (bezet.has(`${basis}-${n}.jpg`)) n++;
@@ -1366,6 +1376,17 @@ async function afspraakMaken(cId, aId) {
 }
 
 /* ===== FORMULIEREN ===== */
+function bewaarLosseWoning() {
+  const naam = $("f1").value.trim();
+  if (!view.pad) return alert("Kies eerst de map op OneDrive.");
+  if (!naam) return alert("Vul een naam in.");
+  const p = adresUitNaam(naam);
+  const a = { id: uid(), straat: p ? p.straat : naam, nr: p ? p.nr : "", toev: p ? p.toev : "", klaar: false, opmerkingen: [], afspraak: null };
+  const c = { id: uid(), naam, map: view.pad, los: true, adressen: [a] };
+  st.complexen.push(c);
+  bewaarState();
+  go({ s: "adres", c: c.id, a: a.id });
+}
 function bewaarNieuwComplex() {
   const naam = $("f1").value.trim();
   if (!view.pad) return alert("Kies eerst de map op OneDrive.");
@@ -1759,6 +1780,18 @@ async function laadOverzichtFotos() {
 }
 function complexKaart(c, arch) {
   const klaar = c.adressen.filter(a => a.klaar).length;
+  if (c.los && c.adressen[0]) {
+    const a = c.adressen[0];
+    const n = FOTOS.filter(f => f.adresId === a.id).length;
+    return `<div class="kaart" style="position:relative;border-left:6px solid ${a.klaar ? rondeVan(a.ronde).k : "#94a3b8"}" onclick="go({s:'adres',c:'${c.id}',a:'${a.id}'})">
+    <strong>🏠 ${esc(adresTitel(c, a))}</strong>
+    <div class="klein-tekst">Losse woning · ${a.klaar ? "✓ gereed" : "nog niet gereed"} · 📱 ${n} foto's</div>
+    <div class="klein-tekst">📁 ${esc(mapVan(c))}</div>
+    <div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-top:6px">
+      <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;font-size:11px;line-height:1.2;border-radius:6px" onclick="event.stopPropagation();complexKlaarZet('${c.id}',${!arch})">🗄️ ${arch ? "Terugzetten" : "Archiveren"}</button>
+      <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;font-size:11px;line-height:1.2;border-radius:6px" onclick="event.stopPropagation();complexWis('${c.id}')">🗑 Verwijder</button>
+    </div></div>`;
+  }
   return `<div class="kaart" style="position:relative" onclick="go({s:'complex',c:'${c.id}'})">
     <strong>${esc(c.naam)}</strong>
     <div class="klein-tekst">${c.adressen.length} adressen · ${klaar} klaar</div>
@@ -1770,7 +1803,8 @@ function complexKaart(c, arch) {
     </div></div>`;
 }
 function vComplexen() {
-  let h = `<button onclick="go({s:'nieuwComplex'})">+ Nieuw complex</button>
+  let h = `<div style="display:flex;gap:8px"><button style="flex:1" onclick="go({s:'nieuwComplex'})">+ Nieuw complex</button>
+    <button style="flex:1" onclick="go({s:'nieuwComplex',los:true})">+ Losse woning</button></div>
     <button class="sec" onclick="go({s:'pasjes'})">🪪 Bedrijfspasjes</button>`;
   const actief = st.complexen.filter(c => !c.gearchiveerd);
   const arch = st.complexen.filter(c => c.gearchiveerd);
@@ -1889,7 +1923,7 @@ function vAdres(c, a) {
   const fs = FOTOS.filter(f => f.adresId === a.id).sort((x, y) => x.createdAt - y.createdAt);
   let h = `<div style="font-size:28px;font-weight:800;color:var(--g,#14532d);line-height:1.15;margin:4px 0 2px">🏠 ${esc(adresTitel(c, a))}</div>
     <div style="display:flex;align-items:center;gap:8px"><p class="klein-tekst" style="flex:1;margin:0">${esc(c.naam)}</p>
-    <button style="width:auto;min-height:0;margin:0;padding:3px 8px;font-size:11px;background:none;color:#b91c1c;border:1px solid #e5b4b4;border-radius:6px" onclick="adresWis('${c.id}','${a.id}')" aria-label="Adres verwijderen">🗑 verwijder</button></div>
+    <button style="width:auto;min-height:0;margin:0;padding:3px 8px;font-size:11px;background:none;color:#b91c1c;border:1px solid #e5b4b4;border-radius:6px" onclick="${c.los ? `complexWis('${c.id}')` : `adresWis('${c.id}','${a.id}')`}" aria-label="Verwijderen">🗑 verwijder</button></div>
     ${(() => {
       const o = openBezoek();
       const hier = o && o.a.id === a.id;
@@ -2060,6 +2094,17 @@ function werkMap(pad) {
   return delen.slice().reverse().find(d => /^EE[-\d]/i.test(d)) || delen[delen.length - 1];
 }
 function vNieuwComplex() {
+  if (view.los) {
+    if (!view.pad) return `<h2>Losse woning</h2>
+      <p class="klein-tekst">Kies de map op OneDrive van deze woning. De foto's komen direct in die map.</p>
+      <button onclick="go({s:'nieuwMap', pad: '', los: true})">📁 Kies map op OneDrive</button>`;
+    return `<h2>Losse woning</h2>
+      <p class="klein-tekst">Map op OneDrive: <b>${esc(view.pad)}</b></p>
+      <button class="klein sec" style="width:auto" onclick="go({s:'nieuwMap', pad: '', los: true})">Andere map kiezen</button>
+      <label for="f1">Naam / adres (uit de map)</label>
+      <input id="f1" value="${esc(view.pad.split("/").pop())}" autocomplete="off">
+      <button onclick="bewaarLosseWoning()">Start opname</button>`;
+  }
   if (!view.pad) return `<h2>Nieuw complex</h2>
     <p class="klein-tekst">Kies eerst de map op OneDrive waar de foto's naartoe gaan. Naam en projectnummer nemen we over van die map.</p>
     <button onclick="go({s:'nieuwMap', pad: ''})">📁 Kies map op OneDrive</button>`;
@@ -2072,10 +2117,10 @@ function vNieuwComplex() {
     <button onclick="bewaarNieuwComplex()">Volgende: huisnummers</button>`;
 }
 function vNieuwMap() {
-  return `<h2>Map kiezen voor nieuw complex</h2>
+  return `<h2>Map kiezen voor ${view.los ? "losse woning" : "nieuw complex"}</h2>
     <p class="klein-tekst">Huidige keuze: <b>${esc(view.pad) || "(hoofdmap)"}</b></p>
     <button onclick="nieuwMapKies()">Deze map gebruiken</button>
-    <button class="sec" onclick="go({s:'nieuwComplex'})">Annuleren</button>
+    <button class="sec" onclick="go({s:'nieuwComplex',los:${view.los ? "true" : "false"}})">Annuleren</button>
     <div class="acties">
       <button class="klein sec" onclick="mapOmhoog()">⬆ Omhoog</button>
       <button class="klein sec" onclick="mapNieuw()">+ Nieuwe map</button>
@@ -2084,7 +2129,7 @@ function vNieuwMap() {
 }
 function nieuwMapKies() {
   if (!view.pad) return alert("Kies eerst een map. De hoofdmap kan niet.");
-  go({ s: "nieuwComplex", pad: view.pad });
+  go({ s: "nieuwComplex", pad: view.pad, los: view.los });
 }
 
 function vNieuwAdres(c) {
