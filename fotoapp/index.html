@@ -374,7 +374,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "16-11 losse woning";
+const APP_VERSIE = "16-11 losse woning 2";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -1932,9 +1932,9 @@ function vAdres(c, a) {
         ${uitCam ? `<div class="klein-tekst">📥 ${uitCam} foto('s) uit Camera-album hierheen verplaatst · <a href="#" onclick="cameraTerug('${c.id}','${a.id}');return false">terugzetten</a></div>` : ""}
         ${CAMERA_AAN && (a.bezoeken || []).length ? `<div class="klein-tekst">Opnames: ${(a.bezoeken || []).map(b => fmtLokaal(b.van).slice(-5) + "–" + (b.tot ? fmtLokaal(b.tot).slice(-5) : "nu")).join(", ")}</div>` : ""}</div>`;
     })()}
-    <div class="acties" style="margin:6px 0 10px"><span class="klein-tekst" style="flex:0 0 100%">Stoplicht (tik nogmaals om weg te halen):</span>
+    ${c.los ? "" : `<div class="acties" style="margin:6px 0 10px"><span class="klein-tekst" style="flex:0 0 100%">Stoplicht (tik nogmaals om weg te halen):</span>
       ${["groen", "oranje", "rood"].map(k => `<button class="klein ${stoplicht(a) === k ? "" : "sec"}" style="width:auto;flex:1;${stoplicht(a) === k ? `background:${stoplichtKleur[k]}` : `color:${stoplichtKleur[k]};border-color:${stoplichtKleur[k]}`}" onclick="adresStoplicht('${c.id}','${a.id}','${stoplicht(a) === k ? "" : k}')">● ${k}</button>`).join("")}
-    </div>
+    </div>`}
     `;
 
   h += `<h2>Foto's (${fs.length})</h2>`;
@@ -1972,7 +1972,7 @@ function vAdres(c, a) {
     </div>`;
   }
 
-  h += `<details class="afspraak">
+  if (!c.los) h += `<details class="afspraak">
     <summary>📅 ${a.afspraak ? (a.afspraak.gedaan ? "✓ Afgerond: " : "Afspraak: ") + fmt(a.afspraak.start) + " · <span class=\"aftel\" data-start=\"" + a.afspraak.start + "\" data-gedaan=\"" + (a.afspraak.gedaan ? 1 : 0) + "\">" + aftelTekst(a.afspraak.start, a.afspraak.gedaan) + "</span>" : "Afspraak plannen"}</summary>
     <div class="afspraak-inhoud">
       ${a.afspraak ? `<label><input type="checkbox" ${a.afspraak.gedaan ? "checked" : ""} onchange="afspraakKlaar('${c.id}','${a.id}',this.checked)"> Afspraak afgerond</label>` : ""}
