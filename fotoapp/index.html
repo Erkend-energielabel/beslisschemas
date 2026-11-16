@@ -359,7 +359,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "16-11 adres";
+const APP_VERSIE = "16-11 rondes";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -582,7 +582,7 @@ const GEDEELD = CFG.map + "/_gedeeld.json";
 let SNAP = JSON.parse(localStorage.getItem("fa_snap") || "{}");   // laatste bekende staat per item
 const stabiel = o => JSON.stringify(o, (k, v) => (v && typeof v === "object" && !Array.isArray(v))
   ? Object.keys(v).sort().reduce((r, kk) => (r[kk] = v[kk], r), {}) : v);
-const cSleutel = c => stabiel({ naam: c.naam, map: c.map, gearchiveerd: !!c.gearchiveerd });
+const cSleutel = c => stabiel({ naam: c.naam, map: c.map, gearchiveerd: !!c.gearchiveerd, ronde: c.ronde });
 const aSleutel = a => { const { _t, opmerkingWacht, ...r } = a; return stabiel(r); };
 const pSleutel = p => { const { _t, ...r } = p; return stabiel(r); };
 /* Zet een tijdstempel op alles wat sinds de laatste sync is veranderd */
@@ -1183,15 +1183,35 @@ async function verplaatsGeselecteerd(cId) {
   await render();
 }
 
+/* Rondes: elke ronde een eigen kleur, zodat je ziet welke woning in welke ronde is gedaan */
+const RONDES = [
+  { n: "groen", k: "#16a34a", bg: "#e3f5e8" }, { n: "blauw", k: "#2563eb", bg: "#e3ecfd" },
+  { n: "paars", k: "#9333ea", bg: "#f1e6fd" }, { n: "oranje", k: "#ea580c", bg: "#fdebdf" },
+  { n: "roze", k: "#db2777", bg: "#fbe5ef" }, { n: "geel", k: "#ca8a04", bg: "#fbf3d6" }];
+const rondeVan = r => RONDES[((r || 1) - 1) % RONDES.length];
+const huidigeRonde = c => c.ronde || 1;
+function rondeKies(cId, r) { const c = findC(cId); c.ronde = r; bewaarState(); render(); }
+function rondeKiezer(c) {
+  const tel = {};
+  for (const a of c.adressen) if (a.klaar) tel[a.ronde || 1] = (tel[a.ronde || 1] || 0) + 1;
+  const max = Math.min(RONDES.length, Math.max(3, huidigeRonde(c) + 1, ...Object.keys(tel).map(Number).map(x => x + 1)));
+  let h = `<div class="acties" style="margin:8px 0;align-items:center"><span class="klein-tekst" style="flex:0 0 100%">Afvinken in ronde:</span>`;
+  for (let r = 1; r <= max; r++) {
+    const rk = rondeVan(r), aan = r === huidigeRonde(c);
+    h += `<button class="klein" style="width:auto;flex:1;min-height:40px;margin:0;padding:6px 8px;${aan ? `background:${rk.k};color:#fff;border-color:${rk.k}` : `background:#fff;color:${rk.k};border:2px solid ${rk.k}`}" onclick="rondeKies('${c.id}',${r})">${aan ? "✓ " : ""}R${r}${tel[r] ? ` (${tel[r]})` : ""}</button>`;
+  }
+  return h + `</div>`;
+}
 function klaarZet(cId, aId, aan) {
   const c = findC(cId), a = findA(c, aId);
   const naam = `${a.straat} ${nrLabel(a)}`;
   const vraag = aan
-    ? `Woning ${naam} als klaar markeren?`
+    ? `Woning ${naam} afvinken in ronde ${huidigeRonde(c)} (${rondeVan(huidigeRonde(c)).n})?`
     : `Woning ${naam} weer terugzetten naar niet klaar?`;
   if (!confirm(vraag)) { render(); return; }   // checkbox weer goedzetten
   a.klaar = aan;
   a.klaarOp = aan ? new Date().toISOString() : null;
+  a.ronde = aan ? huidigeRonde(c) : null;
   const o = openBezoek();
   if (aan && o && o.a.id === a.id) { o.b.tot = new Date().toISOString(); setTimeout(() => cameraVerwerk(false), 1500); }
   bewaarState();
@@ -1203,12 +1223,12 @@ function fmtLokaal(iso) { const d = new Date(iso); return `${datumVan(d)} ${hhmm
 function exportComplex(cId) {
   const c = findC(cId);
   const q = s => `"${String(s ?? "").replace(/"/g, '""')}"`;
-  const rijen = [["Straat", "Huisnummer", "Woning klaar", "Klaar op", "Afspraak", "Foto's", "Opmerkingen"]];
+  const rijen = [["Straat", "Huisnummer", "Woning klaar", "Ronde", "Klaar op", "Afspraak", "Foto's", "Opmerkingen"]];
   for (const a of sortedAdressen(c)) {
     const aantal = FOTOS.filter(f => f.adresId === a.id).length;
     const afspraak = a.afspraak ? fmt(a.afspraak.start) + (a.afspraak.gedaan ? " (afgerond)" : "") : "";
     const opm = (a.opmerkingen || []).map(o => `${fmtLokaal(o.t)}: ${o.tekst}`).join(" | ");
-    rijen.push([a.straat, nrLabel(a), a.klaar ? "ja" : "nee", a.klaarOp ? fmtLokaal(a.klaarOp) : "", afspraak, aantal, opm]);
+    rijen.push([a.straat, nrLabel(a), a.klaar ? "ja" : "nee", a.klaar ? a.ronde || 1 : "", a.klaarOp ? fmtLokaal(a.klaarOp) : "", afspraak, aantal, opm]);
   }
   const naam = `${c.naam} overzicht`;
   if (window.XLSX) {
@@ -1720,7 +1740,7 @@ function sortedAdressen(c) {
 }
 function vComplex(c) {
   const klaar = c.adressen.filter(a => a.klaar).length;
-  let h = `<button class="sec" onclick="go({s:'map',c:'${c.id}'})">📁 Map op OneDrive: ${esc(mapVan(c))}</button>${voortgangBalk(klaar, c.adressen.length)}
+  let h = `<button class="sec" onclick="go({s:'map',c:'${c.id}'})">📁 Map op OneDrive: ${esc(mapVan(c))}</button>${voortgangBalk(klaar, c.adressen.length)}${rondeKiezer(c)}
     <div style="display:flex;gap:8px;align-items:center;margin:8px 0">
       <input id="eenAdres" placeholder="1 adres, bijv. ${esc(standaardStraat(c))} 13C of 13C" autocomplete="off" style="flex:1;margin:0" onkeydown="if(event.key==='Enter')eenAdresToevoegen('${c.id}')">
       <button style="width:auto;margin:0" onclick="eenAdresToevoegen('${c.id}')">+ Toevoegen</button>
@@ -1772,11 +1792,11 @@ function vComplex(c) {
     const wacht = fs.filter(f => !f.uploaded).length;
     const opODn = ODFOTO[c.id] && !OD_WEG.has(c.id) ? ((ODFOTO[c.id] || {})[mapVoorAdres(c, a)] || 0) : null;
     if (view.zonder && opODn) continue;
-    h += `<div class="rij ${a.klaar ? "klaar" : ""}" id="adr-${a.id}">
-      <input type="checkbox" ${a.klaar ? "checked" : ""} aria-label="klaar" onchange="klaarZet('${c.id}','${a.id}',this.checked)">
+    h += `<div class="rij ${a.klaar ? "klaar" : ""}" id="adr-${a.id}" ${a.klaar ? `style="background:${rondeVan(a.ronde).bg};border-left:6px solid ${rondeVan(a.ronde).k}"` : ""}>
+      <input type="checkbox" ${a.klaar ? "checked" : ""} style="accent-color:${a.klaar ? rondeVan(a.ronde).k : rondeVan(huidigeRonde(c)).k}" aria-label="klaar" onchange="klaarZet('${c.id}','${a.id}',this.checked)">
       <div class="info" onclick="go({s:'adres',c:'${c.id}',a:'${a.id}'})">
         <strong>${stoplicht(a) ? `<span style="color:${stoplichtKleur[stoplicht(a)]}" title="${stoplicht(a)}">●</span> ` : ""}${a.straat === standaardStraat(c) ? nrLabel(a) : esc(a.straat) + " " + nrLabel(a)}</strong>
-        <div class="klein-tekst">${a.klaar && a.klaarOp ? "✓ afgevinkt " + fmtLokaal(a.klaarOp) + " · " : ""}<span title="foto's op dit toestel">📱 ${fs.length}</span>${wacht ? ` · ${wacht} nog niet op OneDrive` : ""}${(ODMAP[c.id] || []).includes(mapVoorAdres(c, a)) ? ((ODFOTO[c.id] || {})[mapVoorAdres(c, a)] ? " · " + WOLKK + " " + ODFOTO[c.id][mapVoorAdres(c, a)] + " foto's" : " · 📁 lege map") : ""}${opODn === 0 ? ` · <span style="color:var(--r);font-weight:700">⚠ geen foto's</span> ${WOLKR}` : ""}${a.afspraak ? " · 📅 " + fmt(a.afspraak.start) : ""}${a.opmerkingen.length ? " · 💬 " + a.opmerkingen.length : ""}</div>
+        <div class="klein-tekst">${a.klaar ? `<b style="color:${rondeVan(a.ronde).k}">✓ R${a.ronde || 1}</b>${a.klaarOp ? " " + fmtLokaal(a.klaarOp) : ""} · ` : ""}<span title="foto's op dit toestel">📱 ${fs.length}</span>${wacht ? ` · ${wacht} nog niet op OneDrive` : ""}${(ODMAP[c.id] || []).includes(mapVoorAdres(c, a)) ? ((ODFOTO[c.id] || {})[mapVoorAdres(c, a)] ? " · " + WOLKK + " " + ODFOTO[c.id][mapVoorAdres(c, a)] + " foto's" : " · 📁 lege map") : ""}${opODn === 0 ? ` · <span style="color:var(--r);font-weight:700">⚠ geen foto's</span> ${WOLKR}` : ""}${a.afspraak ? " · 📅 " + fmt(a.afspraak.start) : ""}${a.opmerkingen.length ? " · 💬 " + a.opmerkingen.length : ""}</div>
       </div>
       <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;margin:0 0 0 6px;font-size:12px;line-height:1.2;border-radius:6px" onclick="toevVoegToe('${c.id}','${a.id}')">+ toev.</button>
       <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;margin:0 0 0 4px;font-size:12px;line-height:1.2;border-radius:6px;color:#b91c1c;border-color:#e5b4b4" onclick="adresWis('${c.id}','${a.id}')" aria-label="Adres verwijderen" title="Adres verwijderen">🗑</button></div>`;
@@ -2175,7 +2195,7 @@ async function renderInhoud() {
     <div class="acties">
       ${view.s !== "complexen" ? `<button class="klein sec" style="min-height:48px;font-size:17px" onclick="terug()">← Terug</button>` : ""}
       ${view.s === "adres" && c && a ? `<label class="knop" style="width:auto;margin:0;min-height:48px;font-size:17px;padding:10px 14px;cursor:pointer">📷 Foto's<input type="file" accept="image/*" multiple hidden onchange="fotosToevoegen(event,'${c.id}','${a.id}')"></label>
-        <button class="knop ${a.klaar ? "sec" : ""}" style="width:auto;margin:0;min-height:48px;font-size:17px;padding:10px 14px" onclick="klaarZet('${c.id}','${a.id}',${!a.klaar})">${a.klaar ? "↩ Niet klaar" : "✅ Woning gereed"}</button>` : ""}
+        <button class="knop ${a.klaar ? "sec" : ""}" style="width:auto;margin:0;min-height:48px;font-size:17px;padding:10px 14px;${a.klaar ? "" : `background:${rondeVan(huidigeRonde(c)).k}`}" onclick="klaarZet('${c.id}','${a.id}',${!a.klaar})">${a.klaar ? `↩ Niet klaar (R${a.ronde || 1})` : `✅ Gereed R${huidigeRonde(c)}`}</button>` : ""}
       <span id="uploadStatus" class="klein-tekst" style="flex:0 0 100%;order:2;text-align:center;font-size:11px;line-height:1.3">${uploadTekst()} · versie ${APP_VERSIE}</span>
       ${ingelogd
         ? `<button class="klein" onclick="sync(true)">Nu uploaden</button>`
