@@ -374,7 +374,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "16-11 trillen";
+const APP_VERSIE = "16-11 controle";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -2286,17 +2286,25 @@ async function renderInhoud() {
   if (view.c) c = findC(view.c);
   if (view.a && c) a = findA(c, view.a);
 
-  if (view.s === "complexen") { inhoud = vComplexen(); setTimeout(laadOverzichtFotos, 300); }
-  else if (view.s === "complex" && c) { titel = c.naam; inhoud = vComplex(c); laadAdresMappen(c.id); }
-  else if (view.s === "adres" && c && a) { titel = adresTitel(c, a); inhoud = vAdres(c, a); }
-  else if (view.s === "nieuwComplex") { titel = "Nieuw complex"; inhoud = vNieuwComplex(); }
-  else if (view.s === "map" && c) { titel = "Map kiezen"; inhoud = vMap(c); }
-  else if (view.s === "pasjes") { titel = "Bedrijfspasjes"; inhoud = vPasjes(); }
-  else if (view.s === "pas") { const p = PASJES.find(x => x.id === view.p); titel = "Bedrijfspasje"; inhoud = p ? vPasGroot(p) : vPasjes(); }
-  else if (view.s === "doc") { const d = DOCS.find(x => x.id === view.d); titel = "Plattegrond"; inhoud = d ? vDoc(d) : vComplexen(); }
-  else if (view.s === "nieuwMap") { titel = "Map kiezen"; inhoud = vNieuwMap(); }
-  else if (view.s === "nieuwAdres" && c) { titel = "Huisnummers"; inhoud = vNieuwAdres(c); }
-  else { view = { s: "complexen" }; inhoud = vComplexen(); }
+  try {
+    if (view.s === "complexen") { inhoud = vComplexen(); setTimeout(laadOverzichtFotos, 300); }
+    else if (view.s === "complex" && c) { titel = c.naam; inhoud = vComplex(c); laadAdresMappen(c.id); }
+    else if (view.s === "adres" && c && a) { titel = adresTitel(c, a); inhoud = vAdres(c, a); }
+    else if (view.s === "nieuwComplex") { titel = "Nieuw complex"; inhoud = vNieuwComplex(); }
+    else if (view.s === "map" && c) { titel = "Map kiezen"; inhoud = vMap(c); }
+    else if (view.s === "pasjes") { titel = "Bedrijfspasjes"; inhoud = vPasjes(); }
+    else if (view.s === "pas") { const p = PASJES.find(x => x.id === view.p); titel = "Bedrijfspasje"; inhoud = p ? vPasGroot(p) : vPasjes(); }
+    else if (view.s === "doc") { const d = DOCS.find(x => x.id === view.d); titel = "Plattegrond"; inhoud = d ? vDoc(d) : vComplexen(); }
+    else if (view.s === "nieuwMap") { titel = "Map kiezen"; inhoud = vNieuwMap(); }
+    else if (view.s === "nieuwAdres" && c) { titel = "Huisnummers"; inhoud = vNieuwAdres(c); }
+    else { view = { s: "complexen" }; inhoud = vComplexen(); }
+  } catch (e) {
+    console.error(e);
+    titel = "Fout";
+    inhoud = `<div class="melding"><b>Dit scherm kon niet worden geopend.</b><br>Maak een schermafbeelding en stuur die door.<br>
+      <code style="font-size:11px;word-break:break-all">${esc(String(e && e.message || e))}<br>${esc(String(e && e.stack || "").split("\n").slice(0, 3).join(" | "))}</code></div>
+      <button onclick="go({s:'complexen'})">← Terug naar overzicht</button>`;
+  }
 
   const ingelogd = accounts().length > 0;
   if (!ingelogd) {
