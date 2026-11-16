@@ -256,6 +256,15 @@ function parseerMap(n, standaard) {
   if (z && standaard) return { straat: standaard, nr: parseInt(z[1], 10), toev: z[2].toUpperCase() };
   return null;
 }
+/* Leesbaar adres, ook als de "straat" eigenlijk de complexnaam is (bijv. "EE26-158 Vorrinklaan, Dordrecht ...") */
+function adresTitel(c, a) {
+  let st = String(a.straat || "");
+  if (/^EE[\d-]/i.test(st) || /^\d{2,3}\s/.test(st) || /FOTO/i.test(st)) {
+    const m = String(c.naam || st).replace(/^EE\S*\s+/i, "").split(",")[0].replace(/\s+\d.*$/, "").trim();
+    st = m && !/FOTO/i.test(m) ? m : "";
+  }
+  return `${st ? st + " " : "Nr. "}${nrLabel(a)}`;
+}
 /* De straat die de meeste adressen in dit complex hebben. Bij adressen met die straat tonen we alleen het huisnummer. */
 const standaardStraat = c => {
   const tel = {};
@@ -350,14 +359,15 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "15-11 delen";
+const APP_VERSIE = "16-11 adres";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 let SEL = new Set();
+let NAAR_ADRES = null;   /* na terug: naar deze woning in de lijst scrollen */
 function go(v) { view = v; SEL = new Set(); window.scrollTo(0, 0); render(); }   /* naar een ander scherm: bovenaan beginnen */
 function terug() {
-  if (view.s === "adres") go({ s: "complex", c: view.c });
+  if (view.s === "adres") { NAAR_ADRES = view.a; go({ s: "complex", c: view.c }); }
   else if (view.s === "complex") go({ s: "complexen" });
   else if (view.s === "nieuwAdres") go({ s: "complex", c: view.c });
   else if (view.s === "map") go({ s: "complex", c: view.c });
@@ -1762,7 +1772,7 @@ function vComplex(c) {
     const wacht = fs.filter(f => !f.uploaded).length;
     const opODn = ODFOTO[c.id] && !OD_WEG.has(c.id) ? ((ODFOTO[c.id] || {})[mapVoorAdres(c, a)] || 0) : null;
     if (view.zonder && opODn) continue;
-    h += `<div class="rij ${a.klaar ? "klaar" : ""}">
+    h += `<div class="rij ${a.klaar ? "klaar" : ""}" id="adr-${a.id}">
       <input type="checkbox" ${a.klaar ? "checked" : ""} aria-label="klaar" onchange="klaarZet('${c.id}','${a.id}',this.checked)">
       <div class="info" onclick="go({s:'adres',c:'${c.id}',a:'${a.id}'})">
         <strong>${stoplicht(a) ? `<span style="color:${stoplichtKleur[stoplicht(a)]}" title="${stoplicht(a)}">●</span> ` : ""}${a.straat === standaardStraat(c) ? nrLabel(a) : esc(a.straat) + " " + nrLabel(a)}</strong>
@@ -1805,7 +1815,8 @@ function vComplex(c) {
 
 function vAdres(c, a) {
   const fs = FOTOS.filter(f => f.adresId === a.id).sort((x, y) => x.createdAt - y.createdAt);
-  let h = `<div style="display:flex;align-items:center;gap:8px"><p class="klein-tekst" style="flex:1;margin:0">${esc(c.naam)}</p>
+  let h = `<div style="font-size:28px;font-weight:800;color:var(--g,#14532d);line-height:1.15;margin:4px 0 2px">🏠 ${esc(adresTitel(c, a))}</div>
+    <div style="display:flex;align-items:center;gap:8px"><p class="klein-tekst" style="flex:1;margin:0">${esc(c.naam)}</p>
     <button style="width:auto;min-height:0;margin:0;padding:3px 8px;font-size:11px;background:none;color:#b91c1c;border:1px solid #e5b4b4;border-radius:6px" onclick="adresWis('${c.id}','${a.id}')" aria-label="Adres verwijderen">🗑 verwijder</button></div>
     ${(() => {
       const o = openBezoek();
@@ -2034,6 +2045,15 @@ async function render() {
   const y = window.scrollY;
   await renderInhoud();
   window.scrollTo(0, y);
+  if (NAAR_ADRES && view.s === "complex") {
+    const el = document.getElementById("adr-" + NAAR_ADRES);
+    NAAR_ADRES = null;
+    if (el) {
+      el.scrollIntoView({ block: "center" });
+      el.style.transition = "box-shadow .4s"; el.style.boxShadow = "0 0 0 3px #16a34a";
+      setTimeout(() => { el.style.boxShadow = ""; }, 1500);
+    }
+  }
 }
 /* Laat zien of je bent ingelogd bij Microsoft. Tik erop om opnieuw in te loggen als dat niet zo is. */
 function toonInlogStatus() {
@@ -2121,7 +2141,7 @@ async function renderInhoud() {
 
   if (view.s === "complexen") { inhoud = vComplexen(); setTimeout(laadOverzichtFotos, 300); }
   else if (view.s === "complex" && c) { titel = c.naam; inhoud = vComplex(c); laadAdresMappen(c.id); }
-  else if (view.s === "adres" && c && a) { titel = `${a.straat} ${nrLabel(a)}`; inhoud = vAdres(c, a); }
+  else if (view.s === "adres" && c && a) { titel = adresTitel(c, a); inhoud = vAdres(c, a); }
   else if (view.s === "nieuwComplex") { titel = "Nieuw complex"; inhoud = vNieuwComplex(); }
   else if (view.s === "map" && c) { titel = "Map kiezen"; inhoud = vMap(c); }
   else if (view.s === "pasjes") { titel = "Bedrijfspasjes"; inhoud = vPasjes(); }
