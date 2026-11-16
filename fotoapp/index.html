@@ -367,7 +367,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "16-11 pdf";
+const APP_VERSIE = "16-11 6 rondes";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -1202,7 +1202,7 @@ function rondeKies(cId, r) { const c = findC(cId); c.ronde = r; bewaarState(); r
 function rondeKiezer(c) {
   const tel = {};
   for (const a of c.adressen) if (a.klaar) tel[a.ronde || 1] = (tel[a.ronde || 1] || 0) + 1;
-  const max = Math.min(RONDES.length, Math.max(3, huidigeRonde(c) + 1, ...Object.keys(tel).map(Number).map(x => x + 1)));
+  const max = RONDES.length;   /* altijd alle 6 rondes tonen */
   let h = `<div class="acties" style="margin:8px 0;align-items:center"><span class="klein-tekst" style="flex:0 0 100%">Afvinken in ronde:</span>`;
   for (let r = 1; r <= max; r++) {
     const rk = rondeVan(r), aan = r === huidigeRonde(c);
