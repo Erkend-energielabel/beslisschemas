@@ -374,7 +374,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "16-11 controle";
+const APP_VERSIE = "16-11 losse woning 3";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -2132,7 +2132,7 @@ function vNieuwComplex() {
       <p class="klein-tekst">Map op OneDrive: <b>${esc(view.pad)}</b></p>
       <button class="klein sec" style="width:auto" onclick="go({s:'nieuwMap', pad: '', los: true})">Andere map kiezen</button>
       <label for="f1">Naam / adres (uit de map)</label>
-      <input id="f1" value="${esc(view.pad.split("/").pop())}" autocomplete="off">
+      <input id="f1" value="${esc(werkMap(view.pad))}" autocomplete="off">
       <button onclick="bewaarLosseWoning()">Start opname</button>`;
   }
   if (!view.pad) return `<h2>Nieuw complex</h2>
@@ -2283,6 +2283,15 @@ async function renderInhoud() {
   URLS.forEach(u => URL.revokeObjectURL(u)); URLS = [];
 
   let titel = "Complexen", inhoud = "", c = null, a = null;
+  for (const x of st.complexen) {   /* losse woning heet zoals de projectmap, niet "010 FOTO'S" */
+    if (!x.los || !(/FOTO/i.test(x.naam) || /^\d{2,3}\s/.test(x.naam))) continue;
+    const goed = werkMap(x.map || "");
+    if (!goed || goed === x.naam || /FOTO/i.test(goed)) continue;
+    x.naam = goed;
+    const ad = x.adressen[0], pp = adresUitNaam(goed);
+    if (ad && !ad.klaar) { ad.straat = pp ? pp.straat : goed; ad.nr = pp ? pp.nr : ""; ad.toev = pp ? pp.toev : ""; }
+    bewaarState();
+  }
   if (view.c) c = findC(view.c);
   if (view.a && c) a = findA(c, view.a);
 
