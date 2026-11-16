@@ -374,7 +374,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "16-11 losse woning 2";
+const APP_VERSIE = "16-11 trillen";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -771,6 +771,34 @@ function motorStart(handmatig) {
   MOTOR.actief = true; MOTOR.ok = 0; MOTOR.hart = Date.now();
   motorLoop(gen);
 }
+/* Signaal bij een mislukte upload: trillen (Android), tikje via iOS-schakelaar (iPhone, Safari 18+) en een korte piep */
+let SIGNAAL_LAATST = 0, AUDIO = null;
+document.addEventListener("touchend", () => {   /* geluid mag op iPhone pas na een tik: dan alvast klaarzetten */
+  try { AUDIO ||= new (window.AudioContext || window.webkitAudioContext)(); if (AUDIO.state === "suspended") AUDIO.resume(); } catch (e) {}
+}, { passive: true });
+function foutSignaal() {
+  if (Date.now() - SIGNAAL_LAATST < 20000 || document.hidden) return;   /* hooguit eens per 20 s */
+  SIGNAAL_LAATST = Date.now();
+  try { if (navigator.vibrate) navigator.vibrate([250, 120, 250]); } catch (e) {}
+  try {   /* iPhone: een schakelaar omzetten geeft een tikje (haptiek) */
+    let l = document.getElementById("trilLabel");
+    if (!l) {
+      l = document.createElement("label"); l.id = "trilLabel"; l.style.cssText = "position:fixed;left:-999px;top:0;opacity:0";
+      l.innerHTML = '<input type="checkbox" switch>'; document.body.appendChild(l);
+    }
+    l.click(); setTimeout(() => l.click(), 150);
+  } catch (e) {}
+  try {
+    if (AUDIO && AUDIO.state === "running") {
+      for (const [t, f] of [[0, 880], [0.18, 660]]) {
+        const o = AUDIO.createOscillator(), g = AUDIO.createGain();
+        o.frequency.value = f; g.gain.value = 0.15;
+        o.connect(g); g.connect(AUDIO.destination);
+        o.start(AUDIO.currentTime + t); o.stop(AUDIO.currentTime + t + 0.14);
+      }
+    }
+  } catch (e) {}
+}
 async function motorLoop(gen) {
   schermAan();
   updateUploadStatus();
@@ -786,12 +814,12 @@ async function motorLoop(gen) {
       if (!f) break;   /* niets dat nu mag: de klok (elke 20 s) start de motor weer als een wachttijd voorbij is */
       const c = findC(f.complexId);
       if (!c) { f.volgende = NOOIT; f.laatstePoging = Date.now(); f.fout = "Complex niet meer in de app"; await fotoPut(f); continue; }
-      if (!fotoGrootte(f)) { f.kapot = true; f.fout = "Foto is beschadigd op dit toestel en kan niet worden geüpload. Verwijder hem."; await fotoPut(f); continue; }
+      if (!fotoGrootte(f)) { f.kapot = true; f.fout = "Foto is beschadigd op dit toestel en kan niet worden geüpload. Verwijder hem."; await fotoPut(f); foutSignaal(); continue; }
       MOTOR.naam = f.naam;
       updateUploadStatus();
       try {
         try { await fotoBytes(f); }
-        catch (e) { f.kapot = true; f.fout = "Foto is beschadigd op dit toestel (onleesbaar) en wordt overgeslagen. Verwijder hem."; await fotoPut(f); continue; }
+        catch (e) { f.kapot = true; f.fout = "Foto is beschadigd op dit toestel (onleesbaar) en wordt overgeslagen. Verwijder hem."; await fotoPut(f); foutSignaal(); continue; }
         await metLimiet(uploadFoto(f, c, false), 90000, "Upload");
         f.fout = null; f.volgende = 0;
         MOTOR.ok++; INLOG_NODIG = false;
@@ -803,6 +831,7 @@ async function motorLoop(gen) {
           await fotoPut(f).catch(() => {});
           INLOG_NODIG = true;
           SYNC_FOUT = "Je moet opnieuw inloggen bij Microsoft. Tik bovenaan op de rode knop.";
+          foutSignaal();
           break;
         }
         f.laatstePoging = Date.now();
@@ -810,6 +839,7 @@ async function motorLoop(gen) {
         f.volgende = n >= 5 ? NOOIT : Date.now() + WACHT[Math.min(n - 1, WACHT.length - 1)] * 1000;
         const msg = e.name === "AbortError" ? "verbinding te traag, upload afgebroken" : String(e.message || e).slice(0, 120);
         f.fout = n >= 5 ? `5× mislukt (${msg}). Tik "Nu uploaden" om opnieuw te proberen, of verwijder de foto.` : `${msg} · poging ${n} van 5`;
+        foutSignaal();
       }
       if (gen !== MOTOR.gen) return;
       await fotoPut(f).catch(() => {});
