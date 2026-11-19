@@ -374,7 +374,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "19-11 archief";
+const APP_VERSIE = "19-11 archief 2";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -1739,51 +1739,17 @@ async function complexWis(cId) {
 }
 
 /* Verplaatst de complexmap op OneDrive. Alleen als de map bestaat; bij andere fouten stopt het. */
-async function verplaatsComplexmap(c, naar) {
-  const oud = mapVan(c);
-  const enc = pad => pad.split("/").map(encodeURIComponent).join("/");
-  let item = null;
-  try { item = await graph(`/me/drive/root:/${enc(oud)}`, {}, true); }
-  catch (e) { if (!String(e.message).startsWith("Graph 404")) throw e; item = null; }
-  if (item) {
-    const doelMap = naar.split("/").slice(0, -1).join("/");
-    await zorgMap(doelMap, true);
-    await graph(`/me/drive/items/${item.id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: naar.split("/").pop(), parentReference: { path: "/drive/root:/" + doelMap } })
-    }, true);
-  }
-  c.map = naar;
-}
-/* Complex afvinken = archiveren (map naar "Geargiveerde projecten"); weer aanvinken = terugzetten */
+/* Archiveren = alleen in de app. Mappen op OneDrive worden NOOIT verplaatst (niet bij complexen, niet bij losse woningen). */
 function complexKlaarZet(cId, aan) {
   const c = findC(cId);
-  const nietOp = FOTOS.filter(f => f.complexId === cId && !f.uploaded).length
-    + DOCS.filter(d => d.complexId === cId && !d.uploaded).length;
-  if (nietOp) { alert(`Er staan nog ${nietOp} foto('s) of document(en) die niet op OneDrive staan. Eerst uploaden, daarna archiveren.`); return render(); }
-  const laatste = mapVan(c).split("/").pop();
-  if (c.los) {   /* losse woning: alleen in de app archiveren, de map op OneDrive blijft waar hij is */
-    if (!confirm(aan ? `"${c.naam}" archiveren? De foto's blijven op OneDrive in dezelfde map staan.` : `"${c.naam}" terugzetten naar de actieve lijst?`)) return render();
-    c.gearchiveerd = aan; bewaarState(); return render();
-  }
+  if (!c) return;
   const vraag = aan
-    ? `Complex "${c.naam}" afronden en verplaatsen naar "Geargiveerde projecten" op OneDrive?`
-    : `Complex "${c.naam}" terugzetten naar de actieve lijst en de map terugzetten?`;
+    ? `"${c.naam}" archiveren?\n\nAlleen in de app: de map en de foto's op OneDrive blijven precies staan waar ze staan.`
+    : `"${c.naam}" terugzetten naar de actieve lijst?`;
   if (!confirm(vraag)) return render();
-  (async () => {
-    try {
-      const terug = c.mapVoorArchief || `${CFG.map}/${laatste}`;
-      if (aan) c.mapVoorArchief = mapVan(c);   /* onthouden waar hij stond, zodat terugzetten naar dezelfde plek gaat */
-      await verplaatsComplexmap(c, aan ? `Geargiveerde projecten/${laatste}` : terug);
-      if (!aan) delete c.mapVoorArchief;
-    } catch (e) {
-      alert("Verplaatsen mislukt: " + e.message + "\n\nHet complex blijft staan waar het stond.");
-      return render();
-    }
-    c.gearchiveerd = aan;
-    bewaarState();
-    render();
-  })();
+  c.gearchiveerd = aan;
+  bewaarState();
+  render();
 }
 /* ===== Foto's op OneDrive per complex (overzicht) ===== */
 function odFotoStand(c) {
