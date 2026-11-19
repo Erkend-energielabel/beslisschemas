@@ -374,7 +374,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "16-11 losse woning 3";
+const APP_VERSIE = "19-11 archief";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -1762,13 +1762,20 @@ function complexKlaarZet(cId, aan) {
     + DOCS.filter(d => d.complexId === cId && !d.uploaded).length;
   if (nietOp) { alert(`Er staan nog ${nietOp} foto('s) of document(en) die niet op OneDrive staan. Eerst uploaden, daarna archiveren.`); return render(); }
   const laatste = mapVan(c).split("/").pop();
+  if (c.los) {   /* losse woning: alleen in de app archiveren, de map op OneDrive blijft waar hij is */
+    if (!confirm(aan ? `"${c.naam}" archiveren? De foto's blijven op OneDrive in dezelfde map staan.` : `"${c.naam}" terugzetten naar de actieve lijst?`)) return render();
+    c.gearchiveerd = aan; bewaarState(); return render();
+  }
   const vraag = aan
     ? `Complex "${c.naam}" afronden en verplaatsen naar "Geargiveerde projecten" op OneDrive?`
     : `Complex "${c.naam}" terugzetten naar de actieve lijst en de map terugzetten?`;
   if (!confirm(vraag)) return render();
   (async () => {
     try {
-      await verplaatsComplexmap(c, aan ? `Geargiveerde projecten/${laatste}` : `${CFG.map}/${laatste}`);
+      const terug = c.mapVoorArchief || `${CFG.map}/${laatste}`;
+      if (aan) c.mapVoorArchief = mapVan(c);   /* onthouden waar hij stond, zodat terugzetten naar dezelfde plek gaat */
+      await verplaatsComplexmap(c, aan ? `Geargiveerde projecten/${laatste}` : terug);
+      if (!aan) delete c.mapVoorArchief;
     } catch (e) {
       alert("Verplaatsen mislukt: " + e.message + "\n\nHet complex blijft staan waar het stond.");
       return render();
@@ -2283,6 +2290,12 @@ async function renderInhoud() {
   URLS.forEach(u => URL.revokeObjectURL(u)); URLS = [];
 
   let titel = "Complexen", inhoud = "", c = null, a = null;
+  for (const x of st.complexen) {   /* herstel: losse woning die per ongeluk naar "Geargiveerde projecten" was verplaatst staat weer in de projectmap */
+    if (x.los && /^Geargiveerde projecten\//.test(x.map || "") && /^EE/i.test(x.naam)) {
+      x.map = `03 E-E.NL/00 EPA/${x.naam}/${x.map.split("/").pop()}`;
+      bewaarState();
+    }
+  }
   for (const x of st.complexen) {   /* losse woning heet zoals de projectmap, niet "010 FOTO'S" */
     if (!x.los || !(/FOTO/i.test(x.naam) || /^\d{2,3}\s/.test(x.naam))) continue;
     const goed = werkMap(x.map || "");
