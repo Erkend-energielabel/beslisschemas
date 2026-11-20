@@ -2906,9 +2906,16 @@ async function bzPdf(){
   let f=null;try{f=new File([blob],r.naam,{type:'application/pdf'})}catch(e){}
   if(f&&navigator.canShare&&navigator.canShare({files:[f]})){
     try{await navigator.share({files:[f],title:r.naam});status('PDF klaar. Gekozen voor OneDrive? Dan staat hij in de map die je koos.','ok');return}
-    catch(e){if(e&&e.name==='AbortError')return}
+    catch(e){if(e&&e.name==='AbortError')return;deelKnop(f,r);return}   /* tablet: de tik is 'verlopen' tijdens het maken van de PDF -> tweede tik */
   }
   r.doc.save(r.naam);status('PDF gedownload.','ok');
+}
+function deelKnop(f,r){
+  const el=$('bz-status');el.hidden=false;el.className='bz-status ok';el.textContent='PDF is klaar. ';
+  const b=document.createElement('button');b.type='button';b.className='actie';b.textContent='📤 Opslaan in OneDrive / Bestanden';
+  b.onclick=async()=>{try{await navigator.share({files:[f],title:r.naam});status('PDF klaar. Gekozen voor OneDrive? Dan staat hij in de map die je koos.','ok')}
+    catch(e){if(e&&e.name==='AbortError')return;r.doc.save(r.naam);status('Delen lukt niet op dit apparaat; PDF gedownload.','err')}};
+  el.appendChild(b);b.scrollIntoView({block:'nearest',behavior:'smooth'});
 }
 /* selectie als PDF in OneDrive zetten (zelfde Microsoft-koppeling als 'Opslaan in OneDrive' bij de beslisschema's) */
 async function bzOneDrive(){
