@@ -908,7 +908,7 @@ body.tab-bag .wrap{max-width:1180px}
         <div class="bz-status" id="bz-status" hidden></div>
         <div id="bz-sam"></div>
         <div id="bz-verw" class="bz-verw"></div>
-        <div class="acties" id="bz-acties" hidden><button class="actie" type="button" id="bz-pdf" disabled>📄 PDF van selectie (<span id="bz-pdfn">0</span>)</button><button class="actie licht" type="button" id="bz-csv">⬇️ Download CSV (Excel)</button><button class="actie licht" type="button" id="bz-opnieuw" hidden>↻ Opnieuw (mislukte)</button></div>
+        <div class="acties" id="bz-acties" hidden><button class="actie" type="button" id="bz-pdf" disabled>📄 PDF van selectie (<span id="bz-pdfn">0</span>)</button><button class="actie licht" type="button" id="bz-od" disabled>☁️ Selectie in OneDrive</button><button class="actie licht" type="button" id="bz-csv">⬇️ Download CSV (Excel)</button><button class="actie licht" type="button" id="bz-opnieuw" hidden>↻ Opnieuw (mislukte)</button></div>
       </div>
       <div class="kaart bz-kaartblok"><div class="bz-kaarthint klein" id="bz-kaarthint" hidden><span>👆 Tik op een blok op de kaart om de labels van alle adressen in dat pand te zien.</span><label><input type="checkbox" id="bz-erbij"> optellen bij de huidige lijst</label></div><div id="bz-kaart" hidden></div></div>
       <div class="kaart"><div id="bz-tabel"><p class="klein">Nog niets gezocht.</p></div></div>
@@ -2854,10 +2854,10 @@ function voorstel(){
   return b;
 }
 function bzSelUi(){
-  const b=$('bz-pdf');if(b){b.disabled=!S.sel.size;$('bz-pdfn').textContent=S.sel.size}
+  const b=$('bz-pdf');if(b){b.disabled=!S.sel.size;$('bz-pdfn').textContent=S.sel.size}const od=$('bz-od');if(od)od.disabled=!S.sel.size;
   const sa=$('bz-selall');if(sa){const v=S.vol.filter(r=>S.sel.has(r.weergave)).length;sa.checked=!!S.vol.length&&v===S.vol.length;sa.indeterminate=v>0&&v<S.vol.length}
 }
-function bzPdf(){
+function bzPdfDoc(){
   const st=(t,s)=>status(t,s);
   if(!window.jspdf){st('PDF-bibliotheek niet geladen (geen internet?).','err');return}
   const rows=S.rij.filter(r=>S.sel.has(r.weergave));
@@ -2892,14 +2892,36 @@ function bzPdf(){
   const dd=new Date().toISOString().slice(0,10);
   const np=doc.internal.getNumberOfPages();
   for(let i=1;i<=np;i++){doc.setPage(i);try{doc.saveGraphicsState();doc.setGState(new doc.GState({opacity:0.16}));doc.addImage(STEMPEL_IMG,'JPEG',35,(297-200*484/531)/2+50,200,200*484/531);doc.restoreGraphicsState()}catch(e){}}
-  doc.save(`Energielabels selectie ${(S.gebied||'zoekresultaat').replace(/[\\/:*?"<>|]/g,'')} - ${dd}.pdf`.replace(/\s+/g,' '));
+  return{doc,naam:`Energielabels selectie ${(S.gebied||'zoekresultaat').replace(/[\\/:*?"<>|]/g,'')} - ${dd}.pdf`.replace(/\s+/g,' ')};
+}
+function bzPdf(){const r=bzPdfDoc();if(r)r.doc.save(r.naam)}
+/* selectie als PDF in OneDrive zetten (zelfde Microsoft-koppeling als 'Opslaan in OneDrive' bij de beslisschema's) */
+async function bzOneDrive(){
+  const r=bzPdfDoc();if(!r)return;
+  if(typeof upload!=='function'||typeof kiesMap!=='function'||typeof token!=='function'){status('OneDrive-koppeling niet geladen; de PDF wordt gedownload.','err');r.doc.save(r.naam);return}
+  if(!msal){status('OneDrive is nog niet ingesteld (⚙️ OneDrive-instellingen). De PDF wordt gedownload.','err');r.doc.save(r.naam);return}
+  try{
+    await token();
+    let doel=null;try{doel=JSON.parse(localStorage.getItem('ee_bz_odmap')||'null')}catch(e){}
+    if(!doel||!confirm(`Opslaan in OneDrive-map:\n${doel.pad}\n\nOK = deze map · Annuleren = andere map kiezen`)){
+      status('Kies de map in OneDrive…');doel=await kiesMap();
+      if(!doel){status('Niet opgeslagen: geen map gekozen.','err');return}
+      try{localStorage.setItem('ee_bz_odmap',JSON.stringify(doel))}catch(e){}
+    }
+    status('Bezig met opslaan in OneDrive…');
+    const n=await upload(doel.id,r.naam,r.doc.output('blob'),'application/pdf');
+    status(`Opgeslagen in OneDrive: ${doel.pad} / ${n}`,'ok');
+  }catch(e){
+    if(e.status===404){try{localStorage.removeItem('ee_bz_odmap')}catch(_){}}
+    status('Niet opgeslagen in OneDrive: '+(e.message||e)+' — gebruik intussen PDF downloaden.','err');
+  }
 }
 function bind(){
   const vrij=()=>{const v=$('bz-q').value.trim();return /^Rond /.test(v)&&$('bz-q').dataset.q?$('bz-q').dataset.q:v};
   $('bz-go').onclick=()=>zoek(vrij());
   $('bz-q').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();zoek(vrij())}});
   $('bz-q').addEventListener('input',()=>{delete $('bz-q').dataset.q});
-  $('bz-csv').onclick=csv;$('bz-pdf').onclick=bzPdf;$('bz-opnieuw').onclick=opnieuw;
+  $('bz-csv').onclick=csv;$('bz-pdf').onclick=bzPdf;$('bz-od').onclick=bzOneDrive;$('bz-opnieuw').onclick=opnieuw;
   try{const q=localStorage.getItem('ee_bz_q');if(q)$('bz-q').value=q}catch(e){}
 }
 bind();
