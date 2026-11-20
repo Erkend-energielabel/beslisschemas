@@ -462,6 +462,17 @@ body.tab-bag .wrap{max-width:1180px}
 #bz .bz-kaarthint:not([hidden]){display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;margin:0 0 8px}
 #bz .bz-kaarthint label{display:inline-flex;gap:6px;align-items:center;cursor:pointer}
 #bz-kaart{cursor:pointer}
+
+#bz .bz-hist{margin:8px 0 10px;border:1px solid #d6e2d8;border-radius:10px;padding:6px 10px;background:#f7faf7}
+#bz .bz-hist summary{cursor:pointer;font-weight:700;color:#0B3D2E;padding:4px 0}
+#bz .bz-hist input[type=search]{width:100%;margin:6px 0;padding:6px 8px;border:1px solid #cfdcd2;border-radius:8px}
+#bz .bz-hist-lijst{max-height:260px;overflow:auto;display:flex;flex-direction:column;gap:4px;margin-top:4px}
+#bz .bz-hist-rij{display:flex;gap:4px}
+#bz .bz-hist-rij[hidden]{display:none}
+#bz .bz-hist-ga{flex:1;text-align:left;background:#fff;border:1px solid #d6e2d8;border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit}
+#bz .bz-hist-ga small{display:block;color:#6b7a73;font-size:.78em}
+#bz .bz-hist-ga:hover{border-color:#3CB54A}
+#bz .bz-hist-weg{background:none;border:1px solid #e3e8e5;border-radius:8px;padding:0 10px;cursor:pointer;color:#a33}
 #vbs{
   --bg:#F2F4F3; --surface:#FFFFFF; --ink:#18232A; --muted:#5A6870; --line:#D5DCDE; --soft:#E9EEEE;
   --accent:#5B2D86; --accent-ink:#FFFFFF; --accent-soft:#EFE8F6;
@@ -903,7 +914,7 @@ body.tab-bag .wrap{max-width:1180px}
         <h2>Energielabels in de straat of buurt</h2>
         <p class="klein" style="margin:0 0 10px">Zoekt alle adressen in een straat of postcodegebied op in de BAG en haalt per adres het geregistreerde energielabel uit EP-Online. Klik op een adres om de pand analyse te openen.</p>
         <div class="bz-zoek"><input type="text" id="bz-q" placeholder="Postcode (3343DA of 3343) of straat + plaats" autocomplete="off"><button class="actie" id="bz-go" type="button">Zoek labels</button></div>
-        <div class="bz-snel" id="bz-snel"></div>
+        <div class="bz-snel" id="bz-snel"></div><div id="bz-hist"></div>
         <div class="bz-voortgang" id="bz-voortgang" hidden><i></i></div>
         <div class="bz-status" id="bz-status" hidden></div>
         <div id="bz-sam"></div>
@@ -2758,6 +2769,7 @@ async function zoek(invoer,weergave){
   let r;try{r=await adressen(invoer)}catch(e){if(tok===S.tok)status(e.message||String(e),'err');return}
   if(tok!==S.tok)return;
   S.gebied=r.naam;S.rij=r.lijst;
+  if(S.rij.length)histAdd({soort:'zoek',q:invoer,naam:weergave?('Rond '+weergave):r.naam,n:S.rij.length});
   if(!S.rij.length){status(`Geen adressen gevonden voor ${r.naam}.`,'err');return}
   verwarming(tok);render(true);voortgang(0,S.rij.length);status(`${S.rij.length} adressen in ${r.naam}. Labels opzoeken in EP-Online…`);
   await labels(S.rij,tok);if(tok!==S.tok)return;const fouten=S.rij.filter(x=>x.label&&x.label.fout).length;
@@ -2943,6 +2955,31 @@ async function bzOneDrive(){
     status('Niet opgeslagen in OneDrive: '+(e.message||e)+' — gebruik intussen PDF downloaden.','err');
   }
 }
+/* ---- geschiedenis van opgezochte adressen / straten / blokken ---- */
+const HIST_KEY='ee_bz_hist',HIST_MAX=40;
+function histLees(){try{const h=JSON.parse(localStorage.getItem(HIST_KEY)||'[]');return Array.isArray(h)?h:[]}catch(e){return[]}}
+function histBewaar(h){try{localStorage.setItem(HIST_KEY,JSON.stringify(h.slice(0,HIST_MAX)))}catch(e){try{localStorage.setItem(HIST_KEY,JSON.stringify(h.slice(0,10)))}catch(_){}}}
+function histAdd(e){
+  let h=histLees();const sleutel=x=>x.soort+'|'+(x.soort==='zoek'?x.q:x.naam);
+  if(e.vervang&&h[0]&&h[0].soort==='blok')h.shift();
+  h=h.filter(x=>sleutel(x)!==sleutel(e));
+  delete e.vervang;e.t=Date.now();h.unshift(e);histBewaar(h);histRender();
+}
+function histRender(){
+  const el=$('bz-hist');if(!el)return;const h=histLees();
+  if(!h.length){el.innerHTML='';return}
+  const open=el.querySelector('details')&&el.querySelector('details').open;
+  const dt=t=>{const d=new Date(t);return d.toLocaleDateString('nl-NL',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})};
+  el.innerHTML=`<details class="bz-hist"${open?' open':''}><summary>🕘 Eerder opgezocht (${h.length})</summary>
+    ${h.length>8?'<input type="search" id="bz-hfilter" placeholder="Filter op adres of straat…" autocomplete="off">':''}
+    <div class="bz-hist-lijst">${h.map((x,i)=>`<div class="bz-hist-rij" data-tekst="${esc((x.naam||'').toLowerCase())}"><button type="button" class="bz-hist-ga" data-h="${i}">${x.soort==='blok'?'🏢':'📍'} ${esc(x.naam||x.q||'')}<small>${dt(x.t)}${x.n?' · '+x.n+' adressen':''}</small></button><button type="button" class="bz-hist-weg" data-hdel="${i}" title="Uit de geschiedenis halen">✕</button></div>`).join('')}</div></details>`;
+  el.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>{const x=histLees()[+b.dataset.h];if(!x)return;
+    if(x.soort==='blok'&&Array.isArray(x.items)){if(S.blokLaag)S.blokLaag.clearLayers();complex(x.items,x.naam,{stil:true})}else zoek(x.q)});
+  el.querySelectorAll('[data-hdel]').forEach(b=>b.onclick=()=>{const h2=histLees(),x=h2[+b.dataset.hdel];if(!x)return;
+    if(!confirm(`"${x.naam||x.q}" uit de geschiedenis halen?`)||!confirm('Weet je het zeker?'))return;
+    h2.splice(+b.dataset.hdel,1);histBewaar(h2);histRender()});
+  const f=$('bz-hfilter');if(f)f.oninput=()=>{const t=f.value.trim().toLowerCase();el.querySelectorAll('.bz-hist-rij').forEach(r=>r.hidden=!!t&&!r.dataset.tekst.includes(t))};
+}
 function bind(){
   const vrij=()=>{const v=$('bz-q').value.trim();return /^Rond /.test(v)&&$('bz-q').dataset.q?$('bz-q').dataset.q:v};
   $('bz-go').onclick=()=>zoek(vrij());
@@ -2950,6 +2987,7 @@ function bind(){
   $('bz-q').addEventListener('input',()=>{delete $('bz-q').dataset.q});
   $('bz-csv').onclick=csv;$('bz-pdf').onclick=bzPdf;$('bz-od').onclick=bzOneDrive;$('bz-opnieuw').onclick=opnieuw;
   try{const q=localStorage.getItem('ee_bz_q');if(q)$('bz-q').value=q}catch(e){}
+  histRender();
 }
 bind();
 async function complex(items,naam,opt){
@@ -2969,6 +3007,7 @@ async function complex(items,naam,opt){
   await labels(zoeken,tok);if(tok!==S.tok)return;
   voortgang(0,0);
   nieuw.forEach(r=>S.sel.add(r.weergave));
+  histAdd({soort:'blok',naam:S.gebied,n:S.rij.length,vervang:!!opt.erbij,items:S.rij.map(r=>({adres:r.adres,postcode:r.postcode,plaats:r.plaats,straat:r.straat,hnr:r.hnr,toev:r.toev,q:r.q,vbo:r.vbo,ll:r.ll}))});
   const fouten=S.rij.filter(x=>x.label&&x.label.fout).length, met=S.rij.filter(x=>x.label&&!x.label.fout).length;
   status(`${S.gebied}: ${S.rij.length} adressen, ${met} met een geregistreerd label.`+(fouten?` ${fouten} adres(sen) mislukt — klik "Opnieuw".`:''),fouten?'err':'ok');
   $('bz-opnieuw').hidden=!fouten;render();
