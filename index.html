@@ -2892,7 +2892,12 @@ function bzPdfDoc(){
   const dd=new Date().toISOString().slice(0,10);
   const np=doc.internal.getNumberOfPages();
   for(let i=1;i<=np;i++){doc.setPage(i);try{doc.saveGraphicsState();doc.setGState(new doc.GState({opacity:0.16}));doc.addImage(STEMPEL_IMG,'JPEG',35,(297-200*484/531)/2+50,200,200*484/531);doc.restoreGraphicsState()}catch(e){}}
-  return{doc,naam:`Energielabels selectie ${(S.gebied||'zoekresultaat').replace(/[\\/:*?"<>|]/g,'')} - ${dd}.pdf`.replace(/\s+/g,' ')};
+  /* korte, veilige bestandsnaam (lange namen met meerdere blokken gaan mis in OneDrive / het deelmenu) */
+  const delen=(S.gebied||'zoekresultaat').split(' + ');
+  let kern=delen[0].replace(/\s*\(bouwjaar[^)]*\)/g,'').replace(/[\\/:*?"<>|#%&{}~'’,]/g,'').replace(/\s+/g,' ').trim();
+  if(kern.length>60)kern=kern.slice(0,60).trim();
+  if(delen.length>1)kern+=` en ${delen.length-1} blok${delen.length>2?'ken':''} meer`;
+  return{doc,naam:`Energielabels ${kern} - ${dd}.pdf`};
 }
 /* PDF van de selectie opslaan: computer = opslaan-venster (kies je OneDrive-map), tablet/telefoon = deelmenu (kies OneDrive), anders download */
 async function bzPdf(){
