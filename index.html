@@ -908,7 +908,7 @@ body.tab-bag .wrap{max-width:1180px}
         <div class="bz-status" id="bz-status" hidden></div>
         <div id="bz-sam"></div>
         <div id="bz-verw" class="bz-verw"></div>
-        <div class="acties" id="bz-acties" hidden><button class="actie" type="button" id="bz-pdf" disabled>📄 PDF van selectie (<span id="bz-pdfn">0</span>)</button><button class="actie licht" type="button" id="bz-od" disabled>☁️ Selectie in OneDrive</button><button class="actie licht" type="button" id="bz-csv">⬇️ Download CSV (Excel)</button><button class="actie licht" type="button" id="bz-opnieuw" hidden>↻ Opnieuw (mislukte)</button></div>
+        <div class="acties" id="bz-acties" hidden><button class="actie" type="button" id="bz-pdf" disabled title="Maakt de PDF en laat je kiezen waar je hem bewaart (bv. OneDrive)">📄 PDF van selectie opslaan (<span id="bz-pdfn">0</span>)</button><button class="actie licht" type="button" id="bz-od" disabled title="Rechtstreeks via de Microsoft-koppeling in een OneDrive-map zetten">☁️ Direct in OneDrive-map</button><button class="actie licht" type="button" id="bz-csv">⬇️ Download CSV (Excel)</button><button class="actie licht" type="button" id="bz-opnieuw" hidden>↻ Opnieuw (mislukte)</button></div>
       </div>
       <div class="kaart bz-kaartblok"><div class="bz-kaarthint klein" id="bz-kaarthint" hidden><span>👆 Tik op een blok op de kaart om de labels van alle adressen in dat pand te zien.</span><label><input type="checkbox" id="bz-erbij"> optellen bij de huidige lijst</label></div><div id="bz-kaart" hidden></div></div>
       <div class="kaart"><div id="bz-tabel"><p class="klein">Nog niets gezocht.</p></div></div>
@@ -2894,7 +2894,22 @@ function bzPdfDoc(){
   for(let i=1;i<=np;i++){doc.setPage(i);try{doc.saveGraphicsState();doc.setGState(new doc.GState({opacity:0.16}));doc.addImage(STEMPEL_IMG,'JPEG',35,(297-200*484/531)/2+50,200,200*484/531);doc.restoreGraphicsState()}catch(e){}}
   return{doc,naam:`Energielabels selectie ${(S.gebied||'zoekresultaat').replace(/[\\/:*?"<>|]/g,'')} - ${dd}.pdf`.replace(/\s+/g,' ')};
 }
-function bzPdf(){const r=bzPdfDoc();if(r)r.doc.save(r.naam)}
+/* PDF van de selectie opslaan: computer = opslaan-venster (kies je OneDrive-map), tablet/telefoon = deelmenu (kies OneDrive), anders download */
+async function bzPdf(){
+  const r=bzPdfDoc();if(!r)return;
+  const blob=r.doc.output('blob');
+  if(window.showSaveFilePicker&&window.top===window.self){
+    try{const h=await showSaveFilePicker({suggestedName:r.naam,types:[{description:'PDF',accept:{'application/pdf':['.pdf']}}]});
+      const w=await h.createWritable();await w.write(blob);await w.close();status('PDF opgeslagen: '+h.name,'ok');return}
+    catch(e){if(e&&e.name==='AbortError')return}
+  }
+  let f=null;try{f=new File([blob],r.naam,{type:'application/pdf'})}catch(e){}
+  if(f&&navigator.canShare&&navigator.canShare({files:[f]})){
+    try{await navigator.share({files:[f],title:r.naam});status('PDF klaar. Gekozen voor OneDrive? Dan staat hij in de map die je koos.','ok');return}
+    catch(e){if(e&&e.name==='AbortError')return}
+  }
+  r.doc.save(r.naam);status('PDF gedownload.','ok');
+}
 /* selectie als PDF in OneDrive zetten (zelfde Microsoft-koppeling als 'Opslaan in OneDrive' bij de beslisschema's) */
 async function bzOneDrive(){
   const r=bzPdfDoc();if(!r)return;
