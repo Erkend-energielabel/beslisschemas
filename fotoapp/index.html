@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" id="vp" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0f4a2c">
 <link rel="manifest" href="manifest.webmanifest">
@@ -102,6 +102,11 @@ details.afspraak[open] summary{border-bottom-left-radius:0;border-bottom-right-r
 .voet{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font-size:11px;line-height:1.35;color:var(--mut);border-top:1px solid var(--acc);margin-top:8px;padding-top:8px}
 .voet b{color:var(--g)}
 @media (max-width:600px){.voet{grid-template-columns:repeat(2,1fr)}}
+/* Scherm altijd precies telefoonbreed: niet in- en uitzoomen of opzij schuiven */
+html,body{max-width:100%;overflow-x:hidden}
+body:not(.zoom-mag){touch-action:pan-y}
+#app,#app *{min-width:0;overflow-wrap:anywhere}
+#app img,#app video{max-width:100%}
 </style>
 </head>
 <body>
@@ -374,7 +379,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "19-11 archief 2";
+const APP_VERSIE = "20-11 vast scherm";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -2161,7 +2166,22 @@ function vNieuwAdres(c) {
 
 /* ===== RENDER ===== */
 /* Het scherm opnieuw opbouwen mag de positie op de pagina niet veranderen (anders spring je na elke foto naar boven) */
+/* In- en uitzoomen alleen toestaan bij een plattegrond; overal anders vast op schermbreedte */
+let ZOOM_BLOK_AAN = false;
+function zoomInstellen() {
+  const mag = view.s === "doc";
+  document.body.classList.toggle("zoom-mag", mag);
+  const vp = document.getElementById("vp");
+  if (vp) vp.content = mag ? "width=device-width,initial-scale=1,viewport-fit=cover"
+                           : "width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover";
+  if (!ZOOM_BLOK_AAN) {
+    ZOOM_BLOK_AAN = true;
+    for (const ev of ["gesturestart", "gesturechange"])   /* iPhone: knijpen om te zoomen tegenhouden */
+      document.addEventListener(ev, e => { if (!document.body.classList.contains("zoom-mag")) e.preventDefault(); }, { passive: false });
+  }
+}
 async function render() {
+  zoomInstellen();
   const y = window.scrollY;
   await renderInhoud();
   window.scrollTo(0, y);
