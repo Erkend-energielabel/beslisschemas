@@ -1886,7 +1886,7 @@ function labelHtml(p,res){
 }
 function vboItems(vbos){
   return vbos.map(v=>{const p=v.p;let c=v.xy;if(c&&Array.isArray(c[0]))c=c[0];
-    return{adres:adrTxt(p),postcode:p.postcode||'',plaats:p.woonplaatsnaam||'',straat:p.openbare_ruimte||'',hnr:+p.huisnummer||0,toev:(p.huisletter||'')+(p.toevoeging||''),q:vboZoek(p),vbo:String(p.identificatie||'').replace('NL.IMBAG.Verblijfsobject.',''),ll:c&&c.length>=2?rd2wgs(c[0],c[1]):null}});
+    return{adres:adrTxt(p),postcode:p.postcode||'',plaats:p.woonplaatsnaam||'',straat:p.openbare_ruimte||'',hnr:+p.huisnummer||0,toev:(p.huisletter||'')+(p.toevoeging||''),q:vboZoek(p),vbo:String(p.identificatie||'').replace('NL.IMBAG.Verblijfsobject.',''),ll:c&&c.length>=2?rd2wgs(c[0],c[1]):null,opp:+p.oppervlakte||0}});
 }
 /* pand op een punt van de kaart (WGS84) + alle adressen (verblijfsobjecten) erin */
 async function pandOpPunt(lat,lon){
@@ -1906,6 +1906,11 @@ function complexLabels(b,stil){
   const items=vboItems(b.vbos);
   if(window.BUURT&&BUURT.complex) BUURT.complex(items,'complex '+(b.adressen&&b.adressen[0]?b.adressen[0]:'pand')+(b.vbos.length>1?' e.o.':''),stil);
 }
+/* totale gebruiksoppervlakte (BAG) van alle verblijfsobjecten in het pand */
+function totOppHtml(b){const vs=(b&&b.vbos)||[];if(!vs.length)return'';
+  const isWoon=v=>/woon/.test(v.p.gebruiksdoel||''),som=l=>l.reduce((t,v)=>t+(+v.p.oppervlakte||0),0);
+  const tot=som(vs),won=vs.filter(isWoon),wt=som(won);
+  return`<div class="bag-totopp" style="margin:6px 0 8px;font-size:.92rem">📐 Totaal gebruiksoppervlakte pand (BAG): <b>${tot.toLocaleString('nl-NL')} m²</b> · ${vs.length} verblijfsobject${vs.length>1?'en':''}${won.length&&won.length<vs.length?` · waarvan woonfunctie ${wt.toLocaleString('nl-NL')} m² (${won.length})`:''}</div>`}
 /* keuzelijst van alle woningen/verblijfsobjecten in het pand + bestaand energielabel */
 function renderVbo(b){
   const el=$('bag-vbo');if(!el)return;
@@ -1914,6 +1919,7 @@ function renderVbo(b){
   const k=cur&&(cur.identificatie||vboZoek(cur)),c=k&&labelCache[k],res=c&&!c.then?c:null;
   el.innerHTML=(lijst.length>1?`<label class="bag-vbosel">Woning in dit pand (${lijst.length})
       <select id="bag-vbosel">${lijst.map(v=>{const lv=labelVan(v.p);return`<option value="${esc(v.p.identificatie||'')}"${cur&&v.p===cur?' selected':''}>${esc(adrTxt(v.p))}${v.p.oppervlakte?' · '+v.p.oppervlakte+' m²':''}${v.p.gebruiksdoel&&v.p.gebruiksdoel!=='woonfunctie'?' · '+esc(v.p.gebruiksdoel):''}${lv?' · label '+esc(lv.klasse):''}</option>`}).join('')}</select></label><button type="button" class="actie licht" id="bag-cplx" title="Zoek alle verblijfsobjecten in dit pand op in de labels-tab en selecteer de labels">🏘️ Labels van dit complex</button>`:'')+
+    totOppHtml(b)+
     (cur?`<div class="bag-label" id="bag-label">${labelHtml(cur,res)}</div>`:'')+
     (cur&&cur.postcode&&verwCache[cur.postcode]?window.VERW.html(verwCache[cur.postcode]):'');
   const cx=$('bag-cplx');if(cx)cx.onclick=()=>complexLabels(b);
@@ -2876,7 +2882,8 @@ function bzPdfDoc(){
   if(!rows.length){st('Selecteer eerst een of meer adressen.','err');return}
   const {jsPDF}=window.jspdf, doc=new jsPDF({unit:'mm',format:'a4'});
   const t=x=>pdfTekst(String(x??''));
-  let y=pdfKop(doc,'Energielabels – selectie',`${S.gebied||'Zoekresultaat'} · ${rows.length} adres${rows.length>1?'sen':''}`);
+  const oppSel=rows.reduce((a,r)=>a+(r.opp||0),0);
+  let y=pdfKop(doc,'Energielabels – selectie',`${S.gebied||'Zoekresultaat'} · ${rows.length} adres${rows.length>1?'sen':''}${oppSel?' · totaal '+oppSel.toLocaleString('nl-NL')+' m² GO (BAG)':''}`);
   const bh=PBR*332/800; doc.addImage(BENG_IMG,'JPEG',PM,y,PBR,bh); y+=bh+5;
   const body=rows.map(r=>{const l=r.label,k=klasseVan(r),ok=l&&!l.fout;
     return[t(r.adres+(r.postcode?' · '+r.postcode:'')+(ok&&l.pand?' · pand '+String(l.pand).replace('NL.IMBAG.Pand.',''):'')),
@@ -3010,7 +3017,7 @@ async function complex(items,naam,opt){
   const oud=opt.erbij?S.rij:[];if(!opt.erbij){S.sel.clear();S.vol=[]}
   const gezien=new Set(oud.map(r=>r.vbo||r.adres));
   const nieuw=items.filter(x=>{const k=x.vbo||x.adres;if(gezien.has(k))return false;gezien.add(k);return true})
-    .map(x=>({adres:x.adres,weergave:`${x.adres}, ${x.postcode} ${x.plaats}`.trim(),postcode:x.postcode,plaats:x.plaats,straat:x.straat||'',hnr:x.hnr||0,toev:x.toev||'',q:x.q,vbo:x.vbo,ll:x.ll||null,afstand:null,label:undefined}));
+    .map(x=>({adres:x.adres,weergave:`${x.adres}, ${x.postcode} ${x.plaats}`.trim(),postcode:x.postcode,plaats:x.plaats,straat:x.straat||'',hnr:x.hnr||0,toev:x.toev||'',q:x.q,vbo:x.vbo,ll:x.ll||null,opp:x.opp||0,afstand:null,label:undefined}));
   S.gebied=opt.erbij&&S.gebied&&oud.length?S.gebied+' + '+naam:naam;
   S.rij=[...oud,...nieuw].sort((a,b)=>a.straat.localeCompare(b.straat,'nl')||a.hnr-b.hnr||a.toev.localeCompare(b.toev,'nl',{numeric:true}));
   $('bz-q').value='Complex: '+S.gebied;$('bz-q').dataset.q='';
@@ -3019,9 +3026,10 @@ async function complex(items,naam,opt){
   await labels(zoeken,tok);if(tok!==S.tok)return;
   voortgang(0,0);
   nieuw.forEach(r=>S.sel.add(r.weergave));
-  histAdd({soort:'blok',naam:S.gebied,n:S.rij.length,vervang:!!opt.erbij,items:S.rij.map(r=>({adres:r.adres,postcode:r.postcode,plaats:r.plaats,straat:r.straat,hnr:r.hnr,toev:r.toev,q:r.q,vbo:r.vbo,ll:r.ll}))});
+  histAdd({soort:'blok',naam:S.gebied,n:S.rij.length,vervang:!!opt.erbij,items:S.rij.map(r=>({adres:r.adres,postcode:r.postcode,plaats:r.plaats,straat:r.straat,hnr:r.hnr,toev:r.toev,q:r.q,vbo:r.vbo,ll:r.ll,opp:r.opp||0}))});
   const fouten=S.rij.filter(x=>x.label&&x.label.fout).length, met=S.rij.filter(x=>x.label&&!x.label.fout).length;
-  status(`${S.gebied}: ${S.rij.length} adressen, ${met} met een geregistreerd label.`+(fouten?` ${fouten} adres(sen) mislukt — klik "Opnieuw".`:''),fouten?'err':'ok');
+  const totOpp=S.rij.reduce((a,r)=>a+(r.opp||0),0);
+  status(`${S.gebied}: ${S.rij.length} adressen, ${met} met een geregistreerd label.${totOpp?' Totaal gebruiksoppervlakte (BAG): '+totOpp.toLocaleString('nl-NL')+' m².':''}`+(fouten?` ${fouten} adres(sen) mislukt — klik "Opnieuw".`:''),fouten?'err':'ok');
   $('bz-opnieuw').hidden=!fouten;render();
 }
 return{complex,toon(){const b=voorstel();if(S.map)setTimeout(()=>S.map.invalidateSize(),30);
