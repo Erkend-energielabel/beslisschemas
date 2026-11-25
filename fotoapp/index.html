@@ -382,7 +382,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "25-11 pdf excel";
+const APP_VERSIE = "25-11 excel opmaak";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -1403,29 +1403,87 @@ function printOverzicht(cId) {
   window.addEventListener("afterprint", klaarMet);
   setTimeout(() => window.print(), 300);   /* class blijft tot afterprint: op het scherm verandert er niets */
 }
-function exportComplex(cId) {
+/* Excel-overzicht met opmaak (kleuren per ronde, kopregel, filter). Gebruikt xlsx-js-style; lukt dat niet, dan zonder opmaak. */
+let XLSX_STIJL = null;
+async function laadXlsxStijl() {
+  if (XLSX_STIJL) return XLSX_STIJL;
+  const oud = window.XLSX;
+  await laadScript("https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js");
+  XLSX_STIJL = window.XLSX;
+  if (oud) window.XLSX = oud;   /* inlezen van adreslijsten blijft de gewone bibliotheek gebruiken */
+  return XLSX_STIJL;
+}
+async function exportComplex(cId) {
   const c = findC(cId);
-  const q = s => `"${String(s ?? "").replace(/"/g, '""')}"`;
-  const rijen = [["Straat", "Huisnummer", "Woning klaar", "Ronde", "Stoplicht", "Afwijkende ketel", "Klaar op", "Afspraak", "Foto's", "Opmerkingen"]];
-  for (const a of sortedAdressen(c)) {
-    const aantal = FOTOS.filter(f => f.adresId === a.id).length;
-    const afspraak = a.afspraak ? fmt(a.afspraak.start) + (a.afspraak.gedaan ? " (afgerond)" : "") : "";
-    const opm = (a.opmerkingen || []).map(o => `${fmtLokaal(o.t)}: ${o.tekst}`).join(" | ");
-    rijen.push([a.straat, nrLabel(a), a.klaar ? "ja" : "nee", a.klaar ? a.ronde || 1 : "", stoplicht(a), a.ketel ? "ja" : "", a.klaarOp ? fmtLokaal(a.klaarOp) : "", afspraak, aantal, opm]);
-  }
+  if (!c) return;
+  const lijst = sortedAdressen(c), klaar = lijst.filter(a => a.klaar);
   const naam = `${String(c.naam).replace(/[\\\/:*?"<>|]/g, "").trim()} overzicht ${new Date().toISOString().slice(0, 10)}`;
-  if (window.XLSX) {
-    const ws = XLSX.utils.aoa_to_sheet(rijen);
-    ws["!cols"] = [{ wch: 24 }, { wch: 11 }, { wch: 12 }, { wch: 7 }, { wch: 10 }, { wch: 15 }, { wch: 17 }, { wch: 18 }, { wch: 7 }, { wch: 60 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Overzicht");
-    const data = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    slaOp(new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `${naam}.xlsx`);
-  } else {
-    const csv = rijen.map(r => r.map(q).join(";")).join("\r\n");
-    slaOp(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }), `${naam}.csv`);
-    alert("De Excel-bibliotheek kon niet laden. Je krijgt een CSV-bestand; dat opent ook in Excel.");
+  const kop = ["Adres", "Status", "Ronde", "Afgevinkt op", "Stoplicht", "Afwijkende ketel", "Foto's", "Afspraak", "Opmerkingen"];
+  const rijen = lijst.map(a => {
+    const opOD = (ODFOTO[c.id] || {})[mapVoorAdres(c, a)] || 0;
+    const toestel = FOTOS.filter(f => f.adresId === a.id).length;
+    return [adresTitel(c, a), a.klaar ? "Gedaan" : "Nog doen", a.klaar ? "R" + (a.ronde || 1) : "",
+      a.klaar && a.klaarOp ? fmtLokaal(a.klaarOp) : "", stoplicht(a) ? stoplicht(a)[0].toUpperCase() + stoplicht(a).slice(1) : "",
+      a.ketel ? "Ja" : "", Math.max(opOD, toestel) || "", a.afspraak ? fmt(a.afspraak.start) + (a.afspraak.gedaan ? " (afgerond)" : "") : "",
+      (a.opmerkingen || []).map(o => `${fmtLokaal(o.t)}: ${o.tekst}`).join("\n")];
+  });
+  const tel = {};
+  for (const a of klaar) tel[a.ronde || 1] = (tel[a.ronde || 1] || 0) + 1;
+  const bovenaan = [
+    [c.naam],
+    [`Gemaakt ${fmtLokaal(new Date().toISOString())}`],
+    [`${klaar.length} van ${lijst.length} woningen gedaan (${lijst.length ? Math.round(klaar.length / lijst.length * 100) : 0}%)`],
+    [Object.keys(tel).map(Number).sort((p, q) => p - q).map(r => `Ronde ${r} (${rondeVan(r).n}): ${tel[r]}`).join("   ·   ") || "Nog geen woningen afgevinkt"],
+    [`Afwijkende ketel: ${lijst.filter(a => a.ketel).length}   ·   Rood: ${lijst.filter(a => stoplicht(a) === "rood").length}   ·   Oranje: ${lijst.filter(a => stoplicht(a) === "oranje").length}`],
+    []
+  ];
+  const KOPRIJ = bovenaan.length;   /* 0-based rij van de kolomkoppen */
+  let X;
+  try { X = await laadXlsxStijl(); } catch (e) { X = window.XLSX; }
+  if (!X) {
+    const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const csv = [kop, ...rijen].map(r => r.map(q).join(";")).join("\r\n");
+    return slaOp(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }), `${naam}.csv`);
   }
+  const ws = X.utils.aoa_to_sheet([...bovenaan, kop, ...rijen]);
+  const hex = h => h.replace("#", "").toUpperCase();
+  const rand = { style: "thin", color: { rgb: "C9D3CC" } };
+  const randen = { top: rand, bottom: rand, left: rand, right: rand };
+  const zet = (r, k, stijl) => { const ref = X.utils.encode_cell({ r, c: k }); ws[ref] ||= { t: "s", v: "" }; ws[ref].s = stijl; };
+  zet(0, 0, { font: { bold: true, sz: 16, color: { rgb: "1F5132" } } });
+  zet(1, 0, { font: { italic: true, sz: 9, color: { rgb: "6B7280" } } });
+  zet(2, 0, { font: { bold: true, sz: 12 } });
+  zet(3, 0, { font: { sz: 10 } });
+  zet(4, 0, { font: { sz: 10, color: { rgb: hex(KETEL_KLEUR) } } });
+  for (let k = 0; k < kop.length; k++)
+    zet(KOPRIJ, k, { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "1F5132" } }, alignment: { vertical: "center", wrapText: true }, border: randen });
+  lijst.forEach((a, i) => {
+    const r = KOPRIJ + 1 + i;
+    const rk = a.klaar ? rondeVan(a.ronde) : null;
+    const rood = stoplicht(a) === "rood";
+    const rRand = rood ? { style: "medium", color: { rgb: "DC2626" } } : rand;
+    for (let k = 0; k < kop.length; k++) {
+      const st = { font: { sz: 10 }, alignment: { vertical: "top", wrapText: k === 8 || k === 0 }, border: { top: rRand, bottom: rRand, left: k === 0 ? (rk ? { style: "thick", color: { rgb: hex(rk.k) } } : rRand) : rand, right: k === kop.length - 1 ? rRand : rand } };
+      if (rk) st.fill = { fgColor: { rgb: hex(rk.bg) } };
+      else if (i % 2) st.fill = { fgColor: { rgb: "F7F9F8" } };
+      if (k === 0) st.font.bold = true;
+      if (k === 1) st.font.color = { rgb: a.klaar ? "166534" : "9CA3AF" };
+      if (k === 2 && rk) st.font = { sz: 10, bold: true, color: { rgb: hex(rk.k) } };
+      if (k === 4 && stoplicht(a)) st.font = { sz: 10, bold: true, color: { rgb: hex(stoplichtKleur[stoplicht(a)]) } };
+      if (k === 5 && a.ketel) st.font = { sz: 10, bold: true, color: { rgb: hex(KETEL_KLEUR) } };
+      if (k === 6) st.alignment.horizontal = "center";
+      zet(r, k, st);
+    }
+  });
+  ws["!cols"] = [{ wch: 26 }, { wch: 10 }, { wch: 7 }, { wch: 17 }, { wch: 10 }, { wch: 10 }, { wch: 7 }, { wch: 18 }, { wch: 60 }];
+  ws["!rows"] = [{ hpt: 24 }];
+  ws["!merges"] = [0, 1, 2, 3, 4].map(r => ({ s: { r, c: 0 }, e: { r, c: kop.length - 1 } }));
+  ws["!autofilter"] = { ref: X.utils.encode_range({ s: { r: KOPRIJ, c: 0 }, e: { r: KOPRIJ + rijen.length, c: kop.length - 1 } }) };
+  ws["!views"] = [{ state: "frozen", ySplit: KOPRIJ + 1, xSplit: 1 }];
+  const wb = X.utils.book_new();
+  X.utils.book_append_sheet(wb, ws, "Overzicht");
+  const data = X.write(wb, { bookType: "xlsx", type: "array" });
+  await slaOp(new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `${naam}.xlsx`);
 }
 /* Bestand opslaan of delen. Op iPhone/iPad (zeker als app op het beginscherm) werkt downloaden niet:
    dan het deelmenu (Bewaar in Bestanden, OneDrive, Mail, ...). Lukt dat niet direct, dan een knop om het zelf te openen. */
