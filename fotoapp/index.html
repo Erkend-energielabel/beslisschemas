@@ -382,7 +382,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "25-11 ketel";
+const APP_VERSIE = "25-11 rood";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -1905,7 +1905,8 @@ function vComplex(c) {
     const wacht = fs.filter(f => !f.uploaded).length;
     const opODn = ODFOTO[c.id] && !OD_WEG.has(c.id) ? ((ODFOTO[c.id] || {})[mapVoorAdres(c, a)] || 0) : null;
     if (view.zonder && opODn) continue;
-    h += `<div class="rij ${a.klaar ? "klaar" : ""}" id="adr-${a.id}" ${a.klaar ? `style="background:${rondeVan(a.ronde).bg};border-left:6px solid ${rondeVan(a.ronde).k}"` : ""}>
+    const rood = stoplicht(a) === "rood" ? "outline:3px solid #dc2626;outline-offset:-3px;" : "";   /* rood bolletje: duidelijke rode lijn */
+    h += `<div class="rij ${a.klaar ? "klaar" : ""}" id="adr-${a.id}" style="${a.klaar ? `background:${rondeVan(a.ronde).bg};border-left:6px solid ${rondeVan(a.ronde).k};` : ""}${rood}">
       <input type="checkbox" ${a.klaar ? "checked" : ""} style="accent-color:${a.klaar ? rondeVan(a.ronde).k : rondeVan(huidigeRonde(c)).k}" aria-label="klaar" onchange="klaarZet('${c.id}','${a.id}',this.checked)">
       <div class="info" onclick="go({s:'adres',c:'${c.id}',a:'${a.id}'})">
         <strong>${stoplicht(a) ? `<span style="color:${stoplichtKleur[stoplicht(a)]}" title="${stoplicht(a)}">●</span> ` : ""}${a.ketel ? `<span title="afwijkende ketel">🔥</span> ` : ""}${a.straat === standaardStraat(c) ? nrLabel(a) : esc(a.straat) + " " + nrLabel(a)}</strong>
