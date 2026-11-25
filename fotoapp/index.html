@@ -382,7 +382,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "20-11 algemeen";
+const APP_VERSIE = "25-11 ketel";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -1299,7 +1299,7 @@ function printOverzicht(cId) {
     const toestel = FOTOS.filter(f => f.adresId === a.id).length;
     const opm = (a.opmerkingen || []).map(o => esc(o.tekst)).join("<br>");
     rijen += `<tr style="${rk ? `background:${rk.bg}` : ""}">
-      <td style="${rk ? `border-left:5px solid ${rk.k}` : ""}"><b>${esc(adresTitel(c, a))}</b></td>
+      <td style="${rk ? `border-left:5px solid ${rk.k}` : ""}"><b>${esc(adresTitel(c, a))}</b>${stoplicht(a) ? ` <span style="color:${stoplichtKleur[stoplicht(a)]}">●</span>` : ""}${a.ketel ? `<br><span style="color:${KETEL_KLEUR};font-size:10px">🔥 afwijkende ketel</span>` : ""}</td>
       <td>${a.klaar ? "✓ gedaan" : "—"}</td>
       <td>${a.klaar ? `<b style="color:${rk.k}">R${a.ronde || 1}</b>` : ""}</td>
       <td>${a.klaar && a.klaarOp ? fmtLokaal(a.klaarOp) : ""}</td>
@@ -1326,12 +1326,12 @@ function printOverzicht(cId) {
 function exportComplex(cId) {
   const c = findC(cId);
   const q = s => `"${String(s ?? "").replace(/"/g, '""')}"`;
-  const rijen = [["Straat", "Huisnummer", "Woning klaar", "Ronde", "Klaar op", "Afspraak", "Foto's", "Opmerkingen"]];
+  const rijen = [["Straat", "Huisnummer", "Woning klaar", "Ronde", "Stoplicht", "Afwijkende ketel", "Klaar op", "Afspraak", "Foto's", "Opmerkingen"]];
   for (const a of sortedAdressen(c)) {
     const aantal = FOTOS.filter(f => f.adresId === a.id).length;
     const afspraak = a.afspraak ? fmt(a.afspraak.start) + (a.afspraak.gedaan ? " (afgerond)" : "") : "";
     const opm = (a.opmerkingen || []).map(o => `${fmtLokaal(o.t)}: ${o.tekst}`).join(" | ");
-    rijen.push([a.straat, nrLabel(a), a.klaar ? "ja" : "nee", a.klaar ? a.ronde || 1 : "", a.klaarOp ? fmtLokaal(a.klaarOp) : "", afspraak, aantal, opm]);
+    rijen.push([a.straat, nrLabel(a), a.klaar ? "ja" : "nee", a.klaar ? a.ronde || 1 : "", stoplicht(a), a.ketel ? "ja" : "", a.klaarOp ? fmtLokaal(a.klaarOp) : "", afspraak, aantal, opm]);
   }
   const naam = `${c.naam} overzicht`;
   if (window.XLSX) {
@@ -1641,6 +1641,18 @@ function afspraakKlaar(cId, aId, aan) {
 /* Stoplicht per adres: groen, oranje of rood (leeg = geen kleur). Oude "bijzonder"-markering telt als rood. */
 const stoplichtKleur = { groen: "#16a34a", oranje: "#f59e0b", rood: "#dc2626" };
 const stoplicht = a => a.stoplicht || (a.bijzonder ? "rood" : "");
+/* Afwijkende ketel: los van het stoplicht aan/uit te zetten */
+const KETEL_KLEUR = "#7c3aed";
+function adresKetel(cId, aId) {
+  const a = findA(findC(cId), aId);
+  if (!a) return;
+  if (a.ketel) delete a.ketel; else a.ketel = true;
+  bewaarState();
+  render();
+}
+function ketelKnop(c, a) {
+  return `<button class="klein ${a.ketel ? "" : "sec"}" style="width:100%;margin:0 0 10px;${a.ketel ? `background:${KETEL_KLEUR};border-color:${KETEL_KLEUR}` : `color:${KETEL_KLEUR};border-color:${KETEL_KLEUR}`}" onclick="adresKetel('${c.id}','${a.id}')">🔥 Afwijkende ketel${a.ketel ? " ✓" : ""}</button>`;
+}
 function adresStoplicht(cId, aId, k) {
   const a = findA(findC(cId), aId);
   if (!a) return;
@@ -1840,7 +1852,7 @@ function sortedAdressen(c) {
 }
 function vComplex(c) {
   const klaar = c.adressen.filter(a => a.klaar).length;
-  let h = `<button class="sec" onclick="go({s:'map',c:'${c.id}'})">📁 Map op OneDrive: ${esc(mapVan(c))}</button>${voortgangBalk(klaar, c.adressen.length)}${rondeKiezer(c)}
+  let h = `<button class="sec" onclick="go({s:'map',c:'${c.id}'})">📁 Map op OneDrive: ${esc(mapVan(c))}</button>${voortgangBalk(klaar, c.adressen.length)}${c.adressen.some(a => a.ketel) ? `<div class="klein-tekst" style="color:${KETEL_KLEUR};font-weight:700">🔥 ${c.adressen.filter(a => a.ketel).length} woning(en) met afwijkende ketel</div>` : ""}${rondeKiezer(c)}
     <div style="display:flex;gap:8px;align-items:center;margin:8px 0">
       <input id="eenAdres" placeholder="1 adres, bijv. ${esc(standaardStraat(c))} 13C of 13C" autocomplete="off" style="flex:1;margin:0" onkeydown="if(event.key==='Enter')eenAdresToevoegen('${c.id}')">
       <button style="width:auto;margin:0" onclick="eenAdresToevoegen('${c.id}')">+ Toevoegen</button>
@@ -1896,7 +1908,7 @@ function vComplex(c) {
     h += `<div class="rij ${a.klaar ? "klaar" : ""}" id="adr-${a.id}" ${a.klaar ? `style="background:${rondeVan(a.ronde).bg};border-left:6px solid ${rondeVan(a.ronde).k}"` : ""}>
       <input type="checkbox" ${a.klaar ? "checked" : ""} style="accent-color:${a.klaar ? rondeVan(a.ronde).k : rondeVan(huidigeRonde(c)).k}" aria-label="klaar" onchange="klaarZet('${c.id}','${a.id}',this.checked)">
       <div class="info" onclick="go({s:'adres',c:'${c.id}',a:'${a.id}'})">
-        <strong>${stoplicht(a) ? `<span style="color:${stoplichtKleur[stoplicht(a)]}" title="${stoplicht(a)}">●</span> ` : ""}${a.straat === standaardStraat(c) ? nrLabel(a) : esc(a.straat) + " " + nrLabel(a)}</strong>
+        <strong>${stoplicht(a) ? `<span style="color:${stoplichtKleur[stoplicht(a)]}" title="${stoplicht(a)}">●</span> ` : ""}${a.ketel ? `<span title="afwijkende ketel">🔥</span> ` : ""}${a.straat === standaardStraat(c) ? nrLabel(a) : esc(a.straat) + " " + nrLabel(a)}</strong>
         <div class="klein-tekst">${a.klaar ? `<b style="color:${rondeVan(a.ronde).k}">✓ R${a.ronde || 1}</b>${a.klaarOp ? " " + fmtLokaal(a.klaarOp) : ""} · ` : ""}<span title="foto's op dit toestel">📱 ${fs.length}</span>${wacht ? ` · ${wacht} nog niet op OneDrive` : ""}${(ODMAP[c.id] || []).includes(mapVoorAdres(c, a)) ? ((ODFOTO[c.id] || {})[mapVoorAdres(c, a)] ? " · " + WOLKK + " " + ODFOTO[c.id][mapVoorAdres(c, a)] + " foto's" : " · 📁 lege map") : ""}${opODn === 0 ? ` · <span style="color:var(--r);font-weight:700">⚠ geen foto's</span> ${WOLKR}` : ""}${a.afspraak ? " · 📅 " + fmt(a.afspraak.start) : ""}${a.opmerkingen.length ? " · 💬 " + a.opmerkingen.length : ""}</div>
       </div>
       <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;margin:0 0 0 6px;font-size:12px;line-height:1.2;border-radius:6px" onclick="toevVoegToe('${c.id}','${a.id}')">+ toev.</button>
@@ -1972,6 +1984,7 @@ function vAdres(c, a) {
     ${c.los || a.ruimte ? "" : `<div class="acties" style="margin:6px 0 10px"><span class="klein-tekst" style="flex:0 0 100%">Stoplicht (tik nogmaals om weg te halen):</span>
       ${["groen", "oranje", "rood"].map(k => `<button class="klein ${stoplicht(a) === k ? "" : "sec"}" style="width:auto;flex:1;${stoplicht(a) === k ? `background:${stoplichtKleur[k]}` : `color:${stoplichtKleur[k]};border-color:${stoplichtKleur[k]}`}" onclick="adresStoplicht('${c.id}','${a.id}','${stoplicht(a) === k ? "" : k}')">● ${k}</button>`).join("")}
     </div>`}
+    ${a.ruimte ? "" : ketelKnop(c, a)}
     `;
 
   h += `<h2>Foto's (${fs.length})</h2>`;
