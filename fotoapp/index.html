@@ -388,7 +388,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "26-11 mapnamen";
+const APP_VERSIE = "26-11 straat herkennen";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -1740,6 +1740,18 @@ function afspraakUitTekst(tekst) {
   return { d, van: tijden[0] || null, tot: tijden[1] || null };
 }
 const adresSleutel = v => String(v || "").toLowerCase().replace(/[\s.]/g, "");
+/* Twee straatnamen die hetzelfde bedoelen: "A. Maertensvliet" ~ "Arent Maertensvliet", "v. Pallandtvliet" ~ "Van Pallandtvliet",
+   "Burg. de Withstraat" ~ "Burgemeester de Withstraat". Laatste woord moet gelijk zijn, de rest mag afgekort. */
+function straatLijkt(x, y) {
+  const w = v => String(v || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[\s.\-']+/).filter(Boolean);
+  const a = w(x), b = w(y);
+  if (!a.length || !b.length) return false;
+  if (a[a.length - 1] !== b[b.length - 1]) return false;
+  const ra = a.slice(0, -1), rb = b.slice(0, -1);
+  if (!ra.length || !rb.length) return true;   /* "Maertensvliet" ~ "A. Maertensvliet" */
+  if (ra.length !== rb.length) return ra.length < rb.length ? ra.every(t => rb.some(u => u.startsWith(t))) : rb.every(t => ra.some(u => u.startsWith(t)));
+  return ra.every((t, i) => t === rb[i] || rb[i].startsWith(t) || t.startsWith(rb[i]));
+}
 async function afsprakenImporteren(ev, cId) {
   const c0 = findC(cId);
   const file = ev.target.files[0];
@@ -1789,7 +1801,14 @@ async function afsprakenVerwerken(cId, rijen, geplakt) {
     const label = adresTekst.trim() || "(geen adres)";
     if (!am) { fout.push(`${label}: adres niet herkend`); continue; }
     const sleutel = adresSleutel(am[1] + am[2] + am[3]);
-    const hit = alle.find(x => x.ks.includes(sleutel));
+    let hit = alle.find(x => x.ks.includes(sleutel));
+    if (!hit) {   /* niet exact: zelfde huisnummer + straat die erop lijkt (bijv. "A. Maertensvliet" = "Arent Maertensvliet") */
+      const nr = parseInt(am[2], 10), toev = (am[3] || "").toUpperCase();
+      const kand = alle.filter(x => x.a.nr === nr && (x.a.toev || "") === toev &&
+        [x.a.straat, adresTitel(x.c, x.a).replace(/\s*\d+\s*[A-Za-z]{0,2}$/, ""), x.a.mapNaam || ""].some(st2 => straatLijkt(st2, am[1])));
+      if (kand.length === 1) hit = kand[0];
+      else if (kand.length > 1) { fout.push(`${label}: meerdere adressen passen, maak het adres preciezer`); continue; }
+    }
     if (!hit) { fout.push(`${label}: staat niet in de app`); continue; }
     const info = tekst instanceof Date ? { d: tekst, van: null, tot: null } : afspraakUitTekst(tekst);
     let van = info.van, tot = info.tot;
