@@ -382,7 +382,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "26-11 nieuwe mappen";
+const APP_VERSIE = "26-11 afspraak";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -1565,10 +1565,12 @@ async function afspraakMaken(cId, aId) {
     const s = new Date(x.afspraak.start).getTime(), e = x.afspraak.eindMs || s + 15 * 60000;
     if (nS < e && s < nE) return alert(`Dit overlapt met ${x.straat} ${nrLabel(x)} om ${fmt(x.afspraak.start).slice(11)}. Kies een ander tijdstip.`);
   }
+  /* eerst in de app opslaan, zodat de afspraak er altijd staat; daarna in Outlook */
+  const oudId = a.afspraak && a.afspraak.id;
+  a.afspraak = { start, eindMs: eind.getTime(), id: null, door: eigenaar() };
+  bewaarState();
   try {
-    if (a.afspraak && a.afspraak.id) {
-      await graph(`/me/events/${a.afspraak.id}`, { method: "DELETE" }, true).catch(() => {});
-    }
+    if (oudId) await graph(`/me/events/${oudId}`, { method: "DELETE" }, true).catch(() => {});
     const ev = await graph("/me/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1580,8 +1582,19 @@ async function afspraakMaken(cId, aId) {
         body: { contentType: "text", content: "Bewoner thuis – gemaakt via foto-app" }
       })
     }, true);
-    a.afspraak = { start, eindMs: eind.getTime(), id: ev.id, door: eigenaar() };
-  } catch (e) { alert("Afspraak kon niet worden aangemaakt: " + e.message); return; }
+    a.afspraak.id = ev.id;
+    bewaarState();
+    alert(`Afspraak opgeslagen: ${fmt(start)} (ook in Outlook).`);
+  } catch (e) {
+    alert(`Afspraak opgeslagen in de app: ${fmt(start)}.\nIn Outlook zetten lukte niet: ${e.message}`);
+  }
+  render();
+}
+async function afspraakWis(cId, aId) {
+  const a = findA(findC(cId), aId);
+  if (!a || !a.afspraak || !confirm("Afspraak verwijderen (ook uit Outlook)?")) return;
+  if (a.afspraak.id) await graph(`/me/events/${a.afspraak.id}`, { method: "DELETE" }, true).catch(() => {});
+  a.afspraak = null;
   bewaarState();
   render();
 }
@@ -2224,7 +2237,9 @@ function vAdres(c, a) {
         <option value="10" selected>10 minuten</option>
         <option value="15">15 minuten</option>
       </select>
-      <button class="sec" onclick="afspraakMaken('${c.id}','${a.id}')">${a.afspraak ? "Afspraak wijzigen" : "In agenda zetten"}</button>
+      <button onclick="afspraakMaken('${c.id}','${a.id}')" style="margin-top:10px">💾 ${a.afspraak ? "Afspraak wijzigen" : "Afspraak opslaan"}</button>
+      <p class="klein-tekst">Alleen de afspraak: de woning wordt hiermee niet afgevinkt. Hij komt ook in je Outlook-agenda.</p>
+      ${a.afspraak ? `<button class="klein sec" style="color:#b91c1c;border-color:#e5b4b4" onclick="afspraakWis('${c.id}','${a.id}')">Afspraak verwijderen</button>` : ""}
     </div>
   </details>`;
 
