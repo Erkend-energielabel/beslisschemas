@@ -382,7 +382,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "25-11 excel opmaak";
+const APP_VERSIE = "26-11 nieuwe mappen";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -609,7 +609,7 @@ const GEDEELD = CFG.map + "/_gedeeld.json";
 let SNAP = JSON.parse(localStorage.getItem("fa_snap") || "{}");   // laatste bekende staat per item
 const stabiel = o => JSON.stringify(o, (k, v) => (v && typeof v === "object" && !Array.isArray(v))
   ? Object.keys(v).sort().reduce((r, kk) => (r[kk] = v[kk], r), {}) : v);
-const cSleutel = c => stabiel({ naam: c.naam, map: c.map, gearchiveerd: !!c.gearchiveerd, ronde: c.ronde });
+const cSleutel = c => stabiel({ naam: c.naam, map: c.map, gearchiveerd: !!c.gearchiveerd, ronde: c.ronde, genegeerd: c.genegeerd });
 const aSleutel = a => { const { _t, opmerkingWacht, ...r } = a; return stabiel(r); };
 const pSleutel = p => { const { _t, ...r } = p; return stabiel(r); };
 /* Zet een tijdstempel op alles wat sinds de laatste sync is veranderd */
@@ -1702,6 +1702,7 @@ async function laadMapNamen(c) {
   } catch (e) { /* map bestaat nog niet */ }
 }
 const LAAD_BEZIG = new Set();
+const NIEUW_INGELEZEN = {};   /* complexId -> mapnamen die net automatisch zijn ingelezen (melding) */
 async function laadAdresMappen(cId) {
   const c = findC(cId);
   if (!c || !accounts().length || !navigator.onLine || LAAD_BEZIG.has(cId)) return;
@@ -1727,12 +1728,29 @@ async function laadAdresMappen(cId) {
       }));
       ODFOTO_TIJD[cId] = Date.now();
     }
+    /* Nieuwe adresmappen die later op OneDrive zijn bijgekomen: automatisch als adres inlezen.
+       Niet voor Algemeen/Ketelruimte, niet voor mappen waarvan je het adres zelf hebt verwijderd. */
+    if (!c.los) {
+      const bekend = new Set(c.adressen.map(a => mapSleutel(mapVoorAdres(c, a))));
+      const genegeerd = new Set(c.genegeerd || []);
+      const erbij = [];
+      for (const n of namen) {
+        const k = mapSleutel(n);
+        if (["algemeen", "ketelruimte"].includes(String(n).trim().toLowerCase()) || bekend.has(k) || genegeerd.has(k)) continue;
+        if (/^0\d{2}\s/.test(n) || /FOTO|VABI|DOCUMENT|OFFERTE|OPDRACHT|VERVALLEN|AANTEKENING/i.test(n)) continue;   /* projectmappen zoals "010 FOTO'S" */
+        const p = parseerMap(n, standaardStraat(c));
+        if (!p || (p.toev || "").length > 2 || c.adressen.some(a => a.straat === p.straat && a.nr === p.nr && (a.toev || "") === p.toev)) continue;
+        c.adressen.push({ id: uid(), straat: p.straat, nr: p.nr, toev: p.toev, klaar: false, opmerkingen: [], afspraak: null });
+        bekend.add(k); erbij.push(n);
+      }
+      if (erbij.length) { NIEUW_INGELEZEN[cId] = erbij; bewaarState(); }
+    }
     const oud = JSON.stringify([ODMAP[cId] || [], ODFOTO[cId] || {}]);
     ODMAP[cId] = namen;
     ODFOTO[cId] = tellingen;
     const wasWeg = OD_WEG.has(cId);
     OD_WEG.delete(cId);
-    if (wasWeg || JSON.stringify([namen, tellingen]) !== oud) render();
+    if (wasWeg || NIEUW_INGELEZEN[cId] || JSON.stringify([namen, tellingen]) !== oud) render();
   } catch (e) {
     /* map niet gevonden (bv. hernoemd of verplaatst): niet doen alsof er geen foto's zijn */
     if (/Graph 404|itemNotFound/i.test(String((e && e.message) || ""))) { if (!OD_WEG.has(cId)) { OD_WEG.add(cId); render(); } }
@@ -2021,7 +2039,7 @@ function sortedAdressen(c) {
 }
 function vComplex(c) {
   const klaar = c.adressen.filter(a => a.klaar).length;
-  let h = `<button class="sec" onclick="go({s:'map',c:'${c.id}'})">📁 Map op OneDrive: ${esc(mapVan(c))}</button>${voortgangBalk(klaar, c.adressen.length)}${c.adressen.some(a => a.ketel) ? `<div class="klein-tekst" style="color:${KETEL_KLEUR};font-weight:700">🔥 ${c.adressen.filter(a => a.ketel).length} woning(en) met afwijkende ketel</div>` : ""}${rondeKiezer(c)}
+  let h = `<button class="sec" onclick="go({s:'map',c:'${c.id}'})">📁 Map op OneDrive: ${esc(mapVan(c))}</button>${NIEUW_INGELEZEN[c.id] ? `<div class="melding" style="margin:8px 0">➕ ${NIEUW_INGELEZEN[c.id].length} nieuw adres(sen) van OneDrive ingelezen: ${esc(NIEUW_INGELEZEN[c.id].join(", "))} <a href="#" onclick="delete NIEUW_INGELEZEN['${c.id}'];render();return false">ok</a></div>` : ""}${voortgangBalk(klaar, c.adressen.length)}${c.adressen.some(a => a.ketel) ? `<div class="klein-tekst" style="color:${KETEL_KLEUR};font-weight:700">🔥 ${c.adressen.filter(a => a.ketel).length} woning(en) met afwijkende ketel</div>` : ""}${rondeKiezer(c)}
     <div style="display:flex;gap:8px;align-items:center;margin:8px 0">
       <input id="eenAdres" placeholder="1 adres, bijv. ${esc(standaardStraat(c))} 13C of 13C" autocomplete="off" style="flex:1;margin:0" onkeydown="if(event.key==='Enter')eenAdresToevoegen('${c.id}')">
       <button style="width:auto;margin:0" onclick="eenAdresToevoegen('${c.id}')">+ Toevoegen</button>
@@ -2232,6 +2250,7 @@ async function adresWis(cId, aId) {
   if (!confirm(`${a.straat} ${nrLabel(a)} uit de lijst verwijderen?\n\nDe map en foto's op OneDrive blijven gewoon staan.${a.afspraak ? "\nDe afspraak in Outlook blijft ook staan." : ""}`)) return;
   for (const f of fs) await fotoDel(f.id).catch(() => {});   // staan op OneDrive: alleen de kopie op dit toestel weg
   st.verwijderd = [...(st.verwijderd || []), { id: aId, t: new Date().toISOString() }];   // ook op andere toestellen weg
+  if (!a.ruimte) c.genegeerd = [...new Set([...(c.genegeerd || []), mapSleutel(mapVoorAdres(c, a))])];   // map op OneDrive niet opnieuw automatisch inlezen
   c.adressen = c.adressen.filter(x => x.id !== aId);
   bewaarState();
   if (view.s === "complex" && view.c === cId) render();   /* vanuit de lijst: op dezelfde plek blijven */
