@@ -388,7 +388,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "26-11 checklist woning";
+const APP_VERSIE = "26-11 checklist ingeklapt";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -1432,7 +1432,7 @@ async function exportComplex(cId) {
       a.klaar && a.klaarOp ? fmtLokaal(a.klaarOp) : "", stoplicht(a) ? stoplicht(a)[0].toUpperCase() + stoplicht(a).slice(1) : "",
       a.ketel ? "Ja" : "", Math.max(opOD, toestel) || "", a.afspraak ? fmt(a.afspraak.start) + (a.afspraak.gedaan ? " (afgerond)" : "") : "",
       (a.opmerkingen || []).map(o => `${fmtLokaal(o.t)}: ${o.tekst}`).join("\n"),
-      ...CHECKLIST.map(x => a.check && a.check[x.k] ? a.check[x.k] + (a.check[x.k + "_n"] ? ` (${a.check[x.k + "_n"]})` : "") : "")];
+      ...CHECKLIST.map(x => a.check && a.check[x.k] ? a.check[x.k] + (a.check[x.k + "_d"] ? ` ${a.check[x.k + "_d"]} mm` : "") + (a.check[x.k + "_n"] ? ` (${a.check[x.k + "_n"]})` : "") + (a.check[x.k + "_o"] ? ` – ${a.check[x.k + "_o"]}` : "") : "")];
   });
   const tel = {};
   for (const a of klaar) tel[a.ronde || 1] = (tel[a.ronde || 1] || 0) + 1;
@@ -2016,13 +2016,13 @@ function adresKetel(cId, aId) {
 }
 /* Checklist per woning (opname-punten) */
 const CHECKLIST = [
-  { k: "glasVoor", n: "Beglazing voorzijde", o: ["Enkel", "Dubbel", "HR++", "Triple"] },
-  { k: "glasAchter", n: "Beglazing achterzijde", o: ["Enkel", "Dubbel", "HR++", "Triple"] },
-  { k: "vloer", n: "Vloerisolatie", o: ["Ja", "Nee", "Deels", "Onbekend"] },
-  { k: "gevel", n: "Gevelisolatie", o: ["Ja", "Nee", "Deels", "Onbekend"] },
+  { k: "glasVoor", n: "Beglazing voorzijde", o: ["Enkel", "Dubbel", "HR", "HR+", "HR++", "Triple", "VZ"] },
+  { k: "glasAchter", n: "Beglazing achterzijde", o: ["Enkel", "Dubbel", "HR", "HR+", "HR++", "Triple", "VZ"] },
+  { k: "vloer", n: "Vloerisolatie", o: ["Ja", "Nee", "Deels", "Onbekend"], dikte: true },
+  { k: "gevel", n: "Gevelisolatie", o: ["Ja", "Nee", "Deels", "Onbekend"], dikte: true },
   { k: "dak", n: "Dakisolatie", o: ["Ja", "Nee", "Deels", "Onbekend"] },
   { k: "pv", n: "PV-panelen", o: ["Ja", "Nee"], aantal: "panelen" },
-  { k: "dakramen", n: "Dakramen", o: ["Ja", "Nee"], aantal: "dakramen" }];
+  { k: "dakramen", n: "Dakramen", o: ["Ja", "Nee"], aantal: "dakramen", opm: true }];
 const checkGedaan = a => CHECKLIST.filter(x => a.check && a.check[x.k]).length;
 function checkZet(cId, aId, k, v) {
   const a = findA(findC(cId), aId);
@@ -2030,6 +2030,8 @@ function checkZet(cId, aId, k, v) {
   a.check ||= {};
   if (a.check[k] === v) delete a.check[k]; else a.check[k] = v;   /* nogmaals tikken = weghalen */
   if (a.check[k] !== "Ja") delete a.check[k + "_n"];
+  if (!["Ja", "Deels"].includes(a.check[k])) delete a.check[k + "_d"];
+  if (a.check[k] !== "Ja") delete a.check[k + "_o"];
   bewaarState();
   render();
 }
@@ -2041,17 +2043,35 @@ function checkAantal(cId, aId, k, v) {
   if (n > 0) a.check[k + "_n"] = n; else delete a.check[k + "_n"];
   bewaarState();
 }
+function checkDikte(cId, aId, k, v) {
+  const a = findA(findC(cId), aId);
+  if (!a) return;
+  a.check ||= {};
+  const n = parseFloat(String(v).replace(",", "."));
+  if (n > 0) a.check[k + "_d"] = n; else delete a.check[k + "_d"];
+  bewaarState();
+}
+function checkOpm(cId, aId, k, v) {
+  const a = findA(findC(cId), aId);
+  if (!a) return;
+  a.check ||= {};
+  const t = String(v).trim();
+  if (t) a.check[k + "_o"] = t; else delete a.check[k + "_o"];
+  bewaarState();
+}
 function checkTekst(a, kort) {
   return CHECKLIST.filter(x => a.check && a.check[x.k]).map(x => `${kort ? x.n.replace("Beglazing ", "Glas ").replace("isolatie", "") : x.n}: ${a.check[x.k]}${a.check[x.k + "_n"] ? " (" + a.check[x.k + "_n"] + ")" : ""}`).join(kort ? " · " : "\n");
 }
 function checklistBlok(c, a) {
   const gedaan = checkGedaan(a);
-  let h = `<details class="afspraak" ${gedaan < CHECKLIST.length ? "open" : ""}><summary>📋 Checklist (${gedaan}/${CHECKLIST.length})</summary><div class="afspraak-inhoud">`;
+  let h = `<details class="afspraak"><summary>📋 Checklist (${gedaan}/${CHECKLIST.length})</summary><div class="afspraak-inhoud">`;
   for (const x of CHECKLIST) {
     const w = a.check && a.check[x.k];
     h += `<div style="margin:8px 0 2px;font-weight:700">${w ? "✓ " : ""}${x.n}</div><div style="display:flex;gap:6px;flex-wrap:wrap">`;
     for (const o of x.o) h += `<button class="klein ${w === o ? "" : "sec"}" style="width:auto;flex:1;min-width:64px;min-height:40px;margin:0;padding:6px 8px" onclick="checkZet('${c.id}','${a.id}','${x.k}','${o}')">${o}</button>`;
     h += `</div>`;
+    if (x.dikte && (w === "Ja" || w === "Deels")) h += `<input type="number" inputmode="decimal" min="0" step="any" placeholder="Dikte (mm)" value="${a.check[x.k + "_d"] || ""}" style="margin-top:6px" onchange="checkDikte('${c.id}','${a.id}','${x.k}',this.value)">`;
+    if (x.opm && w === "Ja") h += `<input type="text" placeholder="Opmerking" value="${esc(a.check[x.k + "_o"] || "")}" style="margin-top:6px" onchange="checkOpm('${c.id}','${a.id}','${x.k}',this.value)">`;
     if (x.aantal && w === "Ja") h += `<input type="number" inputmode="numeric" min="0" placeholder="Aantal ${x.aantal}" value="${a.check[x.k + "_n"] || ""}" style="margin-top:6px" onchange="checkAantal('${c.id}','${a.id}','${x.k}',this.value)">`;
   }
   return h + `</div></details>`;
