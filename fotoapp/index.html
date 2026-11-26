@@ -278,6 +278,11 @@ function adresUitNaam(naam) {
   return m ? { straat: m[1].trim(), nr: parseInt(m[2], 10), toev: m[3].toUpperCase() } : null;
 }
 /* Leesbaar adres, ook als de "straat" eigenlijk de complexnaam is (bijv. "EE26-158 Vorrinklaan, Dordrecht ...") */
+/* Onderwerp van de agenda-afspraak: straat + huisnummer, zonder projectnaam */
+function afspraakOnderwerp(c, a) {
+  if (a.ruimte) return "Bezoek " + a.straat;
+  return "Bezoek " + ([a.straat, a.nr ? nrLabel(a) : ""].filter(Boolean).join(" ") || c.naam);
+}
 function adresTitel(c, a) {
   if (a.ruimte) return a.straat;
   if (c.los && !a.nr) return c.naam;
@@ -388,7 +393,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "26-11 ruiten per type";
+const APP_VERSIE = "26-11 agenda straat nr";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -1583,7 +1588,7 @@ async function afspraakMaken(cId, aId) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        subject: `Bezoek ${a.straat} ${nrLabel(a)} (${c.naam})`,
+        subject: afspraakOnderwerp(c, a),
         start: { dateTime: start, timeZone: "W. Europe Standard Time" },
         end: { dateTime: end, timeZone: "W. Europe Standard Time" },
         location: { displayName: `${a.straat} ${nrLabel(a)}` },
@@ -1843,7 +1848,7 @@ async function afsprakenVerwerken(cId, rijen, geplakt) {
       const evt = await graph("/me/events", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          subject: `Bezoek ${adresTitel(p.c, p.a)} (${p.c.naam})`,
+          subject: afspraakOnderwerp(p.c, p.a),
           start: { dateTime: p.start, timeZone: "W. Europe Standard Time" },
           end: { dateTime: p.end, timeZone: "W. Europe Standard Time" },
           location: { displayName: adresTitel(p.c, p.a) },
