@@ -388,7 +388,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "26-11 checklist ingeklapt";
+const APP_VERSIE = "26-11 checklist onthoudt open";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -2062,9 +2062,18 @@ function checkOpm(cId, aId, k, v) {
 function checkTekst(a, kort) {
   return CHECKLIST.filter(x => a.check && a.check[x.k]).map(x => `${kort ? x.n.replace("Beglazing ", "Glas ").replace("isolatie", "") : x.n}: ${a.check[x.k]}${a.check[x.k + "_n"] ? " (" + a.check[x.k + "_n"] + ")" : ""}`).join(kort ? " · " : "\n");
 }
+function ckOpen() {
+  try { return JSON.parse(localStorage.getItem("fotoapp-ck-open") || "[]"); } catch (e) { return []; }
+}
+function ckOnthou(el, aId) {
+  let lijst = ckOpen().filter(x => x !== aId);
+  if (el.open) lijst.push(aId);
+  try { localStorage.setItem("fotoapp-ck-open", JSON.stringify(lijst)); } catch (e) {}
+}
 function checklistBlok(c, a) {
   const gedaan = checkGedaan(a);
-  let h = `<details class="afspraak"><summary>📋 Checklist (${gedaan}/${CHECKLIST.length})</summary><div class="afspraak-inhoud">`;
+  const open = ckOpen().includes(a.id) ? " open" : "";
+  let h = `<details class="afspraak"${open} ontoggle="ckOnthou(this,'${a.id}')"><summary>📋 Checklist (${gedaan}/${CHECKLIST.length})</summary><div class="afspraak-inhoud">`;
   for (const x of CHECKLIST) {
     const w = a.check && a.check[x.k];
     h += `<div style="margin:8px 0 2px;font-weight:700">${w ? "✓ " : ""}${x.n}</div><div style="display:flex;gap:6px;flex-wrap:wrap">`;
