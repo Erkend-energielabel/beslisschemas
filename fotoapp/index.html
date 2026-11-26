@@ -382,7 +382,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "26-11 afspraken tekst";
+const APP_VERSIE = "26-11 afspraken plakken";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -393,7 +393,7 @@ function terug() {
   if (view.s === "adres" && findC(view.c)?.los) go({ s: "complexen" });
   else if (view.s === "adres") { NAAR_ADRES = view.a; go({ s: "complex", c: view.c }); }
   else if (view.s === "complex") go({ s: "complexen" });
-  else if (view.s === "nieuwAdres") go({ s: "complex", c: view.c });
+  else if (view.s === "nieuwAdres" || view.s === "plakAfspraken") go({ s: "complex", c: view.c });
   else if (view.s === "map") go({ s: "complex", c: view.c });
   else if (view.s === "pas") go({ s: "pasjes" });
   else if (view.s === "doc") go({ s: "complex", c: view.c });
@@ -1745,8 +1745,19 @@ async function afsprakenImporteren(ev, cId) {
     const wb = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
     rijen = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "", raw: true });
   } catch (e) { return alert("Bestand kon niet worden gelezen: " + e.message); }
+  return afsprakenVerwerken(cId, rijen);
+}
+/* Afspraken uit geplakte tekst (bijv. regels gekopieerd uit Excel of een mail) */
+function afsprakenPlakken(cId) {
+  const t = $("plakAfspraken").value;
+  if (!t.trim()) return alert("Plak eerst de regels in het vak.");
+  const rijen = t.split(/\r?\n/).map(l => l.includes("\t") ? l.split("\t") : [l]);
+  return afsprakenVerwerken(cId, rijen, true);
+}
+async function afsprakenVerwerken(cId, rijen, geplakt) {
+  const c0 = findC(cId);
   rijen = rijen.filter(r => r.some(v => String(v).trim()));
-  if (!rijen.length) return alert("Het bestand is leeg.");
+  if (!rijen.length) return alert("Er staat niets in.");
   /* kopregel (Adres / Straat / Huisnummer / Datum / Tijd / Duur) is niet verplicht */
   const kop = rijen[0].map(v => String(v).toLowerCase());
   const k = deel => kop.findIndex(x => x.includes(deel));
@@ -1764,7 +1775,7 @@ async function afsprakenImporteren(ev, cId) {
     const cel = i => (i >= 0 ? r[i] : "");
     /* adres */
     let adresTekst = kAdres >= 0 ? String(cel(kAdres)) : kStraat >= 0 ? `${cel(kStraat)} ${cel(kNr)}${cel(kToev)}` : "";
-    if (!heeftKop) adresTekst = String(r.find(v => /[a-z].*\s*\d+/i.test(String(v)) && !MAANDEN.some(mm => String(v).toLowerCase().includes(mm))) || "");
+    if (!heeftKop) adresTekst = String(r.find(v => /[a-z].*\s*\d+/i.test(String(v)) && !MAANDEN.some(mm => String(v).toLowerCase().includes(mm))) || (r.length === 1 ? r[0] : "") || "");
     const am = adresTekst.trim().match(/^(.*?[A-Za-zÀ-ÿ].*?)\s*(\d+)\s*([A-Za-z]{0,2})\s*$/) || adresTekst.trim().match(/^(.*?[A-Za-zÀ-ÿ].*?)\s*(\d+)\s*([A-Za-z]{0,2})\b/);
     /* afspraak */
     let tekst = kDatum >= 0 ? cel(kDatum) : r.find(v => v instanceof Date || MAANDEN.some(mm => String(v).toLowerCase().includes(mm)) || /\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}/.test(String(v)));
@@ -1815,7 +1826,8 @@ async function afsprakenImporteren(ev, cId) {
       p.a.afspraak.id = evt.id; ok++;
     } catch (e) { mis++; }
   }
-  bewaarState(); render();
+  bewaarState();
+  if (geplakt) go({ s: "complex", c: cId }); else render();
   alert(`${plan.length} afspraak/afspraken opgeslagen in de app.\n${ok} in Outlook gezet${mis ? `, ${mis} lukte niet (staan wel in de app)` : ""}.` +
     (fout.length ? `\n\nOvergeslagen:\n${fout.slice(0, 15).join("\n")}${fout.length > 15 ? "\n…" : ""}` : ""));
 }
@@ -2181,6 +2193,7 @@ function vComplex(c) {
       <button style="width:auto;margin:0" onclick="eenAdresToevoegen('${c.id}')">+ Toevoegen</button>
     </div>
     <button class="sec" onclick="go({s:'nieuwAdres',c:'${c.id}'})">+ Meerdere adressen toevoegen</button>
+    <button class="sec" onclick="go({s:'plakAfspraken',c:'${c.id}'})">📋 Afspraken plakken</button>
     <label class="knop sec" style="cursor:pointer;display:block;text-align:center">📅 Afspraken uit Excel inlezen<input type="file" accept=".xlsx,.xls,.csv" hidden onchange="afsprakenImporteren(event,'${c.id}')"></label>
     <button class="sec" onclick="pdfOverzicht('${c.id}')">📄 Overzicht als PDF</button>
     <button class="sec" onclick="exportComplex('${c.id}')">📊 Overzicht als Excel</button>
@@ -2675,6 +2688,13 @@ async function renderInhoud() {
     else if (view.s === "doc") { const d = DOCS.find(x => x.id === view.d); titel = "Plattegrond"; inhoud = d ? vDoc(d) : vComplexen(); }
     else if (view.s === "nieuwMap") { titel = "Map kiezen"; inhoud = vNieuwMap(); }
     else if (view.s === "nieuwAdres" && c) { titel = "Huisnummers"; inhoud = vNieuwAdres(c); }
+    else if (view.s === "plakAfspraken" && c) { titel = "Afspraken plakken"; inhoud = `<h2>Afspraken plakken</h2>
+      <p class="klein-tekst">Kopieer de regels uit Excel of een mail en plak ze hieronder. Per regel: adres en de afspraak, bijv.<br>
+      <i>Havixhorst 8 · Alphen aan den Rijn · Woensdag 2 december, tussen 11.30 en 12.00 uur</i><br>
+      Regels zonder afspraak worden overgeslagen. De adressen moeten al in de app staan (in een complex of als losse woning).</p>
+      <textarea id="plakAfspraken" rows="12" style="width:100%;font-size:14px" placeholder="Plak hier…"></textarea>
+      <button onclick="afsprakenPlakken('${c.id}')">📅 Afspraken inlezen</button>
+      <button class="sec" onclick="go({s:'complex',c:'${c.id}'})">Annuleren</button>`; }
     else { view = { s: "complexen" }; inhoud = vComplexen(); }
   } catch (e) {
     console.error(e);
