@@ -382,7 +382,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "26-11 afspraak";
+const APP_VERSIE = "26-11 afspraken excel";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -1697,6 +1697,104 @@ async function adressenImporteren(ev, cId) {
   } catch (e) { alert("Bestand kon niet worden gelezen: " + e.message); }
 }
 
+/* Afspraken voor een complex uit Excel inlezen en in de app + Outlook-agenda zetten.
+   Kolommen (eerste rij): Adres of Straat + Huisnummer (+ Toevoeging), Datum, Tijd, en optioneel Duur (minuten). */
+function excelDatum(v) {
+  if (v instanceof Date && !isNaN(v)) return v;
+  if (typeof v === "number") return new Date(Math.round((v - 25569) * 86400000) + new Date().getTimezoneOffset() * 60000);
+  const t = String(v || "").trim();
+  let m = t.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/);
+  if (m) return new Date(+(m[3].length === 2 ? "20" + m[3] : m[3]), +m[2] - 1, +m[1]);
+  m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+  return null;
+}
+function excelTijd(v, datumWaarde) {
+  if (v instanceof Date && !isNaN(v)) return [v.getHours(), v.getMinutes()];
+  if (typeof v === "number") { const min = Math.round((v % 1) * 1440); return [Math.floor(min / 60), min % 60]; }
+  const m = String(v || "").trim().match(/(\d{1,2})[:.u](\d{2})/);
+  if (m) return [+m[1], +m[2]];
+  if (datumWaarde instanceof Date && (datumWaarde.getHours() || datumWaarde.getMinutes())) return [datumWaarde.getHours(), datumWaarde.getMinutes()];
+  const dm = String(datumWaarde || "").match(/(\d{1,2}):(\d{2})/);
+  return dm ? [+dm[1], +dm[2]] : null;
+}
+async function afsprakenImporteren(ev, cId) {
+  const c = findC(cId);
+  const file = ev.target.files[0];
+  ev.target.value = "";
+  if (!file || !c) return;
+  if (!window.XLSX) return alert("De Excel-bibliotheek kon niet laden. Probeer het later opnieuw.");
+  let rijen;
+  try {
+    const wb = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
+    rijen = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "", raw: true });
+  } catch (e) { return alert("Bestand kon niet worden gelezen: " + e.message); }
+  if (!rijen.length) return alert("Het bestand is leeg.");
+  const sl = deel => Object.keys(rijen[0]).find(k => k.toLowerCase().includes(deel));
+  const kAdres = sl("adres"), kStraat = sl("straat"), kNr = sl("huis") || sl("nummer") || sl("nr"), kToev = sl("toev");
+  const kDatum = sl("datum") || sl("dag"), kTijd = sl("tijd") || sl("uur"), kDuur = sl("duur") || sl("minuten");
+  if (!kDatum || (!kAdres && !kNr)) return alert("Zet in de eerste rij de kolommen: Adres (of Straat + Huisnummer), Datum, Tijd en eventueel Duur.");
+  const zoek = (straat, nr, toev) => {
+    const kand = c.adressen.filter(a => a.nr === nr && (a.toev || "") === toev);
+    if (kand.length === 1) return kand[0];
+    return kand.find(a => mapSleutel(a.straat) === mapSleutel(straat) || mapSleutel(adresTitel(c, a)).startsWith(mapSleutel(straat))) || null;
+  };
+  const plan = [], fout = [];
+  for (const r of rijen) {
+    let straat = kStraat ? String(r[kStraat]).trim() : "", nrTekst = kNr ? String(r[kNr]).trim() : "", toev = kToev ? String(r[kToev]).trim().toUpperCase() : "";
+    if (kAdres && !nrTekst) {
+      const m = String(r[kAdres]).trim().match(/^(.*?)\s*(\d+)\s*([A-Za-z]{0,2})\b/);
+      if (m) { straat = straat || m[1].trim(); nrTekst = m[2]; toev = toev || m[3].toUpperCase(); }
+    }
+    const mn = nrTekst.match(/^(\d+)\s*([A-Za-z]{0,2})$/);
+    const label = (kAdres ? r[kAdres] : `${straat} ${nrTekst}${toev}`) || "(leeg)";
+    if (!mn) { if (String(label).trim() && label !== "(leeg)") fout.push(`${label}: geen huisnummer`); continue; }
+    toev = toev || mn[2].toUpperCase();
+    const a = zoek(straat, parseInt(mn[1], 10), toev);
+    if (!a) { fout.push(`${label}: niet in dit complex`); continue; }
+    const d = excelDatum(r[kDatum]), tijd = excelTijd(kTijd ? r[kTijd] : "", r[kDatum]);
+    if (!d || !tijd) { fout.push(`${label}: datum of tijd niet herkend`); continue; }
+    const start = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(tijd[0])}:${pad(tijd[1])}:00`;
+    const duur = parseInt(kDuur ? r[kDuur] : "", 10) || 10;
+    plan.push({ a, start, duur });
+  }
+  if (!plan.length) return alert("Geen afspraken herkend.\n\n" + fout.slice(0, 15).join("\n"));
+  const lijst = plan.slice(0, 12).map(p => `${adresTitel(c, p.a)}: ${fmt(p.start)}`).join("\n");
+  const bestaand = plan.filter(p => p.a.afspraak).length;
+  if (!confirm(`${plan.length} afspraak/afspraken gevonden:\n${lijst}${plan.length > 12 ? `\n… en ${plan.length - 12} meer` : ""}` +
+    (bestaand ? `\n\n${bestaand} adres(sen) hebben al een afspraak; die wordt vervangen.` : "") +
+    (fout.length ? `\n\n${fout.length} regel(s) overgeslagen.` : "") + `\n\nIn de app en in je Outlook-agenda zetten? De woningen worden niet afgevinkt.`)) return;
+  /* eerst alles in de app opslaan, daarna één voor één in Outlook */
+  const oudeIds = [];
+  for (const p of plan) {
+    if (p.a.afspraak && p.a.afspraak.id) oudeIds.push(p.a.afspraak.id);
+    const eind = new Date(new Date(p.start).getTime() + p.duur * 60000);
+    p.end = `${eind.getFullYear()}-${pad(eind.getMonth()+1)}-${pad(eind.getDate())}T${pad(eind.getHours())}:${pad(eind.getMinutes())}:00`;
+    p.a.afspraak = { start: p.start, eindMs: eind.getTime(), id: null, door: eigenaar() };
+  }
+  bewaarState(); render();
+  let ok = 0, mis = 0;
+  for (const id of oudeIds) await graph(`/me/events/${id}`, { method: "DELETE" }, true).catch(() => {});
+  for (const p of plan) {
+    try {
+      const evt = await graph("/me/events", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject: `Bezoek ${adresTitel(c, p.a)} (${c.naam})`,
+          start: { dateTime: p.start, timeZone: "W. Europe Standard Time" },
+          end: { dateTime: p.end, timeZone: "W. Europe Standard Time" },
+          location: { displayName: adresTitel(c, p.a) },
+          body: { contentType: "text", content: "Ingelezen uit Excel – foto-app" }
+        })
+      }, true);
+      p.a.afspraak.id = evt.id; ok++;
+    } catch (e) { mis++; }
+  }
+  bewaarState(); render();
+  alert(`${plan.length} afspraak/afspraken opgeslagen in de app.\n${ok} in Outlook gezet${mis ? `, ${mis} lukte niet (staan wel in de app)` : ""}.` +
+    (fout.length ? `\n\nOvergeslagen:\n${fout.slice(0, 15).join("\n")}${fout.length > 15 ? "\n…" : ""}` : ""));
+}
+
 /* ===== SCHERMEN ===== */
 function voortgangBalk(klaar, totaal) {
   const pct = totaal ? Math.round(klaar / totaal * 100) : 0;
@@ -2058,6 +2156,7 @@ function vComplex(c) {
       <button style="width:auto;margin:0" onclick="eenAdresToevoegen('${c.id}')">+ Toevoegen</button>
     </div>
     <button class="sec" onclick="go({s:'nieuwAdres',c:'${c.id}'})">+ Meerdere adressen toevoegen</button>
+    <label class="knop sec" style="cursor:pointer;display:block;text-align:center">📅 Afspraken uit Excel inlezen<input type="file" accept=".xlsx,.xls,.csv" hidden onchange="afsprakenImporteren(event,'${c.id}')"></label>
     <button class="sec" onclick="pdfOverzicht('${c.id}')">📄 Overzicht als PDF</button>
     <button class="sec" onclick="exportComplex('${c.id}')">📊 Overzicht als Excel</button>
     <button class="sec" onclick="go({s:'pasjes'})">🪪 Bedrijfspasje tonen</button>`;
