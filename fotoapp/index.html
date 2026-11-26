@@ -388,7 +388,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "26-11 checklist onthoudt open";
+const APP_VERSIE = "26-11 ruiten per type";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -1424,15 +1424,16 @@ async function exportComplex(cId) {
   if (!c) return;
   const lijst = sortedAdressen(c), klaar = lijst.filter(a => a.klaar);
   const naam = `${String(c.naam).replace(/[\\\/:*?"<>|]/g, "").trim()} overzicht ${new Date().toISOString().slice(0, 10)}`;
-  const kop = ["Adres", "Status", "Ronde", "Afgevinkt op", "Stoplicht", "Afwijkende ketel", "Foto's", "Afspraak", "Opmerkingen", ...CHECKLIST.map(x => x.n)];
+  const kop = ["Adres", "Status", "Ronde", "Afgevinkt op", "Stoplicht", "Afwijkende ketel", "Foto's", "Afspraak", "Opmerkingen", "Beglazing", ...CHECKLIST.map(x => x.n)];
   const rijen = lijst.map(a => {
     const opOD = (ODFOTO[c.id] || {})[mapVoorAdres(c, a)] || 0;
     const toestel = FOTOS.filter(f => f.adresId === a.id).length;
     return [adresTitel(c, a), a.klaar ? "Gedaan" : "Nog doen", a.klaar ? "R" + (a.ronde || 1) : "",
       a.klaar && a.klaarOp ? fmtLokaal(a.klaarOp) : "", stoplicht(a) ? stoplicht(a)[0].toUpperCase() + stoplicht(a).slice(1) : "",
-      a.ketel ? "Ja" : "", Math.max(opOD, toestel) || "", a.afspraak ? fmt(a.afspraak.start) + (a.afspraak.gedaan ? " (afgerond)" : "") : "",
+      a.ketel ? (a.ketelType ? "Ja – " + a.ketelType : "Ja") : "", Math.max(opOD, toestel) || "", a.afspraak ? fmt(a.afspraak.start) + (a.afspraak.gedaan ? " (afgerond)" : "") : "",
       (a.opmerkingen || []).map(o => `${fmtLokaal(o.t)}: ${o.tekst}`).join("\n"),
-      ...CHECKLIST.map(x => a.check && a.check[x.k] ? a.check[x.k] + (a.check[x.k + "_d"] ? ` ${a.check[x.k + "_d"]} mm` : "") + (a.check[x.k + "_n"] ? ` (${a.check[x.k + "_n"]})` : "") + (a.check[x.k + "_o"] ? ` – ${a.check[x.k + "_o"]}` : "") : "")];
+      ruitTekst(a),
+      ...CHECKLIST.map(x => a.check && a.check[x.k] ? a.check[x.k] + (a.check[x.k + "_d"] ? ` ${a.check[x.k + "_d"]} mm` : "") + (a.check[x.k + "_n"] ? ` (${a.check[x.k + "_n"]})` : "") + (a.check[x.k + "_o"] ? (x.afw ? " – afwijking: " : " – ") + a.check[x.k + "_o"] : "") : "")];
   });
   const tel = {};
   for (const a of klaar) tel[a.ronde || 1] = (tel[a.ronde || 1] || 0) + 1;
@@ -1470,7 +1471,7 @@ async function exportComplex(cId) {
     const rood = stoplicht(a) === "rood";
     const rRand = rood ? { style: "medium", color: { rgb: "DC2626" } } : rand;
     for (let k = 0; k < kop.length; k++) {
-      const st = { font: { sz: 10 }, alignment: { vertical: "top", wrapText: k === 8 || k === 0 }, border: { top: rRand, bottom: rRand, left: k === 0 ? (rk ? { style: "thick", color: { rgb: hex(rk.k) } } : rRand) : rand, right: k === kop.length - 1 ? rRand : rand } };
+      const st = { font: { sz: 10 }, alignment: { vertical: "top", wrapText: k === 8 || k === 0 || k === 9 }, border: { top: rRand, bottom: rRand, left: k === 0 ? (rk ? { style: "thick", color: { rgb: hex(rk.k) } } : rRand) : rand, right: k === kop.length - 1 ? rRand : rand } };
       if (rk) st.fill = { fgColor: { rgb: hex(rk.bg) } };
       else if (i % 2) st.fill = { fgColor: { rgb: "F7F9F8" } };
       if (k === 0) st.font.bold = true;
@@ -1482,7 +1483,7 @@ async function exportComplex(cId) {
       zet(r, k, st);
     }
   });
-  ws["!cols"] = [{ wch: 26 }, { wch: 10 }, { wch: 7 }, { wch: 17 }, { wch: 10 }, { wch: 10 }, { wch: 7 }, { wch: 18 }, { wch: 60 }, ...CHECKLIST.map(() => ({ wch: 14 }))];
+  ws["!cols"] = [{ wch: 26 }, { wch: 10 }, { wch: 7 }, { wch: 17 }, { wch: 10 }, { wch: 10 }, { wch: 7 }, { wch: 18 }, { wch: 60 }, { wch: 40 }, ...CHECKLIST.map(() => ({ wch: 14 }))];
   ws["!rows"] = [{ hpt: 24 }];
   ws["!merges"] = [0, 1, 2, 3, 4].map(r => ({ s: { r, c: 0 }, e: { r, c: kop.length - 1 } }));
   ws["!autofilter"] = { ref: X.utils.encode_range({ s: { r: KOPRIJ, c: 0 }, e: { r: KOPRIJ + rijen.length, c: kop.length - 1 } }) };
@@ -2010,20 +2011,64 @@ const KETEL_KLEUR = "#7c3aed";
 function adresKetel(cId, aId) {
   const a = findA(findC(cId), aId);
   if (!a) return;
-  if (a.ketel) delete a.ketel; else a.ketel = true;
+  if (a.ketel) { delete a.ketel; delete a.ketelType; } else a.ketel = true;
   bewaarState();
   render();
 }
+function ketelTypeZet(cId, aId, v) {
+  const a = findA(findC(cId), aId);
+  if (!a) return;
+  const t = String(v).trim();
+  if (t) a.ketelType = t; else delete a.ketelType;
+  bewaarState();
+}
 /* Checklist per woning (opname-punten) */
+/* Ruiten per woning: elke ruit heeft zijde, locatie, type en opmerking */
+const RUIT_TYPES = ["Enkel", "Dubbel", "HR", "HR+", "HR++", "Triple", "VZ"];
+const RUIT_ZIJDEN = ["Voor", "Achter", "Overig"];
+const CHECK_TOTAAL = 6; /* 5 vaste punten + beglazing */
+function ruitenVan(a) {
+  if (!a.ruiten) {
+    a.ruiten = [];
+    const c = a.check || {};
+    for (const [k, z] of [["glasVoor", "Voor"], ["glasAchter", "Achter"]]) {
+      if (c[k]) a.ruiten.push({ id: "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), zijde: z, loc: "", type: c[k], opm: c[k + "_o"] || "" });
+      delete c[k]; delete c[k + "_o"]; delete c[k + "_afw"];
+    }
+  }
+  return a.ruiten;
+}
+function ruitToevoegen(cId, aId) {
+  const a = findA(findC(cId), aId);
+  if (!a) return;
+  ruitenVan(a).push({ id: "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), zijde: "Voor", loc: "", type: "", opm: "" });
+  bewaarState();
+  render();
+}
+function ruitWijzig(cId, aId, rId, veld, v) {
+  const a = findA(findC(cId), aId);
+  const r = a && ruitenVan(a).find(x => x.id === rId);
+  if (!r) return;
+  r[veld] = String(v).trim();
+  bewaarState();
+}
+function ruitVerwijder(cId, aId, rId) {
+  const a = findA(findC(cId), aId);
+  if (!a) return;
+  a.ruiten = ruitenVan(a).filter(x => x.id !== rId);
+  bewaarState();
+  render();
+}
+function ruitTekst(a) {
+  return ruitenVan(a).map(r => [r.zijde, r.loc, r.type].filter(Boolean).join(" ") + (r.opm ? " – " + r.opm : "")).join("\n");
+}
 const CHECKLIST = [
-  { k: "glasVoor", n: "Beglazing voorzijde", o: ["Enkel", "Dubbel", "HR", "HR+", "HR++", "Triple", "VZ"] },
-  { k: "glasAchter", n: "Beglazing achterzijde", o: ["Enkel", "Dubbel", "HR", "HR+", "HR++", "Triple", "VZ"] },
   { k: "vloer", n: "Vloerisolatie", o: ["Ja", "Nee", "Deels", "Onbekend"], dikte: true },
   { k: "gevel", n: "Gevelisolatie", o: ["Ja", "Nee", "Deels", "Onbekend"], dikte: true },
-  { k: "dak", n: "Dakisolatie", o: ["Ja", "Nee", "Deels", "Onbekend"] },
+  { k: "dak", n: "Dakisolatie", o: ["Ja", "Nee", "Deels", "Onbekend"], dikte: true },
   { k: "pv", n: "PV-panelen", o: ["Ja", "Nee"], aantal: "panelen" },
   { k: "dakramen", n: "Dakramen", o: ["Ja", "Nee"], aantal: "dakramen", opm: true }];
-const checkGedaan = a => CHECKLIST.filter(x => a.check && a.check[x.k]).length;
+const checkGedaan = a => CHECKLIST.filter(x => a.check && a.check[x.k]).length + (ruitenVan(a).length ? 1 : 0);
 function checkZet(cId, aId, k, v) {
   const a = findA(findC(cId), aId);
   if (!a) return;
@@ -2070,10 +2115,28 @@ function ckOnthou(el, aId) {
   if (el.open) lijst.push(aId);
   try { localStorage.setItem("fotoapp-ck-open", JSON.stringify(lijst)); } catch (e) {}
 }
+function ruitRij(c, a, r) {
+  const zz = RUIT_ZIJDEN.map(z => `<option ${r.zijde === z ? "selected" : ""}>${z}</option>`).join("");
+  const tt = `<option value="">— type —</option>` + RUIT_TYPES.map(t => `<option ${r.type === t ? "selected" : ""}>${t}</option>`).join("");
+  const at = (v, f) => `onchange="ruitWijzig('${c.id}','${a.id}','${r.id}','${f}',this.value)"`;
+  return `<div style="border:1px solid #d4d4d8;border-radius:8px;padding:8px;margin:6px 0">
+    <div style="display:flex;gap:6px">
+      <select style="flex:1" ${at(0, "zijde")}>${zz}</select>
+      <select style="flex:1" ${at(0, "type")}>${tt}</select>
+      <button class="klein sec" style="width:auto;margin:0;padding:6px 10px" onclick="ruitVerwijder('${c.id}','${a.id}','${r.id}')">✕</button>
+    </div>
+    <input type="text" placeholder="Locatie, bv. woonkamer" value="${esc(r.loc)}" style="margin-top:6px" ${at(0, "loc")}>
+    <input type="text" placeholder="Opmerking (bv. kapot, condens)" value="${esc(r.opm)}" style="margin-top:6px" ${at(0, "opm")}>
+  </div>`;
+}
 function checklistBlok(c, a) {
   const gedaan = checkGedaan(a);
   const open = ckOpen().includes(a.id) ? " open" : "";
-  let h = `<details class="afspraak"${open} ontoggle="ckOnthou(this,'${a.id}')"><summary>📋 Checklist (${gedaan}/${CHECKLIST.length})</summary><div class="afspraak-inhoud">`;
+  const ruiten = ruitenVan(a);
+  let h = `<details class="afspraak"${open} ontoggle="ckOnthou(this,'${a.id}')"><summary>📋 Checklist (${gedaan}/${CHECK_TOTAAL})</summary><div class="afspraak-inhoud">`;
+  h += `<div style="margin:8px 0 2px;font-weight:700">${ruiten.length ? "✓ " : ""}Beglazing</div>`;
+  for (const r of ruiten) h += ruitRij(c, a, r);
+  h += `<button class="klein sec" style="width:100%;margin:4px 0 8px" onclick="ruitToevoegen('${c.id}','${a.id}')">+ Ruit toevoegen</button>`;
   for (const x of CHECKLIST) {
     const w = a.check && a.check[x.k];
     h += `<div style="margin:8px 0 2px;font-weight:700">${w ? "✓ " : ""}${x.n}</div><div style="display:flex;gap:6px;flex-wrap:wrap">`;
@@ -2086,7 +2149,8 @@ function checklistBlok(c, a) {
   return h + `</div></details>`;
 }
 function ketelKnop(c, a) {
-  return `<button class="klein ${a.ketel ? "" : "sec"}" style="width:100%;margin:0 0 10px;${a.ketel ? `background:${KETEL_KLEUR};border-color:${KETEL_KLEUR}` : `color:${KETEL_KLEUR};border-color:${KETEL_KLEUR}`}" onclick="adresKetel('${c.id}','${a.id}')">🔥 Afwijkende ketel${a.ketel ? " ✓" : ""}</button>`;
+  return `<button class="klein ${a.ketel ? "" : "sec"}" style="width:100%;margin:0 0 10px;${a.ketel ? `background:${KETEL_KLEUR};border-color:${KETEL_KLEUR}` : `color:${KETEL_KLEUR};border-color:${KETEL_KLEUR}`}" onclick="adresKetel('${c.id}','${a.id}')">🔥 Afwijkende ketel${a.ketel ? " ✓" : ""}</button>` +
+    (a.ketel ? `<input type="text" placeholder="Type ketel (typ of dicteer)" value="${esc(a.ketelType || "")}" style="margin:-4px 0 10px" onchange="ketelTypeZet('${c.id}','${a.id}',this.value)">` : "");
 }
 function adresStoplicht(cId, aId, k) {
   const a = findA(findC(cId), aId);
@@ -2346,7 +2410,7 @@ function vComplex(c) {
     h += `<div class="rij ${a.klaar ? "klaar" : ""}" id="adr-${a.id}" style="${a.klaar ? `background:${rondeVan(a.ronde).bg};border-left:6px solid ${rondeVan(a.ronde).k};` : ""}${rood}">
       <input type="checkbox" ${a.klaar ? "checked" : ""} style="accent-color:${a.klaar ? rondeVan(a.ronde).k : rondeVan(huidigeRonde(c)).k}" aria-label="klaar" onchange="klaarZet('${c.id}','${a.id}',this.checked)">
       <div class="info" onclick="go({s:'adres',c:'${c.id}',a:'${a.id}'})">
-        <strong>${stoplicht(a) ? `<span style="color:${stoplichtKleur[stoplicht(a)]}" title="${stoplicht(a)}">●</span> ` : ""}${a.ketel ? `<span title="afwijkende ketel">🔥</span> ` : ""}${esc(lijstNaam(c, a))}</strong>${checkGedaan(a) ? ` <span class="klein-tekst" style="font-weight:700;color:${checkGedaan(a) === CHECKLIST.length ? "#16a34a" : "#b45309"}">📋 ${checkGedaan(a)}/${CHECKLIST.length}</span>` : ""}
+        <strong>${stoplicht(a) ? `<span style="color:${stoplichtKleur[stoplicht(a)]}" title="${stoplicht(a)}">●</span> ` : ""}${a.ketel ? `<span title="afwijkende ketel">🔥</span> ` : ""}${esc(lijstNaam(c, a))}</strong>${checkGedaan(a) ? ` <span class="klein-tekst" style="font-weight:700;color:${checkGedaan(a) === CHECK_TOTAAL ? "#16a34a" : "#b45309"}">📋 ${checkGedaan(a)}/${CHECK_TOTAAL}</span>` : ""}
         <div class="klein-tekst">${a.klaar ? `<b style="color:${rondeVan(a.ronde).k}">✓ R${a.ronde || 1}</b>${a.klaarOp ? " " + fmtLokaal(a.klaarOp) : ""} · ` : ""}<span title="foto's op dit toestel">📱 ${fs.length}</span>${wacht ? ` · ${wacht} nog niet op OneDrive` : ""}${(ODMAP[c.id] || []).includes(mapVoorAdres(c, a)) ? ((ODFOTO[c.id] || {})[mapVoorAdres(c, a)] ? " · " + WOLKK + " " + ODFOTO[c.id][mapVoorAdres(c, a)] + " foto's" : " · 📁 lege map") : ""}${opODn === 0 ? ` · <span style="color:var(--r);font-weight:700">⚠ geen foto's</span> ${WOLKR}` : ""}${a.afspraak ? " · 📅 " + fmt(a.afspraak.start) : ""}${a.opmerkingen.length ? " · 💬 " + a.opmerkingen.length : ""}</div>
       </div>
       <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;margin:0 0 0 6px;font-size:12px;line-height:1.2;border-radius:6px" onclick="toevVoegToe('${c.id}','${a.id}')">+ toev.</button>
