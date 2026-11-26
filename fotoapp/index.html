@@ -382,7 +382,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "26-11 afspraken excel";
+const APP_VERSIE = "26-11 afspraken tekst";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -1718,48 +1718,73 @@ function excelTijd(v, datumWaarde) {
   const dm = String(datumWaarde || "").match(/(\d{1,2}):(\d{2})/);
   return dm ? [+dm[1], +dm[2]] : null;
 }
+/* Tekst als "Woensdag 2 december, tussen 10.00 en 11.00 uur" of "rond 11.30 - 12.00 uur" -> datum + begin/eind */
+const MAANDEN = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"];
+function afspraakUitTekst(tekst) {
+  const t = String(tekst || "").toLowerCase();
+  let d = null;
+  const m = t.match(/(\d{1,2})\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)(?:\s+(\d{4}))?/);
+  if (m) {
+    const nu = new Date(), mnd = MAANDEN.indexOf(m[2]);
+    let jaar = m[3] ? +m[3] : nu.getFullYear();
+    if (!m[3] && new Date(jaar, mnd, +m[1]) < new Date(nu.getFullYear(), nu.getMonth(), nu.getDate() - 7)) jaar++;   /* al voorbij: volgend jaar */
+    d = new Date(jaar, mnd, +m[1]);
+  } else d = excelDatum(tekst);
+  const tijden = [...t.matchAll(/(\d{1,2})[.:u](\d{2})/g)].map(x => [+x[1], +x[2]]).filter(([h, mi]) => h < 24 && mi < 60);
+  return { d, van: tijden[0] || null, tot: tijden[1] || null };
+}
+const adresSleutel = v => String(v || "").toLowerCase().replace(/[\s.]/g, "");
 async function afsprakenImporteren(ev, cId) {
-  const c = findC(cId);
+  const c0 = findC(cId);
   const file = ev.target.files[0];
   ev.target.value = "";
-  if (!file || !c) return;
+  if (!file) return;
   if (!window.XLSX) return alert("De Excel-bibliotheek kon niet laden. Probeer het later opnieuw.");
   let rijen;
   try {
     const wb = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
-    rijen = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "", raw: true });
+    rijen = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "", raw: true });
   } catch (e) { return alert("Bestand kon niet worden gelezen: " + e.message); }
+  rijen = rijen.filter(r => r.some(v => String(v).trim()));
   if (!rijen.length) return alert("Het bestand is leeg.");
-  const sl = deel => Object.keys(rijen[0]).find(k => k.toLowerCase().includes(deel));
-  const kAdres = sl("adres"), kStraat = sl("straat"), kNr = sl("huis") || sl("nummer") || sl("nr"), kToev = sl("toev");
-  const kDatum = sl("datum") || sl("dag"), kTijd = sl("tijd") || sl("uur"), kDuur = sl("duur") || sl("minuten");
-  if (!kDatum || (!kAdres && !kNr)) return alert("Zet in de eerste rij de kolommen: Adres (of Straat + Huisnummer), Datum, Tijd en eventueel Duur.");
-  const zoek = (straat, nr, toev) => {
-    const kand = c.adressen.filter(a => a.nr === nr && (a.toev || "") === toev);
-    if (kand.length === 1) return kand[0];
-    return kand.find(a => mapSleutel(a.straat) === mapSleutel(straat) || mapSleutel(adresTitel(c, a)).startsWith(mapSleutel(straat))) || null;
-  };
+  /* kopregel (Adres / Straat / Huisnummer / Datum / Tijd / Duur) is niet verplicht */
+  const kop = rijen[0].map(v => String(v).toLowerCase());
+  const k = deel => kop.findIndex(x => x.includes(deel));
+  const heeftKop = ["adres", "straat", "datum", "afspraak"].some(w => k(w) >= 0);
+  const kAdres = heeftKop ? k("adres") : -1, kStraat = heeftKop ? k("straat") : -1, kNr = heeftKop ? [k("huis"), k("nummer"), k("nr")].find(x => x >= 0) ?? -1 : -1;
+  const kToev = heeftKop ? k("toev") : -1, kDatum = heeftKop ? [k("datum"), k("afspraak"), k("dag")].find(x => x >= 0) ?? -1 : -1;
+  const kTijd = heeftKop ? [k("tijd"), k("uur")].find(x => x >= 0) ?? -1 : -1, kDuur = heeftKop ? [k("duur"), k("minuten")].find(x => x >= 0) ?? -1 : -1;
+  if (heeftKop) rijen = rijen.slice(1);
+  /* adressen uit alle actieve complexen en losse woningen; dit complex eerst */
+  const alle = [];
+  for (const c of [c0, ...st.complexen.filter(x => x !== c0 && !x.gearchiveerd)].filter(Boolean))
+    for (const a of c.adressen) alle.push({ c, a, ks: [adresSleutel(`${a.straat}${nrLabel(a)}`), adresSleutel(adresTitel(c, a))] });
   const plan = [], fout = [];
   for (const r of rijen) {
-    let straat = kStraat ? String(r[kStraat]).trim() : "", nrTekst = kNr ? String(r[kNr]).trim() : "", toev = kToev ? String(r[kToev]).trim().toUpperCase() : "";
-    if (kAdres && !nrTekst) {
-      const m = String(r[kAdres]).trim().match(/^(.*?)\s*(\d+)\s*([A-Za-z]{0,2})\b/);
-      if (m) { straat = straat || m[1].trim(); nrTekst = m[2]; toev = toev || m[3].toUpperCase(); }
-    }
-    const mn = nrTekst.match(/^(\d+)\s*([A-Za-z]{0,2})$/);
-    const label = (kAdres ? r[kAdres] : `${straat} ${nrTekst}${toev}`) || "(leeg)";
-    if (!mn) { if (String(label).trim() && label !== "(leeg)") fout.push(`${label}: geen huisnummer`); continue; }
-    toev = toev || mn[2].toUpperCase();
-    const a = zoek(straat, parseInt(mn[1], 10), toev);
-    if (!a) { fout.push(`${label}: niet in dit complex`); continue; }
-    const d = excelDatum(r[kDatum]), tijd = excelTijd(kTijd ? r[kTijd] : "", r[kDatum]);
-    if (!d || !tijd) { fout.push(`${label}: datum of tijd niet herkend`); continue; }
-    const start = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(tijd[0])}:${pad(tijd[1])}:00`;
-    const duur = parseInt(kDuur ? r[kDuur] : "", 10) || 10;
-    plan.push({ a, start, duur });
+    const cel = i => (i >= 0 ? r[i] : "");
+    /* adres */
+    let adresTekst = kAdres >= 0 ? String(cel(kAdres)) : kStraat >= 0 ? `${cel(kStraat)} ${cel(kNr)}${cel(kToev)}` : "";
+    if (!heeftKop) adresTekst = String(r.find(v => /[a-z].*\s*\d+/i.test(String(v)) && !MAANDEN.some(mm => String(v).toLowerCase().includes(mm))) || "");
+    const am = adresTekst.trim().match(/^(.*?[A-Za-zÀ-ÿ].*?)\s*(\d+)\s*([A-Za-z]{0,2})\s*$/) || adresTekst.trim().match(/^(.*?[A-Za-zÀ-ÿ].*?)\s*(\d+)\s*([A-Za-z]{0,2})\b/);
+    /* afspraak */
+    let tekst = kDatum >= 0 ? cel(kDatum) : r.find(v => v instanceof Date || MAANDEN.some(mm => String(v).toLowerCase().includes(mm)) || /\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}/.test(String(v)));
+    if (!tekst || !String(tekst).trim()) continue;   /* geen afspraak bij dit adres: overslaan zonder melding */
+    const label = adresTekst.trim() || "(geen adres)";
+    if (!am) { fout.push(`${label}: adres niet herkend`); continue; }
+    const sleutel = adresSleutel(am[1] + am[2] + am[3]);
+    const hit = alle.find(x => x.ks.includes(sleutel));
+    if (!hit) { fout.push(`${label}: staat niet in de app`); continue; }
+    const info = tekst instanceof Date ? { d: tekst, van: null, tot: null } : afspraakUitTekst(tekst);
+    let van = info.van, tot = info.tot;
+    if (kTijd >= 0 && String(cel(kTijd)).trim()) { const tt = excelTijd(cel(kTijd), tekst); if (tt) { van = tt; tot = null; } }
+    if (!van && tekst instanceof Date && (tekst.getHours() || tekst.getMinutes())) van = [tekst.getHours(), tekst.getMinutes()];
+    if (!info.d || !van) { fout.push(`${label}: datum of tijd niet herkend`); continue; }
+    const start = `${info.d.getFullYear()}-${pad(info.d.getMonth() + 1)}-${pad(info.d.getDate())}T${pad(van[0])}:${pad(van[1])}:00`;
+    const duur = parseInt(cel(kDuur), 10) || (tot ? Math.max(5, (tot[0] * 60 + tot[1]) - (van[0] * 60 + van[1])) : 10);
+    plan.push({ c: hit.c, a: hit.a, start, duur, venster: tot ? `${pad(van[0])}:${pad(van[1])}–${pad(tot[0])}:${pad(tot[1])}` : "" });
   }
   if (!plan.length) return alert("Geen afspraken herkend.\n\n" + fout.slice(0, 15).join("\n"));
-  const lijst = plan.slice(0, 12).map(p => `${adresTitel(c, p.a)}: ${fmt(p.start)}`).join("\n");
+  const lijst = plan.slice(0, 12).map(p => `${adresTitel(p.c, p.a)}: ${fmt(p.start)}${p.venster ? " (" + p.venster + ")" : ""}`).join("\n");
   const bestaand = plan.filter(p => p.a.afspraak).length;
   if (!confirm(`${plan.length} afspraak/afspraken gevonden:\n${lijst}${plan.length > 12 ? `\n… en ${plan.length - 12} meer` : ""}` +
     (bestaand ? `\n\n${bestaand} adres(sen) hebben al een afspraak; die wordt vervangen.` : "") +
@@ -1780,11 +1805,11 @@ async function afsprakenImporteren(ev, cId) {
       const evt = await graph("/me/events", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          subject: `Bezoek ${adresTitel(c, p.a)} (${c.naam})`,
+          subject: `Bezoek ${adresTitel(p.c, p.a)} (${p.c.naam})`,
           start: { dateTime: p.start, timeZone: "W. Europe Standard Time" },
           end: { dateTime: p.end, timeZone: "W. Europe Standard Time" },
-          location: { displayName: adresTitel(c, p.a) },
-          body: { contentType: "text", content: "Ingelezen uit Excel – foto-app" }
+          location: { displayName: adresTitel(p.c, p.a) },
+          body: { contentType: "text", content: `Ingelezen uit Excel – foto-app${p.venster ? "\nTijdvak: " + p.venster : ""}` }
         })
       }, true);
       p.a.afspraak.id = evt.id; ok++;
