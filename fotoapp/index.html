@@ -299,11 +299,17 @@ const standaardStraat = c => {
 const mapSleutel = n => String(n).toLowerCase().replace(/\s+/g, "");
 const mapVoorAdres = (c, a) => {
   const mappen = ODMAP[c.id] || [];
-  for (const kandidaat of [mapNaam(a), nrLabel(a)]) {
+  for (const kandidaat of [a.mapNaam, mapNaam(a), a.ruimte ? "" : adresTitel(c, a), nrLabel(a)].filter(Boolean)) {
     const gevonden = mappen.find(n => mapSleutel(n) === mapSleutel(kandidaat));
     if (gevonden) return gevonden;
   }
-  return mapNaam(a);
+  return a.mapNaam || mapNaam(a);
+};
+/* Naam in de lijst: precies de mapnaam op OneDrive als die bestaat */
+const lijstNaam = (c, a) => {
+  const m = mapVoorAdres(c, a);
+  if ((ODMAP[c.id] || []).includes(m)) return m;
+  return a.mapNaam || (a.straat === standaardStraat(c) ? nrLabel(a) : `${a.straat} ${nrLabel(a)}`);
 };
 
 function bewaarState() {
@@ -382,7 +388,7 @@ function controleerAfspraken() {
 function meldingenAan() {
   if ("Notification" in window) Notification.requestPermission().then(() => render());
 }
-const APP_VERSIE = "26-11 afspraken plakken";
+const APP_VERSIE = "26-11 mapnamen";
 const WOLKK = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="OneDrive" style="vertical-align:-1px"><title>OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLKR = `<svg viewBox="0 0 24 16" width="20" height="13" role="img" aria-label="Geen foto's op OneDrive" style="vertical-align:-1px"><title>Geen foto's op OneDrive</title><path fill="#dc2626" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
 const WOLK = `<svg viewBox="0 0 24 16" width="26" height="17" role="img" aria-label="Staat op OneDrive" style="vertical-align:middle"><title>Staat op OneDrive</title><path fill="#0a7cd8" d="M19.4 6.2A6.5 6.5 0 0 0 7 4.3 5 5 0 0 0 5.2 14H19a4 4 0 0 0 .4-7.8z"/></svg>`;
@@ -610,7 +616,7 @@ let SNAP = JSON.parse(localStorage.getItem("fa_snap") || "{}");   // laatste bek
 const stabiel = o => JSON.stringify(o, (k, v) => (v && typeof v === "object" && !Array.isArray(v))
   ? Object.keys(v).sort().reduce((r, kk) => (r[kk] = v[kk], r), {}) : v);
 const cSleutel = c => stabiel({ naam: c.naam, map: c.map, gearchiveerd: !!c.gearchiveerd, ronde: c.ronde, genegeerd: c.genegeerd });
-const aSleutel = a => { const { _t, opmerkingWacht, ...r } = a; return stabiel(r); };
+const aSleutel = a => { const { _t, opmerkingWacht, mapNaam, ...r } = a; return stabiel(r); };   /* mapNaam is per toestel, telt niet als wijziging */
 const pSleutel = p => { const { _t, ...r } = p; return stabiel(r); };
 /* Zet een tijdstempel op alles wat sinds de laatste sync is veranderd */
 function stempel() {
@@ -1887,14 +1893,17 @@ async function laadAdresMappen(cId) {
         if (["algemeen", "ketelruimte"].includes(String(n).trim().toLowerCase()) || bekend.has(k) || genegeerd.has(k)) continue;
         if (/^0\d{2}\s/.test(n) || /FOTO|VABI|DOCUMENT|OFFERTE|OPDRACHT|VERVALLEN|AANTEKENING/i.test(n)) continue;   /* projectmappen zoals "010 FOTO'S" */
         const p = parseerMap(n, standaardStraat(c));
-        if (!p || (p.toev || "").length > 2 || c.adressen.some(a => a.straat === p.straat && a.nr === p.nr && (a.toev || "") === p.toev)) continue;
-        c.adressen.push({ id: uid(), straat: p.straat, nr: p.nr, toev: p.toev, klaar: false, opmerkingen: [], afspraak: null });
+        if (!p || (p.toev || "").length > 2 || c.adressen.some(a => a.nr === p.nr && (a.toev || "") === p.toev && (a.straat === p.straat || mapSleutel(adresTitel(c, a)) === mapSleutel(`${p.straat} ${p.nr}${p.toev}`)))) continue;
+        c.adressen.push({ id: uid(), straat: p.straat, nr: p.nr, toev: p.toev, mapNaam: n, klaar: false, opmerkingen: [], afspraak: null });
         bekend.add(k); erbij.push(n);
       }
       if (erbij.length) { NIEUW_INGELEZEN[cId] = erbij; bewaarState(); }
     }
     const oud = JSON.stringify([ODMAP[cId] || [], ODFOTO[cId] || {}]);
     ODMAP[cId] = namen;
+    let gewijzigd = false;   /* exacte mapnaam bij elk adres onthouden (ook offline te tonen) */
+    for (const a of c.adressen) { const m = mapVoorAdres(c, a); if (namen.includes(m) && a.mapNaam !== m) { a.mapNaam = m; gewijzigd = true; } }
+    if (gewijzigd) bewaarState();
     ODFOTO[cId] = tellingen;
     const wasWeg = OD_WEG.has(cId);
     OD_WEG.delete(cId);
@@ -2246,7 +2255,7 @@ function vComplex(c) {
     h += `<div class="rij ${a.klaar ? "klaar" : ""}" id="adr-${a.id}" style="${a.klaar ? `background:${rondeVan(a.ronde).bg};border-left:6px solid ${rondeVan(a.ronde).k};` : ""}${rood}">
       <input type="checkbox" ${a.klaar ? "checked" : ""} style="accent-color:${a.klaar ? rondeVan(a.ronde).k : rondeVan(huidigeRonde(c)).k}" aria-label="klaar" onchange="klaarZet('${c.id}','${a.id}',this.checked)">
       <div class="info" onclick="go({s:'adres',c:'${c.id}',a:'${a.id}'})">
-        <strong>${stoplicht(a) ? `<span style="color:${stoplichtKleur[stoplicht(a)]}" title="${stoplicht(a)}">●</span> ` : ""}${a.ketel ? `<span title="afwijkende ketel">🔥</span> ` : ""}${a.straat === standaardStraat(c) ? nrLabel(a) : esc(a.straat) + " " + nrLabel(a)}</strong>
+        <strong>${stoplicht(a) ? `<span style="color:${stoplichtKleur[stoplicht(a)]}" title="${stoplicht(a)}">●</span> ` : ""}${a.ketel ? `<span title="afwijkende ketel">🔥</span> ` : ""}${esc(lijstNaam(c, a))}</strong>
         <div class="klein-tekst">${a.klaar ? `<b style="color:${rondeVan(a.ronde).k}">✓ R${a.ronde || 1}</b>${a.klaarOp ? " " + fmtLokaal(a.klaarOp) : ""} · ` : ""}<span title="foto's op dit toestel">📱 ${fs.length}</span>${wacht ? ` · ${wacht} nog niet op OneDrive` : ""}${(ODMAP[c.id] || []).includes(mapVoorAdres(c, a)) ? ((ODFOTO[c.id] || {})[mapVoorAdres(c, a)] ? " · " + WOLKK + " " + ODFOTO[c.id][mapVoorAdres(c, a)] + " foto's" : " · 📁 lege map") : ""}${opODn === 0 ? ` · <span style="color:var(--r);font-weight:700">⚠ geen foto's</span> ${WOLKR}` : ""}${a.afspraak ? " · 📅 " + fmt(a.afspraak.start) : ""}${a.opmerkingen.length ? " · 💬 " + a.opmerkingen.length : ""}</div>
       </div>
       <button class="klein sec" style="width:auto;min-height:0;padding:2px 6px;margin:0 0 0 6px;font-size:12px;line-height:1.2;border-radius:6px" onclick="toevVoegToe('${c.id}','${a.id}')">+ toev.</button>
